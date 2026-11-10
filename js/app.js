@@ -1,8 +1,9 @@
 // Giao diện Cờ Tỷ Phú Việt Nam
-import { BOARD, GROUPS, SIZE, AIRPORT, BAIL, SALARY, RESORT_RENT, PLAYER_COLORS, PLAYER_TOKENS, WIN_LABEL, levelCost, SELL_RATE, BUYOUT_RATE, ICONS } from './data.js';
-import { newGame, apply, tick, timeLeft, fmt, rentOf, tileValue, buyoutCost, buildCost, maxBuildLevel, ownedBy, netWorth, animTime, ANIM } from './engine.js';
+import { BOARD, GROUPS, SIZE, AIRPORT, BAIL, SALARY, RESORT_RENT, PLAYER_COLORS, WIN_LABEL, levelCost, SELL_RATE, BUYOUT_RATE, ICONS } from './data.js';
+import { newGame, apply, tick, timeLeft, fmt, fmtFull, rentOf, tileValue, buyoutCost, buildCost, maxBuildLevel, ownedBy, netWorth, animTime, ANIM } from './engine.js';
 import { botAction } from './bot.js';
 import { HostNet, GuestNet } from './net.js';
+import { charSVG } from './characters.js';
 
 // ---------- tiện ích ----------
 const $ = (s) => document.querySelector(s);
@@ -134,7 +135,7 @@ function renderTile(i, s = S) {
   el.classList.toggle('fest', s.festival === i);
   if (owned) el.style.setProperty('--own', s.players[o.o].color); else el.style.removeProperty('--own');
   renderBuilding(i, s);
-  el.querySelector('.pr').textContent = owned ? `Thuê ${fmt(rentOf(s, i))}` : fmt(t.price);
+  el.querySelector('.pr').textContent = owned ? fmt(rentOf(s, i)) : fmt(t.price);
 }
 
 // ---------- nhà / công trình mọc trên ô (lớp 3D) ----------
@@ -181,16 +182,18 @@ function roof(w, d, h, r, o = 0.35) {
   </div>`;
 }
 const lift = (z, html) => `<div class="m" style="transform:translateZ(${u(z)})">${html}</div>`;
-const house = (w, d, h, r, cls) => `<div class="m house ${cls}">${box(w, d, h, 'walls')}${roof(w, d, h, r)}</div>`;
+// khói / đèn hiệu gắn vào đúng đỉnh mô hình (tự quay mặt về phía người nhìn)
+const SMOKE = '<div class="smoke"><i></i><i></i><i></i></div>';
+const house = (w, d, h, r, cls, smoke = false) => `<div class="m house ${cls}">${box(w, d, h, 'walls')}${roof(w, d, h, r)}${smoke ? lift(h + r, SMOKE) : ''}</div>`;
 const shift = (x, y, html) => `<div class="m" style="transform:translate(${u(x)},${u(y)})">${html}</div>`;
 function model(t, lvl) {
   if (t.type === 'resort') return house(4, 3.4, 2.2, 2.8, 'hut');
   switch (lvl) {
-    case 1: return house(4, 3.2, 2.8, 2.1, 'lv1');                       // nhà cấp 1: nhà trệt
-    case 2: return house(4.4, 3.6, 4.6, 2.3, 'lv2');                     // nhà cấp 2: 2 tầng
-    case 3: return shift(-0.6, 0, house(4.6, 3.8, 6.4, 2.5, 'lv3'))      // nhà cấp 3: biệt thự 3 tầng + nhà phụ
+    case 1: return house(4, 3.2, 2.8, 2.1, 'lv1', true);                       // nhà cấp 1: nhà trệt
+    case 2: return house(4.4, 3.6, 4.6, 2.3, 'lv2', true);                     // nhà cấp 2: 2 tầng
+    case 3: return shift(-0.6, 0, house(4.6, 3.8, 6.4, 2.5, 'lv3', true))      // nhà cấp 3: biệt thự 3 tầng + nhà phụ
       + shift(3.2, 0.6, house(2.4, 2.6, 2.6, 1.6, 'lv1'));
-    case 4: return `<div class="m hotel">${box(5.4, 5.4, 11, 'tower')}${lift(11, box(3.8, 3.8, 1.3, 'cap'))}${lift(12.3, '<div class="sign">HOTEL</div>')}</div>`;
+    case 4: return `<div class="m hotel">${box(5.4, 5.4, 11, 'tower')}${lift(11, box(3.8, 3.8, 1.3, 'cap'))}${lift(12.3, '<div class="sign">HOTEL</div>')}${lift(13.9, '<div class="beacon"></div>')}</div>`;
   }
   return '';
 }
@@ -206,22 +209,19 @@ function renderBuilding(i, s) {
   el.style.setProperty('--c', s.players[o.o].color);
   const t = BOARD[i];
   const lvl = t.type === 'city' ? o.lvl : 0;
-  // hiệu ứng sống: khói ống khói (nhà cấp 1-3), đèn hiệu (khách sạn), cờ bay (đất trống)
-  const life = lvl >= 1 && lvl <= 3 ? `<div class="smoke" style="--h:${[0, 4.6, 6.6, 8.6][lvl]}cqw"><i></i><i></i><i></i></div>`
-    : lvl === 4 ? '<div class="beacon" style="--h:12.7cqw"></div>' : '';
   el.innerHTML = `<div class="gshadow lv${lvl}"></div><div class="dust"></div><div class="grow">${model(t, lvl)}</div>
-    <div class="stand">${life}${s.festival === i ? `<div class="fw">${ico('🎆', 'fi')}</div>` : ''}${lvl === 0 && t.type === 'city' ? '<div class="flag"></div>' : ''}</div>`;
+    <div class="stand">${s.festival === i ? `<div class="fw">${ico('🎆', 'fi')}</div>` : ''}${lvl === 0 && t.type === 'city' ? '<div class="flag"></div>' : ''}</div>`;
 }
 
 function makeTokens() {
   tokensEl.innerHTML = '';
   tokensEl.appendChild(markerEl);
-  tokenEls = S.players.map((p) => {
+  tokenEls = S.players.map((p, i) => {
     const el = document.createElement('div');
     el.className = 'token';
     el.style.setProperty('--c', p.color);
     el.title = p.name;
-    el.innerHTML = '<div class="shadow"></div><div class="stand"><div class="fig"><div class="p-head"></div><div class="p-neck"></div><div class="p-body"></div><div class="p-base"></div></div></div>';
+    el.innerHTML = `<div class="shadow"></div><div class="stand"><div class="fig">${charSVG(i)}</div></div>`;
     tokensEl.appendChild(el);
     return el;
   });
@@ -278,7 +278,6 @@ const fxEl = $('#fx');
 const mid = (el) => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
 const tileXY = (i) => mid(tileEls[i]);
 const cardXY = (pid) => { const el = document.querySelector(`.pc[data-pid="${pid}"] .tk`); return el ? mid(el) : [innerWidth / 2, innerHeight / 2]; };
-const tokenXY = (pid) => { const el = tokenEls[pid]?.querySelector('.p-body'); return el ? mid(el) : tileXY(view.pos[pid]); };
 function fxNode(cls, html = '') { const el = document.createElement('div'); el.className = cls; el.innerHTML = html; fxEl.appendChild(el); return el; }
 function coins([x0, y0], [x1, y1], n = 8) {
   for (let k = 0; k < n; k++) {
@@ -291,14 +290,18 @@ function coins([x0, y0], [x1, y1], n = 8) {
     ], { duration: 700, delay: k * 45, easing: 'cubic-bezier(.45,0,.4,1)', fill: 'both' }).onfinish = () => el.remove();
   }
 }
-function popAmt([x, y], text, cls, sub = '') {
-  const el = fxNode(`pop-amt ${cls}`, `${esc(text)}${sub ? `<small>${esc(sub)}</small>` : ''}`);
+const boardXY = () => mid($('#board .center'));
+// mất tiền: chỉ hiện xấp tiền và con số ở giữa bàn
+function payPop(amount, dur = 1100) {
+  const [x, y] = boardXY();
+  const el = fxNode('pay-pop', `<img src="assets/icons/cash.webp" alt=""><b>-${fmtFull(amount)}</b>`);
+  const at = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
   el.animate([
-    { transform: `translate(${x}px, ${y}px) translate(-50%, -50%) scale(.3)`, opacity: 0 },
-    { transform: `translate(${x}px, ${y - 30}px) translate(-50%, -50%) scale(1.25)`, opacity: 1, offset: 0.2 },
-    { transform: `translate(${x}px, ${y - 45}px) translate(-50%, -50%) scale(1)`, opacity: 1, offset: 0.75 },
-    { transform: `translate(${x}px, ${y - 80}px) translate(-50%, -50%) scale(.9)`, opacity: 0 },
-  ], { duration: 1300, easing: 'ease-out', fill: 'both' }).onfinish = () => el.remove();
+    { transform: `${at} scale(.4)`, opacity: 0 },
+    { transform: `${at} scale(1.12)`, opacity: 1, offset: 0.16 },
+    { transform: `${at} scale(1)`, opacity: 1, offset: 0.8 },
+    { transform: `${at} translateY(-24px) scale(.95)`, opacity: 0 },
+  ], { duration: dur, easing: 'ease-out', fill: 'both' }).onfinish = () => el.remove();
 }
 function stamp([x, y], text, color) {
   const el = fxNode('stamp', esc(text));
@@ -321,7 +324,6 @@ function burst([x, y], color, n = 14) {
     ], { duration: 650, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'both' }).onfinish = () => el.remove();
   }
 }
-function shake(pid) { const el = document.querySelector(`.pc[data-pid="${pid}"]`); if (!el) return; el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
 
 // ---------- lá bài Cơ Hội lật 3D ----------
 const CARD_TO = { 0: '🏁', 31: '🐢', 18: '🏮', 24: '✈️', 16: '🎆' };
@@ -393,9 +395,9 @@ function renderPlayers() {
     const tag = p.bot ? 'máy' : (mode === 'online' && i === mySeat ? 'bạn' : '');
     const st = [props ? `🏠 ${props} đất` : 'Chưa có đất', p.island ? `🌴 kẹt ${p.island}` : '', p.travel ? '✈️' : '', p.freeCards ? `🛟×${p.freeCards}` : '', p.out ? '💥 phá sản' : ''].filter(Boolean).join(' · ');
     return `<div class="pc${i === S.cur && S.phase !== 'over' ? ' cur' : ''}${p.out ? ' out' : ''}" style="--c:${p.color}" data-pid="${i}">
-      <div class="tk">${ico(p.token, 'ti')}</div>
+      <div class="tk">${charSVG(i, true)}</div>
       <div class="nm">${esc(p.name)}${tag ? `<small>${tag}</small>` : ''}</div>
-      <div class="mn${view.money[i] < 0 ? ' neg' : ''}">${fmt(view.money[i])}</div>
+      <div class="mn${view.money[i] < 0 ? ' neg' : ''}">${fmtFull(view.money[i])}</div>
       <div class="st">${st}</div>
       <div class="nw">Tổng ${fmt(netWorth(S, i))}</div>
     </div>`;
@@ -403,7 +405,7 @@ function renderPlayers() {
 }
 function updMoney(pid) {
   const el = document.querySelector(`.pc[data-pid="${pid}"] .mn`);
-  if (el) { el.textContent = fmt(view.money[pid]); el.classList.toggle('neg', view.money[pid] < 0); }
+  if (el) { el.textContent = fmtFull(view.money[pid]); el.classList.toggle('neg', view.money[pid] < 0); }
 }
 function floatMoney(pid, delta) {
   const card = document.querySelector(`.pc[data-pid="${pid}"]`);
@@ -448,13 +450,10 @@ function renderActions() {
   const p = S.players[S.cur];
   const lbl = $('#turnLabel');
   lbl.style.setProperty('--pc', p.color);
-  lbl.innerHTML = S.phase === 'over' ? '' : `<span class="tk" style="border-color:${p.color}">${ico(p.token, 'ti')}</span>${isMineRaw() ? (mode === 'local' && S.players.filter((q) => !q.bot).length > 1 ? `Lượt của ${esc(p.name)}` : 'Lượt của bạn') : `Lượt của ${esc(p.name)}`}`;
+  lbl.innerHTML = S.phase === 'over' ? '' : `<span class="tk" style="--c:${p.color}">${charSVG(S.cur, true)}</span>${isMineRaw() ? (mode === 'local' && S.players.filter((q) => !q.bot).length > 1 ? `Lượt của ${esc(p.name)}` : 'Lượt của bạn') : `Lượt của ${esc(p.name)}`}`;
   setPicks([]);
   if (busy || S.phase === 'over') { box.innerHTML = ''; return; }
-  if (!isMine()) {
-    box.innerHTML = `<div class="sub">${p.bot ? '🤖 Máy đang tính…' : `Đang chờ ${esc(p.name)}…`}</div>`;
-    return;
-  }
+  if (!isMine()) { box.innerHTML = ''; return; }
   const pd = S.pending;
   let h = '';
   switch (S.phase) {
@@ -466,7 +465,7 @@ function renderActions() {
           ${p.freeCards ? '<button class="btn green" data-a="useCard">🛟 Dùng thẻ cứu hộ</button>' : ''}</div>`;
       } else {
         h = `${S.rolledDouble ? '<div class="msg">🎲 Gieo đôi! Bạn được gieo tiếp</div>' : ''}
-          <button class="btn primary big-roll" data-a="roll"><img class="bi" src="assets/icons/die.webp" alt="">Gieo xúc xắc</button><div class="sub">hoặc nhấn phím Space</div>`;
+          <button class="btn primary big-roll" data-a="roll"><img class="bi" src="assets/icons/die.webp" alt="">Gieo xúc xắc</button>`;
       }
       break;
     case 'travel':
@@ -573,7 +572,7 @@ function showTileInfo(i) {
   }
   if (o && o.o >= 0 && S) {
     const ow = S.players[o.o];
-    h += `<p>Chủ: <b style="color:${ow.color}">${ow.token} ${esc(ow.name)}</b>${S.festival === i ? ' · 🎆 Đang có lễ hội' : ''}<br>Tiền thuê hiện tại: <b>${fmt(rentOf(S, i))}</b><br>Giá trị: ${fmt(tileValue(S, i))}${t.type === 'city' && o.lvl >= 4 ? ' · 🏨 Khách sạn: không thể mua lại' : ` · Giá mua lại: ${fmt(buyoutCost(S, i))}`}</p>`;
+    h += `<p>Chủ: <b style="color:${ow.color}">${esc(ow.name)}</b>${S.festival === i ? ' · 🎆 Đang có lễ hội' : ''}<br>Tiền thuê hiện tại: <b>${fmt(rentOf(S, i))}</b><br>Giá trị: ${fmt(tileValue(S, i))}${t.type === 'city' && o.lvl >= 4 ? ' · 🏨 Khách sạn: không thể mua lại' : ` · Giá mua lại: ${fmt(buyoutCost(S, i))}`}</p>`;
   }
   h += '<button class="btn wide" data-close>Đóng</button>';
   openModal(h);
@@ -661,16 +660,13 @@ async function play(events, fin) {
       }
       case 'rent':
         if (fast) break;
-        popAmt(tileXY(e.tile), `-${fmt(e.amount)}`, 'minus', `Tiền thuê ${BOARD[e.tile].name}`);
-        shake(e.from); sfx.pay();
-        coins(tokenXY(e.from), cardXY(e.to), 10);
+        payPop(e.amount, ANIM.rent); sfx.pay();
+        setTimeout(() => coins(boardXY(), cardXY(e.to), 8), 380);
         await sleep(ANIM.rent);
         break;
       case 'tax':
         if (fast) break;
-        popAmt(tileXY(e.tile), `-${fmt(e.amount)}`, 'minus', 'Nộp thuế');
-        shake(e.pid); sfx.pay();
-        coins(tokenXY(e.pid), [innerWidth / 2, 0], 6);
+        payPop(e.amount, ANIM.tax); sfx.pay();
         await sleep(ANIM.tax);
         break;
       case 'buy': case 'buyout': {
@@ -716,8 +712,8 @@ function showWin() {
   sfx.win();
   confetti();
   const ranking = S.players.map((p, i) => i).sort((a, b) => netWorth(S, b) - netWorth(S, a));
-  let h = `<div class="win-big">${ico('🏆', 'wi')}</div><h3 style="justify-content:center">${ico(w.token, 'ti')} ${esc(w.name)} chiến thắng!</h3><p class="center muted">${WIN_LABEL[S.winReason]}</p><table class="rtable">`;
-  ranking.forEach((i, k) => { const p = S.players[i]; h += `<tr><td>${k + 1}. ${p.token} ${esc(p.name)}${p.out ? ' 💥' : ''}</td><td>${fmt(netWorth(S, i))}</td></tr>`; });
+  let h = `<div class="win-big">${ico('🏆', 'wi')}</div><h3 style="justify-content:center"><span class="av" style="--c:${w.color}">${charSVG(S.winner, true)}</span> ${esc(w.name)} chiến thắng!</h3><p class="center muted">${WIN_LABEL[S.winReason]}</p><table class="rtable">`;
+  ranking.forEach((i, k) => { const p = S.players[i]; h += `<tr><td>${k + 1}. <span class="av sm" style="--c:${p.color}">${charSVG(i, true)}</span> ${esc(p.name)}${p.out ? ' 💥' : ''}</td><td>${fmtFull(netWorth(S, i))}</td></tr>`; });
   h += '</table><div class="menu-list">';
   if (mode === 'local') h += '<button class="btn primary wide" id="wAgain">🔁 Ván mới</button>';
   else if (lobbyInfo?.host) h += '<button class="btn primary wide" id="wRematch">🔁 Chơi lại phòng này</button>';
@@ -808,7 +804,7 @@ let setup = store.get('ctp_setup', [
 function renderSetup() {
   $('#localPlayers').innerHTML = setup.map((p, i) => `
     <div class="prow">
-      <div class="tok" style="border-color:${PLAYER_COLORS[i]}">${ico(PLAYER_TOKENS[i], 'ti')}</div>
+      <div class="tok" style="border-color:${PLAYER_COLORS[i]};--c:${PLAYER_COLORS[i]}">${charSVG(i, true)}</div>
       <input data-i="${i}" value="${esc(p.name)}" maxlength="16">
       <button class="toggle ${p.bot ? 'bot' : ''}" data-tg="${i}">${p.bot ? '🤖 Máy' : '🙂 Người'}</button>
       ${setup.length > 2 ? `<button class="xbtn" data-rm="${i}" title="Bỏ">✕</button>` : ''}
@@ -896,7 +892,7 @@ function renderLobby() {
   $('#roomCode').textContent = L.code;
   $('#seatList').innerHTML = L.seats.map((s, i) => `
     <div class="prow">
-      <div class="tok" style="border-color:${PLAYER_COLORS[i]}">${ico(PLAYER_TOKENS[i], 'ti')}</div>
+      <div class="tok" style="border-color:${PLAYER_COLORS[i]};--c:${PLAYER_COLORS[i]}">${charSVG(i, true)}</div>
       <div class="nm">${esc(s.name)}${i === L.you ? ' (bạn)' : ''}</div>
       ${s.host ? '<span class="tag">👑 chủ phòng</span>' : ''}
       <span class="tag ${s.bot ? '' : s.online ? 'on' : 'off'}">${s.bot ? '🤖 máy' : s.online ? 'online' : 'offline'}</span>
@@ -1000,6 +996,7 @@ document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () 
 }));
 
 function init() {
+  new Image().src = 'assets/icons/cash.webp'; // tải sẵn để hiệu ứng mất tiền hiện ngay
   applyTheme(theme);
   buildBoard();
   paintSound();

@@ -7,7 +7,14 @@ import {
 
 const rnd = (n) => Math.floor(Math.random() * n);
 const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-export const fmt = (n) => `${n < 0 ? '-' : ''}${Math.abs(n).toLocaleString('vi-VN')}tr`;
+// Tiền lưu theo đơn vị triệu đồng.
+// fmt: dạng gọn cho chỗ hẹp (720tr, 1,5 tỷ). fmtFull: con số đầy đủ (2.000.000.000).
+export function fmt(n) {
+  const sign = n < 0 ? '-' : '', a = Math.abs(n);
+  if (a >= 1000) return `${sign}${String(+(a / 1000).toFixed(3)).replace('.', ',')} tỷ`;
+  return `${sign}${a}tr`;
+}
+export const fmtFull = (n) => `${n < 0 ? '-' : ''}${String(Math.round(Math.abs(n) * 1e6)).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
 
 export const TIME_OPTS = [15, 30, 45, 60];
 /** players: [{name, bot}] ; opts: {timeLimit} (phút) */
@@ -439,7 +446,7 @@ export function apply(s, pid, a) {
 }
 
 // Thời lượng animation (ms) của một loạt sự kiện — client và server dùng chung
-export const ANIM = { dice: 750, target: 450, step: 150, fly: 520, card: 2400, turn: 150, rent: 1000, buy: 800, buyout: 1000, tax: 700 };
+export const ANIM = { dice: 750, target: 450, step: 150, fly: 520, card: 2400, turn: 150, rent: 1100, buy: 800, buyout: 1000, tax: 1000 };
 export function animTime(events) {
   let t = 0;
   for (const e of events) {
