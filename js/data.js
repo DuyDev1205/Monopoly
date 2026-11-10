@@ -56,8 +56,8 @@ export const BOARD = [
   C('Hội An', 'red', 240, '🏮'),
   chance(),
   R('Phong Nha', '🦇'),
-  C('Huế', 'yellow', 260, '🏯'),
-  C('Đà Nẵng', 'yellow', 260, '🌉'),
+  C('Huế', 'yellow', 260, '🏛️'),
+  C('Đà Nẵng', 'yellow', 260, '🐉'),
   C('Vinh', 'yellow', 280, '🌾'),
   { type: 'airport', name: 'Sân Bay', icon: '✈️' },          // 24
   C('Ninh Bình', 'green', 300, '⛰️'),
@@ -112,15 +112,25 @@ export const CARDS = [
   { text: 'Đóng viện phí, trả 100tr.', kind: 'money', amount: -100 },
   { text: 'Đóng học phí cho con, trả 50tr.', kind: 'money', amount: -50 },
   { text: 'Ủng hộ đồng bào vùng lũ, trả 60tr.', kind: 'money', amount: -60 },
-  { text: 'Sửa sang nhà cửa: 20tr mỗi nhà, 80tr mỗi công trình.', kind: 'repairs', house: 20, landmark: 80 },
+  { text: 'Sửa sang nhà cửa: 20tr mỗi nhà, 80tr mỗi khách sạn.', kind: 'repairs', house: 20, landmark: 80 },
 ];
 
-export const PLAYER_COLORS = ['#e5383b', '#2f6fde', '#2a9d5c', '#f2a516', '#8e44ad', '#16a3a3'];
-export const PLAYER_TOKENS = ['🛵', '🐃', '🚤', '🏮', '🎋', '🍜'];
+export const PLAYER_COLORS = ['#e5383b', '#2f6fde', '#2a9d5c', '#f2a516'];
+export const PLAYER_TOKENS = ['🛵', '🐃', '🚤', '🐓'];
 export const WIN_LABEL = {
   last: 'Người trụ lại cuối cùng',
   groups: 'Độc quyền 3 vùng',
   side: 'Độc chiếm một cạnh bàn cờ',
   resorts: 'Độc quyền 4 khu du lịch',
   rounds: 'Giàu nhất khi hết số vòng',
+};
+
+// Ảnh icon 3D (Fluent Emoji 3D của Microsoft, giấy phép MIT) — assets/icons/<tên>.webp
+export const ICONS = {
+  '🏁': 'start', '🦀': 'crab', '🎻': 'violin', '🧧': 'envelope', '🛶': 'canoe', '🏝️': 'island', '🍊': 'tangerine',
+  '🥥': 'coconut', '🌴': 'palm', '🏖️': 'beach', '🐟': 'fish', '🌊': 'wave', '🏜️': 'desert', '🌸': 'blossom',
+  '☕': 'coffee', '🎆': 'fireworks', '⛱️': 'umbrella', '🏮': 'lantern', '🦇': 'bat', '🏛️': 'classical', '🐉': 'dragon',
+  '🌾': 'rice', '✈️': 'airplane', '⛰️': 'mountain', '🏔️': 'snowmountain', '🛳️': 'ship', '🐒': 'monkey', '💸': 'money',
+  '🏙️': 'city', '🐢': 'turtle', '🛵': 'scooter', '🐃': 'buffalo', '🚤': 'speedboat', '🐓': 'rooster', '🛟': 'buoy',
+  '🏆': 'trophy', '🎲': 'die',
 };

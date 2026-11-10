@@ -13,12 +13,18 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+<div class="bg-deco" aria-hidden="true">
+  <div class="rays"></div>
+  <img class="lt l1" src="assets/icons/lantern.webp" alt=""><img class="lt l2" src="assets/icons/lantern.webp" alt="">
+  <img class="lt l3" src="assets/icons/lantern.webp" alt=""><img class="lt l4" src="assets/icons/lantern.webp" alt="">
+  <img class="lt l5" src="assets/icons/lantern.webp" alt="">
+</div>
 
 <!-- ===== Trang chủ ===== -->
 <section id="home" class="screen">
   <div class="home-card">
     <div class="brand">
-      <div class="brand-ic">🏮</div>
+      <img class="brand-ic" src="assets/icons/lantern.webp" alt="">
       <h1>Cờ Tỷ Phú <span>Việt Nam</span></h1>
       <p>Mua đất, xây nhà, mở lễ hội khắp ba miền</p>
     </div>
@@ -51,14 +57,15 @@
         <button id="btnJoin" class="btn">Vào phòng</button>
       </div>
       <p class="hint" id="netHint"></p>
+      <p class="hint">Kết nối trực tiếp giữa các máy, không cần server. Chủ phòng cần giữ game mở trong lúc chơi.</p>
     </div>
 
     <details class="rules">
       <summary>📜 Luật chơi</summary>
       <ul>
         <li>Mỗi lượt gieo 2 xúc xắc. Gieo đôi được đi tiếp, gieo đôi 3 lần liền thì bị dạt ra <b>Đảo Hoang</b>.</li>
-        <li>Đến đất trống: mua đất và xây ngay 1–3 nhà. Quay lại đất của mình để xây thêm, đủ 3 nhà thì dựng <b>Công trình biểu tượng</b>.</li>
-        <li>Đến đất người khác: trả tiền thuê, rồi có thể <b>mua lại</b> với giá gấp đôi (trừ đất có Công trình biểu tượng).</li>
+        <li>Đến đất trống: mua đất và xây ngay 1–3 nhà. Quay lại đất của mình để xây thêm, nâng từ nhà cấp 1 → cấp 2 → cấp 3, rồi lên <b>Khách sạn</b>.</li>
+        <li>Đến đất người khác: trả tiền thuê, rồi có thể <b>mua lại</b> với giá gấp đôi (trừ đất đã có Khách sạn).</li>
         <li>🎆 <b>Lễ Hội</b>: chọn 1 ô đất của bạn, tiền thuê ở đó ×2. ✈️ <b>Sân Bay</b>: lượt sau bay tới ô bất kỳ.</li>
         <li>🌴 <b>Đảo Hoang</b>: kẹt tối đa 3 lượt. Thoát bằng cách gieo đôi, trả 100tr hoặc dùng thẻ cứu hộ.</li>
         <li>Hết tiền thì phải bán đất cho ngân hàng (50% giá trị). Không còn gì để bán thì phá sản.</li>
@@ -119,8 +126,10 @@
           <div id="tokens" class="layer3d"></div>
         </div>
       </div>
+      <div id="bubbles" class="bubbles"></div>
       <div class="hud">
         <div id="turnLabel" class="turn-label"></div>
+        <div id="ticker" class="ticker"></div>
         <div id="timer" class="timer hidden"><i></i></div>
         <div id="actions" class="actions"></div>
         <div id="cardPop" class="card-pop hidden"><div class="cp-head">🧧 Cơ Hội</div><div class="cp-text"></div></div>
@@ -128,10 +137,7 @@
     </div>
     <aside class="side">
       <div id="players" class="players"></div>
-      <div class="logbox">
-        <div id="log" class="log"></div>
-        <form id="chatForm" class="chat hidden"><input id="chatIn" maxlength="200" placeholder="Nhắn tin…" autocomplete="off"><button class="btn small">Gửi</button></form>
-      </div>
+      <form id="chatForm" class="chat hidden"><input id="chatIn" maxlength="200" placeholder="💬 Nhắn tin cho cả phòng…" autocomplete="off"><button class="btn small">Gửi</button></form>
     </aside>
   </div>
 </section>

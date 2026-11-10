@@ -1,12 +1,14 @@
 // Giao diện Cờ Tỷ Phú Việt Nam
-import { BOARD, GROUPS, SIZE, AIRPORT, BAIL, SALARY, RESORT_RENT, PLAYER_COLORS, PLAYER_TOKENS, WIN_LABEL, levelCost, SELL_RATE, BUYOUT_RATE } from './data.js';
+import { BOARD, GROUPS, SIZE, AIRPORT, BAIL, SALARY, RESORT_RENT, PLAYER_COLORS, PLAYER_TOKENS, WIN_LABEL, levelCost, SELL_RATE, BUYOUT_RATE, ICONS } from './data.js';
 import { newGame, apply, fmt, rentOf, tileValue, buyoutCost, buildCost, maxBuildLevel, ownedBy, netWorth, animTime, ANIM } from './engine.js';
 import { botAction } from './bot.js';
-import { Net, serverUrl } from './net.js';
+import { HostNet, GuestNet } from './net.js';
 
 // ---------- tiện ích ----------
 const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// icon 3D (ảnh) — rơi về emoji nếu không có ảnh
+const ico = (e, cls = 'ic') => (ICONS[e] ? `<img class="${cls}" src="assets/icons/${ICONS[e]}.webp" alt="${e}" draggable="false">` : `<span class="${cls}">${e}</span>`);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
@@ -21,6 +23,7 @@ function toast(text, ms = 2600) {
 }
 function showScreen(id) {
   for (const s of ['home', 'lobby', 'game']) $('#' + s).classList.toggle('hidden', s !== id);
+  document.body.classList.toggle('ingame', id === 'game');
 }
 
 // ---------- âm thanh (tổng hợp, không cần file) ----------
@@ -99,11 +102,11 @@ function buildBoard() {
     el.dataset.i = i;
     if (side === 'corner') {
       el.className = `tile corner ${t.type}`;
-      el.innerHTML = `<div class="ic">${t.icon}</div><div class="nm">${esc(t.name)}</div><div class="pr">${tileSub(t)}</div>`;
+      el.innerHTML = `${ico(t.icon)}<div class="nm">${esc(t.name)}</div><div class="pr">${tileSub(t)}</div>`;
     } else {
       el.className = `tile side-${side} ${t.type}`;
       const g = t.group ? GROUPS[t.group].color : t.type === 'resort' ? '#18a0b5' : 'transparent';
-      el.innerHTML = `<div class="band" style="--g:${g}"></div><div class="body"><div class="ic">${t.icon}</div><div class="txt"><div class="nm">${esc(t.name)}</div><div class="pr">${tileSub(t)}</div></div></div>`;
+      el.innerHTML = `<div class="band" style="--g:${g}"></div><div class="body">${ico(t.icon)}<div class="txt"><div class="nm">${esc(t.name)}</div><div class="pr">${tileSub(t)}</div></div></div>`;
     }
     el.addEventListener('click', () => onTileClick(i));
     boardEl.insertBefore(el, boardEl.querySelector('.center'));
@@ -130,10 +133,10 @@ function bldAnchor(i) {
   const t = tileEls[i];
   const L = t.offsetLeft, T = t.offsetTop, W = t.offsetWidth, H = t.offsetHeight;
   switch (sideOf(i)) {
-    case 'b': return [L + W / 2, T + H * 0.12];
-    case 't': return [L + W / 2, T + H * 0.98];
-    case 'l': return [L + W * 0.9, T + H * 0.62];
-    case 'r': return [L + W * 0.1, T + H * 0.62];
+    case 'b': return [L + W / 2, T + H * 0.3];
+    case 't': return [L + W / 2, T + H * 0.72];
+    case 'l': return [L + W * 0.74, T + H * 0.55];
+    case 'r': return [L + W * 0.26, T + H * 0.55];
   }
   return [L + W / 2, T + H / 2];
 }
@@ -142,6 +145,43 @@ function placeBuilding(i) {
   if (!el) return;
   const [x, y] = bldAnchor(i);
   el.style.transform = `translate(${x}px, ${y}px)`;
+}
+// Dựng khối 3D (tường + mái) bằng CSS. Đơn vị cqw (theo bề rộng bàn cờ).
+const u = (n) => `${+n.toFixed(3)}cqw`;
+function box(w, d, h, cls) {
+  return `<div class="m ${cls}">
+    <div class="fc top" style="left:${u(-w / 2)};top:${u(-d / 2)};width:${u(w)};height:${u(d)};transform:translateZ(${u(h)})"></div>
+    <div class="fc wf" style="left:${u(-w / 2)};top:${u(d / 2 - h)};width:${u(w)};height:${u(h)}"></div>
+    <div class="fc wb" style="left:${u(-w / 2)};top:${u(-d / 2 - h)};width:${u(w)};height:${u(h)}"></div>
+    <div class="fc wr" style="left:${u(w / 2 - h)};top:${u(-d / 2)};width:${u(h)};height:${u(d)}"></div>
+    <div class="fc wl" style="left:${u(-w / 2)};top:${u(-d / 2)};width:${u(h)};height:${u(d)}"></div>
+  </div>`;
+}
+// mái dốc 2 mái (nóc chạy ngang), 2 đầu hồi tam giác. w: dài nóc, d: sâu, r: chiều cao mái
+function roof(w, d, h, r, o = 0.35) {
+  const D = d + o * 2, W = w + o * 2;
+  const L = Math.hypot(D / 2, r), th = ((Math.atan2(r, D / 2) * 180) / Math.PI).toFixed(2);
+  return `<div class="m roof" style="transform:translateZ(${u(h)})">
+    <div class="fc rf" style="left:${u(-W / 2)};top:${u(D / 2 - L)};width:${u(W)};height:${u(L)};transform:rotateX(-${th}deg)"></div>
+    <div class="fc rb" style="left:${u(-W / 2)};top:${u(-D / 2)};width:${u(W)};height:${u(L)};transform:rotateX(${th}deg)"></div>
+    <div class="fc gr" style="left:${u(w / 2 - r)};top:${u(-d / 2)};width:${u(r)};height:${u(d)}"></div>
+    <div class="fc gl" style="left:${u(-w / 2)};top:${u(-d / 2)};width:${u(r)};height:${u(d)}"></div>
+    <div class="fc ridge" style="left:${u(-W / 2)};top:${u(-0.15)};width:${u(W)};height:${u(0.3)};transform:translateZ(${u(r)})"></div>
+  </div>`;
+}
+const lift = (z, html) => `<div class="m" style="transform:translateZ(${u(z)})">${html}</div>`;
+const house = (w, d, h, r, cls) => `<div class="m house ${cls}">${box(w, d, h, 'walls')}${roof(w, d, h, r)}</div>`;
+const shift = (x, y, html) => `<div class="m" style="transform:translate(${u(x)},${u(y)})">${html}</div>`;
+function model(t, lvl) {
+  if (t.type === 'resort') return house(4, 3.4, 2.2, 2.8, 'hut');
+  switch (lvl) {
+    case 1: return house(4, 3.2, 2.8, 2.1, 'lv1');                       // nhà cấp 1: nhà trệt
+    case 2: return house(4.4, 3.6, 4.6, 2.3, 'lv2');                     // nhà cấp 2: 2 tầng
+    case 3: return shift(-0.6, 0, house(4.6, 3.8, 6.4, 2.5, 'lv3'))      // nhà cấp 3: biệt thự 3 tầng + nhà phụ
+      + shift(3.2, 0.6, house(2.4, 2.6, 2.6, 1.6, 'lv1'));
+    case 4: return `<div class="m hotel">${box(5.4, 5.4, 11, 'tower')}${lift(11, box(3.8, 3.8, 1.3, 'cap'))}${lift(12.3, '<div class="sign">HOTEL</div>')}</div>`;
+  }
+  return '';
 }
 function renderBuilding(i, s) {
   const o = s.own[i];
@@ -154,11 +194,9 @@ function renderBuilding(i, s) {
   if (!key) { el.innerHTML = ''; return; }
   el.style.setProperty('--c', s.players[o.o].color);
   const t = BOARD[i];
-  let inner = '<div class="flag"></div>';
-  if (t.type === 'city' && o.lvl >= 4) inner += '<div class="landmark">🏯</div>';
-  else if (t.type === 'city') inner += '<div class="house">🏠</div>'.repeat(o.lvl);
-  else inner += '<div class="house">⛱️</div>';
-  el.innerHTML = `<div class="stand">${s.festival === i ? '<div class="fw">🎆</div>' : ''}${inner}</div>`;
+  const lvl = t.type === 'city' ? o.lvl : 0;
+  el.innerHTML = `<div class="gshadow lv${lvl}"></div><div class="grow"><div class="m turn">${model(t, lvl)}</div></div>
+    <div class="stand">${s.festival === i ? `<div class="fw">${ico('🎆', 'fi')}</div>` : ''}${lvl === 0 && t.type === 'city' ? '<div class="flag"></div>' : ''}</div>`;
 }
 
 function makeTokens() {
@@ -168,7 +206,7 @@ function makeTokens() {
     el.className = 'token';
     el.style.setProperty('--c', p.color);
     el.title = p.name;
-    el.innerHTML = `<div class="shadow"></div><div class="stand"><div class="fig"><div class="head">${p.token}</div><div class="neck"></div><div class="base"></div></div></div>`;
+    el.innerHTML = `<div class="shadow"></div><div class="stand"><div class="fig"><div class="head">${ico(p.token, 'hi')}</div><div class="neck"></div><div class="base"></div></div></div>`;
     tokensEl.appendChild(el);
     return el;
   });
@@ -189,8 +227,11 @@ function layoutTokens() {
     const t = tileEls[pos];
     const g = groups[pos];
     const k = g.length === 1 ? 0 : g.indexOf(i) + 1;
-    const x = t.offsetLeft + t.offsetWidth / 2 + SLOTS[k][0] * unit;
-    const y = t.offsetTop + t.offsetHeight * 0.62 + SLOTS[k][1] * unit;
+    const side = sideOf(pos);
+    const fx = side === 'l' ? 0.34 : side === 'r' ? 0.66 : 0.5;
+    const fy = side === 'b' ? 0.74 : side === 't' ? 0.34 : side === 'corner' ? 0.55 : 0.62;
+    const x = t.offsetLeft + t.offsetWidth * fx + SLOTS[k][0] * unit;
+    const y = t.offsetTop + t.offsetHeight * fy + SLOTS[k][1] * unit;
     el.style.transform = `translate(${x}px, ${y}px)`;
   });
 }
@@ -230,7 +271,7 @@ function renderPlayers() {
     const tag = p.bot ? 'máy' : (mode === 'online' && i === mySeat ? 'bạn' : '');
     const st = [props ? `🏠 ${props} đất` : 'Chưa có đất', p.island ? `🌴 kẹt ${p.island}` : '', p.travel ? '✈️' : '', p.freeCards ? `🛟×${p.freeCards}` : '', p.out ? '💥 phá sản' : ''].filter(Boolean).join(' · ');
     return `<div class="pc${i === S.cur && S.phase !== 'over' ? ' cur' : ''}${p.out ? ' out' : ''}" style="--c:${p.color}" data-pid="${i}">
-      <div class="tk">${p.token}</div>
+      <div class="tk">${ico(p.token, 'ti')}</div>
       <div class="nm">${esc(p.name)}${tag ? `<small>${tag}</small>` : ''}</div>
       <div class="mn${view.money[i] < 0 ? ' neg' : ''}">${fmt(view.money[i])}</div>
       <div class="st">${st}</div>
@@ -252,22 +293,19 @@ function floatMoney(pid, delta) {
   setTimeout(() => f.remove(), 1100);
 }
 
-// ---------- nhật ký + chat ----------
-const logEl = $('#log');
-function addLog(text, cls = '') {
-  const d = document.createElement('div');
-  if (cls) d.className = cls;
-  d.textContent = text;
-  logEl.appendChild(d);
-  while (logEl.childElementCount > 150) logEl.firstChild.remove();
-  logEl.scrollTop = logEl.scrollHeight;
+// ---------- dòng tin nhanh (thay cho nhật ký) + chat ----------
+const tickerEl = $('#ticker');
+function addLog(text) {
+  tickerEl.textContent = text;
+  tickerEl.classList.remove('show'); void tickerEl.offsetWidth; tickerEl.classList.add('show');
 }
 function addChat(name, text) {
-  const d = document.createElement('div');
-  d.className = 'chat-line';
-  d.innerHTML = `<b>${esc(name)}:</b> ${esc(text)}`;
-  logEl.appendChild(d);
-  logEl.scrollTop = logEl.scrollHeight;
+  const el = document.createElement('div');
+  el.className = 'bubble';
+  el.innerHTML = `<b>${esc(name)}</b> ${esc(text)}`;
+  $('#bubbles').appendChild(el);
+  while ($('#bubbles').childElementCount > 4) $('#bubbles').firstChild.remove();
+  setTimeout(() => el.remove(), 6000);
 }
 
 // ---------- vùng thao tác ở giữa bàn ----------
@@ -279,15 +317,15 @@ function setPicks(list) {
 function offerHead(i) {
   const t = BOARD[i];
   const g = t.group ? GROUPS[t.group] : null;
-  return `<div class="o-head"><span class="gbar" style="background:${g ? g.color : '#18a0b5'}"></span>${t.icon} ${esc(t.name)}<small class="muted" style="font-weight:600;font-size:.7em">${g ? esc(g.name) : 'Khu du lịch'}</small></div>`;
+  return `<div class="o-head"><span class="gbar" style="background:${g ? g.color : '#18a0b5'}"></span>${ico(t.icon, 'oi')} ${esc(t.name)}<small class="muted" style="font-weight:600;font-size:.7em">${g ? esc(g.name) : 'Khu du lịch'}</small></div>`;
 }
-const LVL_NAME = ['Chỉ mua đất', '1 nhà', '2 nhà', '3 nhà', 'Công trình biểu tượng'];
+const LVL_NAME = ['Chỉ mua đất', 'Nhà cấp 1', 'Nhà cấp 2', 'Nhà cấp 3', 'Khách sạn'];
 
 function renderActions() {
   const box = $('#actions');
   const p = S.players[S.cur];
   const lbl = $('#turnLabel');
-  lbl.innerHTML = S.phase === 'over' ? '' : `<span class="tk" style="border-color:${p.color}">${p.token}</span>${isMineRaw() ? (mode === 'local' && S.players.filter((q) => !q.bot).length > 1 ? `Lượt của ${esc(p.name)}` : 'Lượt của bạn') : `Lượt của ${esc(p.name)}`}`;
+  lbl.innerHTML = S.phase === 'over' ? '' : `<span class="tk" style="border-color:${p.color}">${ico(p.token, 'ti')}</span>${isMineRaw() ? (mode === 'local' && S.players.filter((q) => !q.bot).length > 1 ? `Lượt của ${esc(p.name)}` : 'Lượt của bạn') : `Lượt của ${esc(p.name)}`}`;
   setPicks([]);
   if (busy || S.phase === 'over') { box.innerHTML = ''; return; }
   if (!isMine()) {
@@ -333,7 +371,7 @@ function renderActions() {
         const cost = buildCost(i, o.lvl, l);
         btns.push(`<button class="btn ${l === 4 ? 'primary' : 'gold'}" data-a="upgrade" data-lvl="${l}" ${p.money < cost ? 'disabled' : ''}>${LVL_NAME[l]}<small>trả ${fmt(cost)} · thuê ${fmt(t.rent[l])}</small></button>`);
       }
-      h = `<div class="offer">${offerHead(i)}<div class="sub">Đất của bạn — hiện có ${o.lvl ? `${o.lvl} nhà` : 'đất trống'}. Xây thêm?</div><div class="lvls">${btns.join('')}</div><button class="btn" data-a="skip">Để sau</button></div>`;
+      h = `<div class="offer">${offerHead(i)}<div class="sub">Đất của bạn — hiện có ${o.lvl ? LVL_NAME[o.lvl].toLowerCase() : 'đất trống'}. Nâng cấp?</div><div class="lvls">${btns.join('')}</div><button class="btn" data-a="skip">Để sau</button></div>`;
       break;
     }
     case 'buyout': {
@@ -393,7 +431,7 @@ function showTileInfo(i) {
     h += '<table class="rtable">';
     h += `<tr><td>Giá đất</td><td>${fmt(t.price)}</td></tr>`;
     LVL_NAME.forEach((n, l) => { h += `<tr class="${o && o.o >= 0 && o.lvl === l ? 'now' : ''}"><td>Thuê: ${l === 0 ? 'đất trống (×2 khi đủ bộ màu)' : n}</td><td>${fmt(t.rent[l])}</td></tr>`; });
-    h += `<tr><td>Xây mỗi nhà</td><td>${fmt(levelCost(t, 1))}</td></tr><tr><td>Xây công trình biểu tượng</td><td>${fmt(levelCost(t, 4))}</td></tr></table>`;
+    h += `<tr><td>Xây mỗi nhà</td><td>${fmt(levelCost(t, 1))}</td></tr><tr><td>Xây khách sạn</td><td>${fmt(levelCost(t, 4))}</td></tr></table>`;
   } else if (t.type === 'resort') {
     h += '<span class="gchip" style="background:#18a0b5">Khu du lịch</span><table class="rtable">';
     h += `<tr><td>Giá</td><td>${fmt(t.price)}</td></tr>`;
@@ -412,7 +450,7 @@ function showTileInfo(i) {
   }
   if (o && o.o >= 0 && S) {
     const ow = S.players[o.o];
-    h += `<p>Chủ: <b style="color:${ow.color}">${ow.token} ${esc(ow.name)}</b>${S.festival === i ? ' · 🎆 Đang có lễ hội' : ''}<br>Tiền thuê hiện tại: <b>${fmt(rentOf(S, i))}</b><br>Giá trị: ${fmt(tileValue(S, i))}${t.type === 'city' && o.lvl >= 4 ? ' · 🏛️ Không thể mua lại' : ` · Giá mua lại: ${fmt(buyoutCost(S, i))}`}</p>`;
+    h += `<p>Chủ: <b style="color:${ow.color}">${ow.token} ${esc(ow.name)}</b>${S.festival === i ? ' · 🎆 Đang có lễ hội' : ''}<br>Tiền thuê hiện tại: <b>${fmt(rentOf(S, i))}</b><br>Giá trị: ${fmt(tileValue(S, i))}${t.type === 'city' && o.lvl >= 4 ? ' · 🏨 Khách sạn: không thể mua lại' : ` · Giá mua lại: ${fmt(buyoutCost(S, i))}`}</p>`;
   }
   h += '<button class="btn wide" data-close>Đóng</button>';
   openModal(h);
@@ -530,7 +568,7 @@ function showWin() {
   sfx.win();
   confetti();
   const ranking = S.players.map((p, i) => i).sort((a, b) => netWorth(S, b) - netWorth(S, a));
-  let h = `<div class="win-big">🏆</div><h3 style="justify-content:center">${w.token} ${esc(w.name)} chiến thắng!</h3><p class="center muted">${WIN_LABEL[S.winReason]}</p><table class="rtable">`;
+  let h = `<div class="win-big">${ico('🏆', 'wi')}</div><h3 style="justify-content:center">${ico(w.token, 'ti')} ${esc(w.name)} chiến thắng!</h3><p class="center muted">${WIN_LABEL[S.winReason]}</p><table class="rtable">`;
   ranking.forEach((i, k) => { const p = S.players[i]; h += `<tr><td>${k + 1}. ${p.token} ${esc(p.name)}${p.out ? ' 💥' : ''}</td><td>${fmt(netWorth(S, i))}</td></tr>`; });
   h += '</table><div class="menu-list">';
   if (mode === 'local') h += '<button class="btn primary wide" id="wAgain">🔁 Ván mới</button>';
@@ -560,11 +598,12 @@ function enterGame(state) {
   S = state;
   winShown = state.phase === 'over';
   queue.length = 0; busy = false;
-  logEl.innerHTML = '';
-  (state.log || []).slice(-40).forEach((t) => addLog(t));
+  const last = (state.log || []).slice(-1)[0];
+  if (last) addLog(last);
   makeTokens();
   showScreen('game');
   $('#chatForm').classList.toggle('hidden', mode !== 'online');
+  $('#bubbles').innerHTML = '';
   $('#netInfo').classList.toggle('hidden', mode !== 'online');
   requestAnimationFrame(() => { tokensEl.classList.add('notrans'); render(); requestAnimationFrame(() => tokensEl.classList.remove('notrans')); });
 }
@@ -617,7 +656,7 @@ let setup = store.get('ctp_setup', [
 function renderSetup() {
   $('#localPlayers').innerHTML = setup.map((p, i) => `
     <div class="prow">
-      <div class="tok" style="border-color:${PLAYER_COLORS[i]}">${PLAYER_TOKENS[i]}</div>
+      <div class="tok" style="border-color:${PLAYER_COLORS[i]}">${ico(PLAYER_TOKENS[i], 'ti')}</div>
       <input data-i="${i}" value="${esc(p.name)}" maxlength="16">
       <button class="toggle ${p.bot ? 'bot' : ''}" data-tg="${i}">${p.bot ? '🤖 Máy' : '🙂 Người'}</button>
       ${setup.length > 2 ? `<button class="xbtn" data-rm="${i}" title="Bỏ">✕</button>` : ''}
@@ -642,26 +681,32 @@ $('#btnResume').onclick = resumeLocal;
 // ===== Chơi online =====
 let net = null;
 let lobbyInfo = null;
-function ensureNet() {
-  if (net) return net;
-  net = new Net({
-    msg: onNetMsg,
-    status: (ok) => {
-      $('#lobbyNet').className = `net-dot ${ok ? 'ok' : 'bad'}`;
-      $('#netInfo').textContent = ok ? '🟢 Online' : '🔴 Đang kết nối lại…';
-      if (!ok) $('#netHint').textContent = 'Đang kết nối tới server…';
-      else $('#netHint').textContent = '';
-    },
-    ping: (ms) => { $('#netInfo').textContent = `🟢 ${ms}ms`; },
-  });
-  return net;
+const netHandlers = {
+  msg: (m) => onNetMsg(m),
+  status: (ok) => {
+    $('#lobbyNet').className = `net-dot ${ok ? 'ok' : 'bad'}`;
+    $('#netInfo').textContent = ok ? (net?.isHost ? '👑 Chủ phòng' : '🟢 Online') : '🔴 Đang kết nối lại…';
+    $('#netHint').textContent = ok ? '' : 'Đang kết nối…';
+  },
+  ping: (ms) => { $('#netInfo').textContent = `🟢 ${ms}ms`; },
+};
+function hostRoom(name, restore) {
+  net?.close();
+  net = new HostNet(netHandlers, { name, restore });
+  store.set('ctp_room', { host: true });
 }
+function joinRoom(code, name) {
+  net?.close();
+  net = new GuestNet(netHandlers, code);
+  if (name) net.send({ t: 'join', name });
+  store.set('ctp_room', { code });
+}
+function dropNet() { net?.close(); net = null; store.del('ctp_room'); }
 function onNetMsg(m) {
   switch (m.t) {
     case 'room':
       lobbyInfo = m;
       mySeat = m.you;
-      store.set('ctp_room', m.code);
       if (!m.started) {
         if (mode === 'online' && S) { S = null; closeModal(); }
         mode = 'online';
@@ -688,7 +733,7 @@ function onNetMsg(m) {
       break;
     case 'left':
       if (m.text) toast(m.text);
-      store.del('ctp_room');
+      dropNet();
       lobbyInfo = null; S = null; mode = null;
       showScreen('home');
       break;
@@ -699,7 +744,7 @@ function renderLobby() {
   $('#roomCode').textContent = L.code;
   $('#seatList').innerHTML = L.seats.map((s, i) => `
     <div class="prow">
-      <div class="tok" style="border-color:${PLAYER_COLORS[i]}">${PLAYER_TOKENS[i]}</div>
+      <div class="tok" style="border-color:${PLAYER_COLORS[i]}">${ico(PLAYER_TOKENS[i], 'ti')}</div>
       <div class="nm">${esc(s.name)}${i === L.you ? ' (bạn)' : ''}</div>
       ${s.host ? '<span class="tag">👑 chủ phòng</span>' : ''}
       <span class="tag ${s.bot ? '' : s.online ? 'on' : 'off'}">${s.bot ? '🤖 máy' : s.online ? 'online' : 'offline'}</span>
@@ -719,7 +764,10 @@ $('#seatList').addEventListener('click', (e) => { const k = e.target.closest('[d
 $('#btnAddBot').onclick = () => net.send({ t: 'addBot' });
 $('#onRounds').onchange = () => net.send({ t: 'settings', maxRounds: +$('#onRounds').value });
 $('#btnStartOnline').onclick = () => net.send({ t: 'start' });
-$('#btnLeaveLobby').onclick = () => { net.send({ t: 'leave' }); store.del('ctp_room'); showScreen('home'); };
+$('#btnLeaveLobby').onclick = () => {
+  if (net?.isHost && !confirm('Rời phòng sẽ đóng phòng của mọi người. Tiếp tục?')) return;
+  net?.send({ t: 'leave' }); dropNet(); lobbyInfo = null; showScreen('home');
+};
 $('#btnCopyLink').onclick = async () => {
   try { await navigator.clipboard.writeText(inviteLink()); toast('Đã sao chép link mời'); } catch { prompt('Sao chép link này:', inviteLink()); }
 };
@@ -733,12 +781,13 @@ function myName() {
   store.set('ctp_name', n);
   return n;
 }
-$('#btnCreate').onclick = () => { const name = myName(); if (!name) return; ensureNet().send({ t: 'create', name }); };
+$('#btnCreate').onclick = () => { const name = myName(); if (!name) return; $('#netHint').textContent = 'Đang tạo phòng…'; hostRoom(name); };
 $('#btnJoin').onclick = () => {
   const name = myName(); if (!name) return;
   const code = $('#onCode').value.trim().toUpperCase();
   if (code.length !== 4) return toast('Mã phòng gồm 4 ký tự');
-  ensureNet().send({ t: 'join', code, name });
+  $('#netHint').textContent = 'Đang vào phòng…';
+  joinRoom(code, name);
 };
 $('#onCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btnJoin').click(); });
 $('#chatForm').addEventListener('submit', (e) => {
@@ -751,7 +800,7 @@ $('#chatForm').addEventListener('submit', (e) => {
 // ===== Menu trong ván =====
 function goHome() {
   ctl?.stop?.();
-  if (mode === 'online' && net) { net.send({ t: 'leave' }); store.del('ctp_room'); }
+  if (mode === 'online' && net) { net.send({ t: 'leave' }); dropNet(); }
   S = null; mode = null; lobbyInfo = null;
   closeModal();
   refreshHome();
@@ -761,12 +810,12 @@ $('#btnMenu').onclick = () => {
   const h = `<h3>☰ Menu</h3><div class="menu-list">
     <button class="btn wide" data-close>▶ Chơi tiếp</button>
     ${mode === 'local' ? '<button class="btn wide" id="mNew">🔁 Ván mới (cùng người chơi)</button><button class="btn ghost wide" id="mHome" style="background:var(--paper2)">💾 Lưu và về trang chủ</button>'
-      : '<button class="btn wide" id="mInvite">🔗 Sao chép link mời xem</button><button class="btn primary wide" id="mHome">🚪 Rời phòng (máy sẽ đánh thay)</button>'}
+      : `<button class="btn wide" id="mInvite">🔗 Sao chép link mời xem</button><button class="btn primary wide" id="mHome">🚪 ${net?.isHost ? 'Đóng phòng' : 'Rời phòng (máy sẽ đánh thay)'}</button>`}
     </div>`;
   openModal(h);
   $('#mNew')?.addEventListener('click', () => { if (confirm('Bỏ ván hiện tại và chơi ván mới?')) { closeModal(); startLocal(S.players.map((p) => ({ name: p.name, bot: p.bot })), S.maxRounds); } });
   $('#mInvite')?.addEventListener('click', () => $('#btnCopyLink').click());
-  $('#mHome').addEventListener('click', () => { if (mode === 'local' || confirm('Rời phòng? Máy sẽ chơi thay bạn.')) goHome(); });
+  $('#mHome').addEventListener('click', () => { if (mode === 'local' || confirm(net?.isHost ? 'Đóng phòng? Ván sẽ kết thúc với mọi người.' : 'Rời phòng? Máy sẽ chơi thay bạn.')) goHome(); });
 };
 $('#btnSound').onclick = () => { soundOn = !soundOn; store.set('ctp_sound', soundOn); $('#btnSound').textContent = soundOn ? '🔊' : '🔇'; };
 
@@ -780,7 +829,6 @@ document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () 
   document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === t));
   $('#tab-local').classList.toggle('hidden', t.dataset.tab !== 'local');
   $('#tab-online').classList.toggle('hidden', t.dataset.tab !== 'online');
-  if (t.dataset.tab === 'online') ensureNet();
 }));
 
 function init() {
@@ -795,11 +843,13 @@ function init() {
     $('#onCode').value = room.toUpperCase().slice(0, 4);
     if ($('#onName').value) $('#btnJoin').click(); else $('#onName').focus();
     history.replaceState(null, '', location.pathname + (params.get('server') ? `?server=${encodeURIComponent(params.get('server'))}` : ''));
-  } else if (store.get('ctp_room', null)) {
-    // đang ở trong phòng online trước khi tải lại trang -> kết nối lại
-    ensureNet();
+  } else {
+    // tải lại trang khi đang ở trong phòng online -> nối lại
+    const r = store.get('ctp_room', null);
+    const saved = HostNet.saved();
+    if (r?.host && saved) hostRoom('', saved);
+    else if (r?.code) joinRoom(r.code);
   }
-  if (location.protocol === 'file:') $('#netHint').textContent = 'Mở qua web server để chơi online.';
-  else $('#netHint').title = serverUrl();
+  if (location.protocol === 'file:') $('#netHint').textContent = 'Mở qua web (GitHub Pages) để chơi online.';
 }
 init();

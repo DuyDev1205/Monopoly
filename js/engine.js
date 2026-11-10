@@ -359,7 +359,7 @@ export function apply(s, pid, a) {
       money(s, ev, pid, -cost);
       s.own[i] = { o: pid, lvl };
       ev.push({ t: 'build', tile: i });
-      log(s, ev, `${p.name} mua ${t.name}${lvl ? ` và xây ${lvl} nhà` : ''} (${fmt(cost)}).`);
+      log(s, ev, `${p.name} mua ${t.name}${lvl ? ` và xây nhà cấp ${lvl}` : ''} (${fmt(cost)}).`);
       if (checkWin(s, ev, pid)) break;
       proceed(s, ev); break;
     }
@@ -375,7 +375,7 @@ export function apply(s, pid, a) {
       money(s, ev, pid, -cost);
       o.lvl = lvl;
       ev.push({ t: 'build', tile: i });
-      log(s, ev, `${p.name} ${lvl === 4 ? 'dựng Công trình biểu tượng ở' : `nâng lên ${lvl} nhà ở`} ${BOARD[i].name} (${fmt(cost)}).`);
+      log(s, ev, `${p.name} ${lvl === 4 ? "xây Khách sạn 🏨 ở" : `nâng lên nhà cấp ${lvl} ở`} ${BOARD[i].name} (${fmt(cost)}).`);
       proceed(s, ev); break;
     }
 
