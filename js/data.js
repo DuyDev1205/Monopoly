@@ -122,7 +122,7 @@ export const WIN_LABEL = {
   groups: 'Độc quyền 3 vùng',
   side: 'Độc chiếm một cạnh bàn cờ',
   resorts: 'Độc quyền 4 khu du lịch',
-  rounds: 'Giàu nhất khi hết số vòng',
+  time: 'Giàu nhất khi hết giờ',
 };
 
 // Ảnh icon 3D (Fluent Emoji 3D của Microsoft, giấy phép MIT) — assets/icons/<tên>.webp

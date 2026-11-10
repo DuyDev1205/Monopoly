@@ -21,7 +21,7 @@ Chơi với máy ngay trên trình duyệt, hoặc chơi online cùng bạn bè 
 - Đến đất người khác: trả tiền thuê, sau đó được **mua lại** với giá gấp đôi giá trị (trừ đất đã có Khách sạn).
 - Gieo đôi được đi tiếp. Gieo đôi 3 lần liền thì bị dạt ra Đảo Hoang.
 - Hết tiền phải bán đất cho ngân hàng (nhận 50% giá trị). Không còn gì để bán thì phá sản.
-- **Chiến thắng:** độc quyền 3 vùng màu, chiếm trọn thành phố một cạnh bàn cờ, sở hữu cả 4 khu du lịch, là người cuối cùng còn trụ lại, hoặc giàu nhất khi hết số vòng đã đặt.
+- **Chiến thắng:** độc quyền 3 vùng màu, chiếm trọn thành phố một cạnh bàn cờ, sở hữu cả 4 khu du lịch, là người cuối cùng còn trụ lại, hoặc giàu nhất khi hết giờ (chọn 15–60 phút).
 
 ## Chơi online không cần server
 
@@ -40,7 +40,8 @@ Online dùng **WebRTC** (thư viện [PeerJS](https://peerjs.com), chỉ tải k
 | Phần | Dùng |
 |---|---|
 | Giao diện | HTML, CSS và JavaScript thuần (ES modules): không cần build, nhẹ, tải nhanh |
-| 3D | CSS 3D transforms: bàn cờ phối cảnh, xúc xắc lập phương, quân cờ đứng, nhà và khách sạn dựng bằng khối 3D (tường, cửa sổ, mái màu chủ đất) |
+| 3D | CSS 3D transforms: bàn cờ isometric, xúc xắc lập phương, con tốt 3D, nhà và khách sạn dựng bằng khối 3D (tường, cửa sổ, mái màu chủ đất) có khói ống khói, đèn hiệu, cờ bay |
+| Giao diện | 2 theme: 🌸 Hoa anh đào (mặc định) và 🏮 Phố đèn lồng; đổi ở trang chủ hoặc menu trong ván |
 | Icon | [Fluent Emoji 3D](https://github.com/microsoft/fluentui-emoji) (Microsoft, giấy phép MIT), đã thu nhỏ thành WebP 96px |
 | Online | WebRTC qua PeerJS |
 

@@ -9,7 +9,8 @@ const rnd = (n) => Math.floor(Math.random() * n);
 const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 export const fmt = (n) => `${n < 0 ? '-' : ''}${Math.abs(n).toLocaleString('vi-VN')}tr`;
 
-/** players: [{name, bot}] ; opts: {maxRounds} */
+export const TIME_OPTS = [15, 30, 45, 60];
+/** players: [{name, bot}] ; opts: {timeLimit} (phút) */
 export function newGame(players, opts = {}) {
   return {
     v: 2,
@@ -22,7 +23,8 @@ export function newGame(players, opts = {}) {
     })),
     own: BOARD.map((t) => (t.type === 'city' || t.type === 'resort' ? { o: -1, lvl: 0 } : null)),
     cur: 0, phase: 'roll', dice: [1, 1], doubles: 0, rolledDouble: false,
-    pending: null, festival: -1, round: 1, maxRounds: opts.maxRounds || 0,
+    pending: null, festival: -1, round: 1,
+    timeLimit: TIME_OPTS.includes(opts.timeLimit) ? opts.timeLimit : 60, playMs: 0,
     deck: shuffle(CARDS.map((_, i) => i)),
     winner: -1, winReason: '', log: [], seq: 0,
   };
@@ -110,6 +112,13 @@ function toIsland(s, ev, pid) {
   s.rolledDouble = false;
 }
 
+// ---------- thời gian ----------
+// Bộ điều khiển (máy / chủ phòng) gọi tick() trước mỗi hành động để cộng thời gian chơi.
+// Khoảng nghỉ dài (đóng tab, treo máy) chỉ tính tối đa 2 phút.
+export function tick(s, ms) { if (s.phase !== 'over') s.playMs = (s.playMs || 0) + Math.max(0, Math.min(ms, 120000)); }
+export const timeLeft = (s) => (s.timeLimit ? s.timeLimit * 60000 - (s.playMs || 0) : Infinity);
+const timeUp = (s) => timeLeft(s) <= 0;
+
 // ---------- vòng lượt ----------
 function nextTurn(s, ev) {
   s.pending = null; s.doubles = 0; s.rolledDouble = false;
@@ -121,10 +130,11 @@ function nextTurn(s, ev) {
   }
   if (i <= s.cur) {
     s.round++;
-    if (s.maxRounds && s.round > s.maxRounds) {
-      const best = alive(s).sort((a, b) => netWorth(s, b) - netWorth(s, a))[0];
-      return win(s, ev, best, 'rounds');
-    }
+  }
+  if (timeUp(s)) {
+    const best = alive(s).sort((a, b) => netWorth(s, b) - netWorth(s, a))[0];
+    log(s, ev, '⏰ Hết giờ!');
+    return win(s, ev, best, 'time');
   }
   s.cur = i;
   const p = s.players[i];
@@ -215,6 +225,7 @@ function land(s, ev, pid, diceSum) {
       const owner = s.players[o.o];
       const rent = rentOf(s, i, diceSum);
       log(s, ev, `${p.name} trả ${fmt(rent)} tiền thuê ${t.name} cho ${owner.name}.`);
+      ev.push({ t: 'rent', from: pid, to: o.o, tile: i, amount: rent });
       pay(s, ev, pid, o.o, rent);
       if (p.money >= 0 && !(t.type === 'city' && o.lvl >= 4) && p.money >= buyoutCost(s, i)) {
         s.phase = 'buyout'; s.pending = { tile: i, cost: buyoutCost(s, i) };
@@ -226,6 +237,7 @@ function land(s, ev, pid, diceSum) {
     case 'tax': {
       const tax = Math.max(TAX_MIN, Math.round((assets(s, pid) * TAX_RATE) / 5) * 5);
       log(s, ev, `${p.name} nộp thuế ${fmt(tax)}.`);
+      ev.push({ t: 'tax', pid, tile: i, amount: tax });
       money(s, ev, pid, -tax);
       return proceed(s, ev);
     }
@@ -248,7 +260,7 @@ function drawCard(s, ev, pid, diceSum) {
   const p = s.players[pid];
   if (!s.deck.length) s.deck = shuffle(CARDS.map((_, k) => k));
   const c = CARDS[s.deck.shift()];
-  ev.push({ t: 'card', pid, text: c.text });
+  ev.push({ t: 'card', pid, text: c.text, kind: c.kind, amount: c.amount || 0, to: c.to });
   log(s, ev, `🧧 ${p.name}: ${c.text}`);
   switch (c.kind) {
     case 'money': money(s, ev, pid, c.amount); return proceed(s, ev);
@@ -356,6 +368,7 @@ export function apply(s, pid, a) {
       const lvl = t.type === 'city' ? Math.max(0, Math.min(3, a.lvl | 0)) : 0;
       const cost = t.price + buildCost(i, 0, lvl);
       if (p.money < cost) return err('Không đủ tiền');
+      ev.push({ t: 'buy', pid, tile: i, cost });
       money(s, ev, pid, -cost);
       s.own[i] = { o: pid, lvl };
       ev.push({ t: 'build', tile: i });
@@ -385,6 +398,7 @@ export function apply(s, pid, a) {
       const cost = buyoutCost(s, i);
       if (p.money < cost) return err('Không đủ tiền');
       const prev = o.o;
+      ev.push({ t: 'buyout', pid, from: prev, tile: i, cost });
       pay(s, ev, pid, prev, cost);
       o.o = pid;
       ev.push({ t: 'build', tile: i });
@@ -425,13 +439,14 @@ export function apply(s, pid, a) {
 }
 
 // Thời lượng animation (ms) của một loạt sự kiện — client và server dùng chung
-export const ANIM = { dice: 700, step: 140, fly: 480, card: 1800, turn: 150 };
+export const ANIM = { dice: 750, target: 450, step: 150, fly: 520, card: 2400, turn: 150, rent: 1000, buy: 800, buyout: 1000, tax: 700 };
 export function animTime(events) {
   let t = 0;
   for (const e of events) {
     if (e.t === 'dice') t += ANIM.dice;
-    else if (e.t === 'move') t += e.path.length * ANIM.step + 80;
-    else if (e.t === 'fly') t += ANIM.fly;
+    else if (e.t === 'move') t += e.path.length * ANIM.step + 80 + ANIM.target;
+    else if (e.t === 'fly') t += ANIM.fly + ANIM.target;
+    else if (ANIM[e.t] && ['rent', 'buy', 'buyout', 'tax'].includes(e.t)) t += ANIM[e.t];
     else if (e.t === 'card') t += ANIM.card;
     else if (e.t === 'turn') t += ANIM.turn;
   }

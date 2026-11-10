@@ -1,24 +1,24 @@
 // Phòng chơi online chạy NGAY TRONG TRÌNH DUYỆT của chủ phòng (không cần server riêng).
 // Chủ phòng giữ trạng thái ván; khách chỉ gửi hành động qua WebRTC.
-import { newGame, apply, animTime, publicState } from './engine.js';
+import { newGame, apply, animTime, publicState, tick, TIME_OPTS } from './engine.js';
 import { botAction } from './bot.js';
 
 export const TURN_LIMIT = 45000;       // treo máy quá lâu -> máy đánh hộ
 export const DISCONNECT_GRACE = 15000; // rớt mạng -> chờ 15s rồi máy đánh hộ
 export const MAX_PLAYERS = 4;
 const BOT_THINK = 450;
-const ROUND_OPTS = [0, 20, 30, 50];
 export const cleanName = (n) => String(n || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 16) || 'Khách';
 
 export class HostRoom {
   /** onChange(): gọi sau mỗi thay đổi để chủ phòng lưu lại (khôi phục khi tải lại trang) */
-  constructor({ code, host, name, maxRounds = 0, onChange }) {
+  constructor({ code, host, name, timeLimit = 60, onChange }) {
     this.code = code;
     this.host = host;
     this.seats = [{ token: host, name: cleanName(name), bot: false }];
     this.watchers = new Set();
     this.state = null;
-    this.maxRounds = ROUND_OPTS.includes(maxRounds) ? maxRounds : 0;
+    this.timeLimit = TIME_OPTS.includes(timeLimit) ? timeLimit : 60;
+    this.lastTick = Date.now();
     this.clients = new Map(); // token -> send(msg)
     this.timer = null;
     this.deadline = 0;
@@ -27,12 +27,12 @@ export class HostRoom {
 
   static restore(snap, onChange) {
     const r = new HostRoom({ code: snap.code, host: snap.host, name: '', onChange });
-    r.seats = snap.seats; r.state = snap.state; r.maxRounds = snap.maxRounds || 0;
+    r.seats = snap.seats; r.state = snap.state; r.timeLimit = snap.timeLimit || 60;
     r.watchers = new Set(snap.watchers || []);
     return r;
   }
   snapshot() {
-    return { code: this.code, host: this.host, seats: this.seats, state: this.state, maxRounds: this.maxRounds, watchers: [...this.watchers], at: Date.now() };
+    return { code: this.code, host: this.host, seats: this.seats, state: this.state, timeLimit: this.timeLimit, watchers: [...this.watchers], at: Date.now() };
   }
 
   // ---------- kết nối ----------
@@ -64,7 +64,7 @@ export class HostRoom {
     return {
       t: 'room', code: this.code, started: !!this.state, host: this.host === token, you: this.seatOf(token),
       seats: this.seats.map((s) => ({ name: s.name, bot: s.bot, online: s.bot || this.online(s.token), host: s.token === this.host })),
-      maxRounds: this.maxRounds,
+      timeLimit: this.timeLimit,
     };
   }
   broadcastRoom() { for (const t of this.members()) this.sendTo(t, this.roomMsg(t)); this.onChange(); }
@@ -90,6 +90,9 @@ export class HostRoom {
     }, wait);
   }
   act(seat, action) {
+    const now = Date.now();
+    tick(this.state, now - this.lastTick);
+    this.lastTick = now;
     const r = apply(this.state, seat, action);
     if (!r.ok) return r;
     this.schedule(animTime(r.events));
@@ -140,12 +143,13 @@ export class HostRoom {
       }
       case 'settings':
         if (!isHost || this.state) return;
-        if (ROUND_OPTS.includes(m.maxRounds)) this.maxRounds = m.maxRounds;
+        if (TIME_OPTS.includes(m.timeLimit)) this.timeLimit = m.timeLimit;
         return this.broadcastRoom();
       case 'start':
         if (!isHost || this.state) return;
         if (this.seats.length < 2) return err('Cần ít nhất 2 người (có thể thêm máy)');
-        this.state = newGame(this.seats.map((s) => ({ name: s.name, bot: s.bot })), { maxRounds: this.maxRounds });
+        this.state = newGame(this.seats.map((s) => ({ name: s.name, bot: s.bot })), { timeLimit: this.timeLimit });
+        this.lastTick = Date.now();
         this.broadcastRoom();
         this.schedule(0);
         this.broadcast(this.stateMsg([{ t: 'turn', pid: 0 }]));
