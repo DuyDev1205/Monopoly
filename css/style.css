@@ -1180,3 +1180,28 @@ body[data-theme="halong"] .home-card { box-shadow: 0 10px 0 #9fcde3, 0 12px 0 #5
   .copyright { position: static; display: block; width: max-content; margin: 0 auto 14px; }
 }
 @media (max-width: 900px), (orientation: portrait) { .hl-boat { width: 46px; height: 42px; } .hl-boat.b3 { width: 60px; height: 54px; } .hl-boat.b2 { width: 34px; height: 30px; } .hl-basket { width: 32px; height: 16px; } }
+
+/* ================= Đồ hoạ 3D (WebGL) ================= */
+#gl { position: fixed; left: 0; top: 0; z-index: 0; display: block; }
+body.gl .bg-deco, body.gl .petals-front { display: none; }
+body.gl #board { display: none; }
+body.gl #game, body.gl .board-wrap { background: none; }
+.pile-num3 { position: absolute; left: 0; top: 0; pointer-events: none; transition: opacity .25s, transform .25s; }
+.pile-num3 b { display: block; white-space: nowrap; font-size: clamp(30px, 3.4vw, 52px); font-weight: 900; color: #fff; font-variant-numeric: tabular-nums;
+  -webkit-text-stroke: 7px rgba(40,110,20,.95); paint-order: stroke fill; text-shadow: 0 0 18px rgba(255,255,255,.9), 0 5px 8px rgba(0,0,0,.35); animation: numIn .35s cubic-bezier(.2,1.5,.4,1) both; }
+.pile-num3.minus b { -webkit-text-stroke-color: #d6162a; }
+.pile-num3.out { opacity: 0; }
+@keyframes numIn { from { transform: scale(.3); } }
+
+/* topbar điện thoại hẹp: không tràn nút âm thanh */
+@media (max-width: 480px) {
+  .topbar { gap: 6px; padding: 8px 8px; }
+  .tb-title { font-size: 13px !important; padding: 3px 10px !important; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .tb-right { gap: 5px; flex-shrink: 0; }
+  .pill.clock { font-size: 14px; padding: 4px 8px; }
+}
+@media (max-width: 480px) {
+  .topbar .icon-btn { width: 34px; height: 34px; border-radius: 10px; }
+  #netInfo { font-size: 12px; padding: 4px 8px; white-space: nowrap; }
+  .topbar:has(#netInfo:not(.hidden)) .tb-title { display: none; }
+}
