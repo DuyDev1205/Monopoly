@@ -1,12 +1,11 @@
 // Phòng chơi online chạy NGAY TRONG TRÌNH DUYỆT của chủ phòng (không cần server riêng).
 // Chủ phòng giữ trạng thái ván; khách chỉ gửi hành động qua WebRTC.
-import { newGame, apply, animTime, publicState, tick, TIME_OPTS } from './engine.js';
+import { newGame, apply, animTime, publicState, tick, TIME_OPTS, BOT_THINK } from './engine.js';
 import { botAction } from './bot.js';
 
 export const TURN_LIMIT = 45000;       // treo máy quá lâu -> máy đánh hộ
 export const DISCONNECT_GRACE = 15000; // rớt mạng -> chờ 15s rồi máy đánh hộ
 export const MAX_PLAYERS = 4;
-const BOT_THINK = 450;
 export const cleanName = (n) => String(n || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 16) || 'Khách';
 
 export class HostRoom {

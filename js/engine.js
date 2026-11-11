@@ -378,7 +378,7 @@ export function apply(s, pid, a) {
       ev.push({ t: 'buy', pid, tile: i, cost });
       money(s, ev, pid, -cost);
       s.own[i] = { o: pid, lvl };
-      ev.push({ t: 'build', tile: i });
+      ev.push({ t: 'build', tile: i, up: true });
       log(s, ev, `${p.name} mua ${t.name}${lvl ? ` và xây nhà cấp ${lvl}` : ''} (${fmt(cost)}).`);
       if (checkWin(s, ev, pid)) break;
       proceed(s, ev); break;
@@ -392,9 +392,10 @@ export function apply(s, pid, a) {
       if (lvl <= o.lvl) return err('Cấp xây không hợp lệ');
       const cost = buildCost(i, o.lvl, lvl);
       if (p.money < cost) return err('Không đủ tiền');
+      ev.push({ t: 'upgrade', pid, tile: i, cost, lvl });
       money(s, ev, pid, -cost);
       o.lvl = lvl;
-      ev.push({ t: 'build', tile: i });
+      ev.push({ t: 'build', tile: i, up: true });
       log(s, ev, `${p.name} ${lvl === 4 ? "xây Khách sạn 🏨 ở" : `nâng lên nhà cấp ${lvl} ở`} ${BOARD[i].name} (${fmt(cost)}).`);
       proceed(s, ev); break;
     }
@@ -408,7 +409,7 @@ export function apply(s, pid, a) {
       ev.push({ t: 'buyout', pid, from: prev, tile: i, cost });
       pay(s, ev, pid, prev, cost);
       o.o = pid;
-      ev.push({ t: 'build', tile: i });
+      ev.push({ t: 'build', tile: i, up: true });
       log(s, ev, `🤝 ${p.name} mua lại ${BOARD[i].name} từ ${s.players[prev].name} với giá ${fmt(cost)}.`);
       if (checkWin(s, ev, pid)) break;
       if (BOARD[i].type === 'city' && o.lvl < 4) { s.phase = 'upgrade'; s.pending = { tile: i }; break; }
@@ -446,14 +447,16 @@ export function apply(s, pid, a) {
 }
 
 // Thời lượng animation (ms) của một loạt sự kiện — client và server dùng chung
-export const ANIM = { dice: 750, target: 450, step: 150, fly: 520, card: 2400, turn: 150, rent: 1100, buy: 800, buyout: 1000, tax: 1000 };
+export const ANIM = { dice: 1000, target: 550, step: 210, fly: 750, card: 3000, turn: 450, rent: 2000, buy: 2000, upgrade: 1900, buyout: 2200, tax: 1900, build: 700 };
+export const BOT_THINK = 800;   // máy "nghĩ" trước mỗi hành động
 export function animTime(events) {
   let t = 0;
   for (const e of events) {
     if (e.t === 'dice') t += ANIM.dice;
     else if (e.t === 'move') t += e.path.length * ANIM.step + 80 + ANIM.target;
     else if (e.t === 'fly') t += ANIM.fly + ANIM.target;
-    else if (ANIM[e.t] && ['rent', 'buy', 'buyout', 'tax'].includes(e.t)) t += ANIM[e.t];
+    else if (['rent', 'buy', 'buyout', 'tax', 'upgrade'].includes(e.t)) t += ANIM[e.t];
+    else if (e.t === 'build' && e.up) t += ANIM.build;
     else if (e.t === 'card') t += ANIM.card;
     else if (e.t === 'turn') t += ANIM.turn;
   }

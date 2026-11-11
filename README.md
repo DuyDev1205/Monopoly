@@ -54,6 +54,7 @@ assets/icons/     icon 3D (webp)
 js/data.js        bàn cờ, thẻ Cơ Hội, bảng giá
 js/engine.js      luật chơi
 js/characters.js  nhân vật hình người (SVG) — thêm nhân vật mới ở đây
+js/music.js       nhạc nền tổng hợp bằng WebAudio (không dùng file nhạc)
 js/bot.js         máy chơi
 js/room.js        phòng online (chạy ở máy chủ phòng)
 js/net.js         kết nối WebRTC (chủ phòng / khách)

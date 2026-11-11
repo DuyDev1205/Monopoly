@@ -107,6 +107,7 @@
       <button class="theme-btn" data-theme="sakura">🌸 Hoa anh đào</button>
       <button class="theme-btn" data-theme="lantern">🏮 Phố đèn lồng</button>
     </div>
+    <div class="theme-row"><button class="theme-btn" id="btnMusicHome">🎵 Nhạc nền: Bật</button></div>
 
     <details class="rules">
       <summary>📜 Luật chơi</summary>
@@ -156,6 +157,7 @@
     <div class="tb-right">
       <span id="roundInfo" class="pill clock"></span>
       <span id="netInfo" class="pill hidden"></span>
+      <button id="btnMusic" class="icon-btn" title="Nhạc nền"></button>
       <button id="btnSound" class="icon-btn" title="Âm thanh"></button>
     </div>
   </header>
@@ -172,6 +174,7 @@
             <div class="die3d" id="die1"></div>
           </div>
         </div>
+        <div id="pile" class="layer3d"></div>
         <div id="buildings" class="layer3d"></div>
         <div id="tokens" class="layer3d"></div>
       </div>

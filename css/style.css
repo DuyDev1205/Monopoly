@@ -219,9 +219,9 @@ button, input, select { font: inherit; }
 .dice-row { display: flex; gap: 5cqw; transform-style: preserve-3d; }
 .die3d { --s: 7.4cqw; width: var(--s); height: var(--s); position: relative; transform-style: preserve-3d; }
 .die3d::after { content: ''; position: absolute; inset: 8%; border-radius: 20%; background: rgba(60,20,0,.35); filter: blur(.8cqw); }
-.cube { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .75s cubic-bezier(.25,1.4,.45,1); }
-.die3d.hop .cube { animation: hop .75s ease-out; }
-@keyframes hop { 0% { translate: 0 0 0; } 35% { translate: 0 -2cqw 7cqw; } 70% { translate: 0 0 0; } 85% { translate: 0 0 1cqw; } }
+.cube { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform var(--t-dice, 1s) cubic-bezier(.25,1.3,.45,1); }
+.die3d.hop .cube { animation: hop var(--t-dice, 1s) ease-out; }
+@keyframes hop { 0% { translate: 0 0 0; } 35% { translate: 0 -2cqw 13cqw; } 68% { translate: 0 0 0; } 82% { translate: 0 0 2.4cqw; } 92% { translate: 0 0 0; } 96% { translate: 0 0 .6cqw; } }
 .face { position: absolute; inset: 0; border-radius: 18%; background: radial-gradient(circle at 30% 25%, #fff, #f3eee2 70%, #ddd3bd); box-shadow: inset 0 0 .6cqw rgba(0,0,0,.18);
   display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 14%; backface-visibility: hidden; }
 .face i { width: 72%; height: 72%; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #555, #111); place-self: center; visibility: hidden; }
@@ -237,8 +237,8 @@ button, input, select { font: inherit; }
 /* lớp 3D trên bàn */
 .layer3d { position: absolute; inset: 0; pointer-events: none; transform-style: preserve-3d; }
 .token, .bld, .marker { position: absolute; left: 0; top: 0; transform-style: preserve-3d; will-change: transform; }
-.token { transition: transform .15s ease-out; z-index: 4; }
-.token.fly { transition: transform .52s cubic-bezier(.5,-0.2,.4,1.2); }
+.token { transition: transform var(--t-step, .2s) ease-out; z-index: 4; }
+.token.fly { transition: transform var(--t-fly, .75s) cubic-bezier(.5,-0.2,.4,1.2); }
 .notrans .token { transition: none !important; }
 
 /* quân cờ: con tốt bóng theo màu người chơi */
@@ -247,8 +247,8 @@ button, input, select { font: inherit; }
 @keyframes ringPulse { 50% { scale: 1.35; opacity: .6; } }
 .token .stand { position: absolute; left: -2.2cqw; bottom: 0; width: 4.4cqw; transform-origin: 50% 100%; transform: var(--unrot); }
 .token .fig { display: flex; flex-direction: column; align-items: center; transform-origin: 50% 100%; }
-.token.hop .fig { animation: tokHop .15s ease-out; }
-@keyframes tokHop { 50% { transform: translateY(-1.8cqw) scaleY(1.05); } }
+.token.hop .fig { animation: tokHop var(--t-step, .2s) ease-out; }
+@keyframes tokHop { 50% { transform: translateY(-2.6cqw) scaleY(1.06); } }
 .token.out { display: none; }
 
 /* đích đến sau khi gieo */
@@ -261,8 +261,8 @@ button, input, select { font: inherit; }
 @keyframes pinBounce { to { transform: translateY(-1.2cqw); } }
 
 /* ---- mô hình nhà 3D ---- */
-.bld .grow { position: absolute; left: 0; top: 0; transform-style: preserve-3d; animation: build .6s cubic-bezier(.2,1.4,.4,1); }
-@keyframes build { from { transform: scale3d(.35,.35,.02); } }
+.bld .grow { position: absolute; left: 0; top: 0; transform-style: preserve-3d; animation: build .8s cubic-bezier(.3,1.2,.4,1) both; }
+@keyframes build { 0% { transform: scale3d(.7,.7,0); } 55% { transform: scale3d(1.06,1.06,1.22); } 78% { transform: scale3d(.98,.98,.94); } 100% { transform: scale3d(1,1,1); } }
 .bld .m { position: absolute; left: 0; top: 0; transform-style: preserve-3d; }
 .bld .fc { position: absolute; }
 .bld .wf, .bld .wb { transform-origin: 50% 100%; transform: rotateX(-90deg); }
@@ -413,8 +413,6 @@ img.ic, img.ti, img.oi, img.wi, img.fi, img.bi { display: block; object-fit: con
 #fx { position: fixed; inset: 0; pointer-events: none; z-index: 35; overflow: hidden; }
 .coin { position: absolute; left: 0; top: 0; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #fff7c2, #ffc531 50%, #c98a00); box-shadow: 0 2px 0 #8a5d00, 0 0 8px rgba(255,200,40,.8); }
-.stamp { position: absolute; left: 0; top: 0; padding: 6px 18px; border-radius: 12px; font-weight: 800; font-size: 26px; letter-spacing: 2px; color: #fff;
-  background: var(--sc, #1f9d55); border: 3px solid #fff; box-shadow: 0 6px 0 rgba(0,0,0,.25), 0 0 24px var(--sc, #1f9d55); white-space: nowrap; }
 .burst { position: absolute; left: 0; top: 0; width: 12px; height: 12px; margin: -6px; border-radius: 50%; background: var(--sc, #ffd000); box-shadow: 0 0 8px var(--sc, #ffd000); }
 
 /* ---- chat ---- */
@@ -574,24 +572,18 @@ svg.chr { display: block; overflow: visible; }
 .token .chr .eye { transform-box: fill-box; transform-origin: center; animation: blink 4.2s infinite; }
 @keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 96.5% { transform: scaleY(.1); } }
 .token .chr .arm { transform-box: fill-box; transform-origin: 50% 0; }
-.token.hop .chr .arm.l { animation: armL .15s ease-out; }
-.token.hop .chr .arm.r { animation: armR .15s ease-out; }
+.token.hop .chr .arm.l { animation: armL var(--t-step, .2s) ease-out; }
+.token.hop .chr .arm.r { animation: armR var(--t-step, .2s) ease-out; }
 @keyframes armL { 50% { transform: rotate(28deg); } }
 @keyframes armR { 50% { transform: rotate(-28deg); } }
 .token.cur .fig { animation: curBounce 1s ease-in-out infinite; }
 @keyframes curBounce { 50% { transform: translateY(-.7cqw); } }
-.token.cur.hop .fig { animation: tokHop .15s ease-out; }
+.token.cur.hop .fig { animation: tokHop var(--t-step, .2s) ease-out; }
 .pc .tk { overflow: hidden; }
 .pc .tk svg.chr, .prow .tok svg.chr, .turn-label .tk svg.chr, .av svg.chr { width: 100%; height: 100%; }
 .prow .tok { overflow: hidden; }
 .av { display: inline-block; width: 34px; height: 34px; border-radius: 50%; overflow: hidden; background: #fff; border: 2px solid var(--c); vertical-align: middle; }
 .av.sm { width: 22px; height: 22px; vertical-align: -6px; }
-
-/* ================= Mất tiền: xấp tiền + con số giữa bàn ================= */
-.pay-pop { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.pay-pop img { width: clamp(80px, 9vw, 130px); height: clamp(80px, 9vw, 130px); filter: drop-shadow(0 8px 10px rgba(0,0,0,.3)); }
-.pay-pop b { font-size: clamp(30px, 3.4vw, 52px); font-weight: 800; color: #fff; white-space: nowrap; font-variant-numeric: tabular-nums;
-  -webkit-text-stroke: 6px #d6162a; paint-order: stroke fill; text-shadow: 0 5px 10px rgba(0,0,0,.35); }
 
 @media (max-width: 900px), (orientation: portrait) {
   .statusbar { position: static; transform: none; max-width: 100%; min-height: 70px; justify-content: center; }
@@ -615,4 +607,80 @@ svg.chr { display: block; overflow: visible; }
   .board { transform: scale(.93) rotateX(var(--tilt)) translateY(-3%); }
   .token .stand { left: -3.6cqw; width: 7.2cqw; }
   .token .fig svg.chr { width: 7.2cqw; }
+}
+
+/* ================= Ô đất: con số to, nằm giữa ô ================= */
+.tile .txt { gap: .25cqw; }
+.tile.owned .pr { font-size: 2.15cqw; }
+.tile.owned .nm { font-size: 1.35cqw; opacity: .85; }
+
+/* ================= Đống tiền giữa bàn ================= */
+.board.paying .dice-row { transform: scale(0); }
+.dice-row { transition: transform .25s ease-in; }
+.pile-root { position: absolute; left: 50%; top: 50%; transform-style: preserve-3d; transform: scale3d(1.5,1.5,1.5); transition: transform .3s ease-in; }
+.pile-root.out { transform: scale3d(0, 0, 0); }
+.pile-root .it { position: absolute; left: 0; top: 0; transform-style: preserve-3d; transform: translate3d(var(--x), var(--y), var(--z));
+  animation: pileDrop .6s cubic-bezier(.3,1.3,.5,1) both; }
+@keyframes pileDrop {
+  0% { transform: translate3d(var(--x), var(--y), calc(var(--z) + 26cqw)) scale3d(0, 0, 0); }
+  12% { transform: translate3d(var(--x), var(--y), calc(var(--z) + 22cqw)) scale3d(1, 1, 1); }
+  100% { transform: translate3d(var(--x), var(--y), var(--z)) scale3d(1, 1, 1); }
+}
+.pile-root .fc { position: absolute; }
+.pile-root .wf { transform-origin: 50% 100%; transform: rotateX(-90deg); }
+.pile-root .wr { transform-origin: 100% 50%; transform: rotateY(90deg); }
+/* xấp tiền */
+.cash .top { background: linear-gradient(90deg, #7ddb7a 0 38%, #ffe27a 38% 62%, #7ddb7a 62%); box-shadow: inset 0 0 0 .14cqw #3f9d4b; border-radius: .15cqw; }
+.cash .wf { background: linear-gradient(90deg, transparent 0 38%, #f2c94c 38% 62%, transparent 62%), repeating-linear-gradient(180deg, #5fc267 0 .16cqw, #49a956 .16cqw .32cqw); }
+.cash .wr { background: repeating-linear-gradient(90deg, #4aa655 0 .16cqw, #3b8f47 .16cqw .32cqw); }
+/* thỏi vàng */
+.gold .top { background: linear-gradient(135deg, #fff3a6, #ffd23f 55%, #f2b200); box-shadow: inset 0 0 0 .16cqw #d39a00; border-radius: .2cqw; }
+.gold .wf { background: linear-gradient(180deg, #f6bf1c, #d49400); }
+.gold .wr { background: linear-gradient(180deg, #d9a010, #b17a00); }
+/* đồng xu vàng xếp chồng */
+.coin3 { width: 3cqw; height: 3cqw; margin: -1.5cqw 0 0 -1.5cqw; border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #fff6b8, #ffd23f 55%, #e0a100); box-shadow: 0 0 0 .16cqw #b77c00, .12cqw .12cqw 0 .16cqw #9a6800; }
+/* con số chạy phía trên đống tiền */
+.pile-lift { position: absolute; left: 0; top: 0; transform-style: preserve-3d; }
+.pile-num { position: absolute; left: 0; top: 0; width: 0; height: 0; transform: var(--unrot); animation: numIn .35s cubic-bezier(.2,1.5,.4,1) both; }
+@keyframes numIn { from { transform: var(--unrot) scale(.3); } }
+.pile-num b { position: absolute; left: 0; bottom: 0; transform: translateX(-50%); white-space: nowrap; font-size: 3.6cqw; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums;
+  -webkit-text-stroke: .9cqw rgba(40,110,20,.9); paint-order: stroke fill; text-shadow: 0 0 1.6cqw rgba(255,255,255,.9), 0 .4cqw .6cqw rgba(0,0,0,.3); }
+.pile-num.minus b { -webkit-text-stroke-color: #d6162a; }
+
+/* ================= Animation nâng cấp nhà ================= */
+.bld .grow.still { animation: none; }
+.bld .grow.up { animation: buildUp 1s cubic-bezier(.3,1.2,.4,1) both; }
+@keyframes buildUp {
+  0% { transform: translateZ(14cqw) scale3d(.6,.6,.6) rotateZ(-200deg); }
+  45% { transform: translateZ(0) scale3d(1.12,1.12,.8) rotateZ(0deg); }
+  65% { transform: translateZ(0) scale3d(.95,.95,1.2); }
+  82% { transform: translateZ(0) scale3d(1.03,1.03,.96); }
+  100% { transform: translateZ(0) scale3d(1,1,1); }
+}
+.bld .sparks3 { position: absolute; left: 50%; bottom: 3cqw; width: 0; height: 0; }
+.bld .sparks3 i { position: absolute; left: -.6cqw; top: -.6cqw; width: 1.2cqw; height: 1.2cqw;
+  background: #fff7b0; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  animation: spark3 1s ease-out both; animation-delay: calc(.35s + var(--d)); }
+@keyframes spark3 {
+  0% { transform: rotate(var(--a)) translateY(0) scale(0); opacity: 1; }
+  30% { transform: rotate(var(--a)) translateY(-4cqw) scale(1.6); opacity: 1; }
+  100% { transform: rotate(var(--a)) translateY(-8cqw) scale(0); opacity: 0; }
+}
+.bld .lvl-badge { position: absolute; left: 50%; bottom: 9cqw; transform: translateX(-50%); white-space: nowrap; font-size: 1.9cqw; font-weight: 800; color: #fff;
+  background: linear-gradient(180deg, #ffb52e, #f08a00); padding: .3cqw 1.1cqw; border-radius: 99px; border: .2cqw solid #fff; box-shadow: 0 .4cqw .8cqw rgba(0,0,0,.3);
+  animation: badgeUp 1.7s ease-out both; }
+@keyframes badgeUp {
+  0% { transform: translateX(-50%) translateY(3cqw) scale(.3); opacity: 0; }
+  18% { transform: translateX(-50%) translateY(0) scale(1.15); opacity: 1; }
+  30% { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+  80% { transform: translateX(-50%) translateY(-1.5cqw) scale(1); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-3.5cqw) scale(.9); opacity: 0; }
+}
+.icon-btn.off { opacity: .55; }
+@media (max-width: 900px), (orientation: portrait) {
+  .pile-root { transform: scale3d(1.3,1.3,1.3); }
+  .pile-num b { font-size: 4.8cqw; }
+  .bld .lvl-badge { font-size: 2.6cqw; }
+  .tile.owned .pr { font-size: 2.2cqw; }
 }

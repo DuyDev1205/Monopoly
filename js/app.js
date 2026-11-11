@@ -1,9 +1,10 @@
 // Giao diện Cờ Tỷ Phú Việt Nam
 import { BOARD, GROUPS, SIZE, AIRPORT, BAIL, SALARY, RESORT_RENT, PLAYER_COLORS, WIN_LABEL, levelCost, SELL_RATE, BUYOUT_RATE, ICONS } from './data.js';
-import { newGame, apply, tick, timeLeft, fmt, fmtFull, rentOf, tileValue, buyoutCost, buildCost, maxBuildLevel, ownedBy, netWorth, animTime, ANIM } from './engine.js';
+import { newGame, apply, tick, timeLeft, BOT_THINK, fmt, fmtFull, rentOf, tileValue, buyoutCost, buildCost, maxBuildLevel, ownedBy, netWorth, animTime, ANIM } from './engine.js';
 import { botAction } from './bot.js';
 import { HostNet, GuestNet } from './net.js';
 import { charSVG } from './characters.js';
+import { createMusic } from './music.js';
 
 // ---------- tiện ích ----------
 const $ = (s) => document.querySelector(s);
@@ -30,10 +31,14 @@ function showScreen(id) {
 // ---------- âm thanh (tổng hợp, không cần file) ----------
 let actx = null;
 let soundOn = store.get('ctp_sound', true);
+function audioCtx() {
+  try { actx ||= new (window.AudioContext || window.webkitAudioContext)(); } catch {}
+  return actx;
+}
 function beep(freq, dur = 0.06, type = 'square', vol = 0.04) {
   if (!soundOn) return;
   try {
-    actx ||= new (window.AudioContext || window.webkitAudioContext)();
+    if (!audioCtx()) return;
     const o = actx.createOscillator(), g = actx.createGain();
     o.type = type; o.frequency.value = freq;
     g.gain.setValueAtTime(vol, actx.currentTime);
@@ -49,6 +54,8 @@ const sfx = {
   pay: () => beep(196, 0.14, 'sawtooth', 0.03),
   card: () => { beep(660, 0.1, 'sine', 0.06); setTimeout(() => beep(880, 0.14, 'sine', 0.06), 90); },
   build: () => beep(392, 0.1, 'triangle', 0.06),
+  clink: () => beep(1400 + Math.random() * 500, 0.06, 'triangle', 0.035),
+  upgrade: () => [523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => beep(f, 0.16, 'triangle', 0.06), i * 90)),
   turn: () => beep(740, 0.08, 'sine', 0.05),
   win: () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.22, 'triangle', 0.07), i * 130)),
 };
@@ -197,20 +204,26 @@ function model(t, lvl) {
   }
   return '';
 }
+const LVL_BADGE = ['', 'Cấp 1', 'Cấp 2', 'Cấp 3', 'Khách sạn'];
 function renderBuilding(i, s) {
   const o = s.own[i];
   if (!o) return;
   let el = bldEls[i];
   if (!el) { el = document.createElement('div'); el.className = 'bld'; bldLayer.appendChild(el); bldEls[i] = el; placeBuilding(i); }
   const key = o.o < 0 ? '' : `${o.o}|${o.lvl}|${s.festival === i}`;
-  if (el.dataset.key === key) return;
+  const prev = el.dataset.key || '';
+  if (prev === key) return;
   el.dataset.key = key;
   if (!key) { el.innerHTML = ''; return; }
   el.style.setProperty('--c', s.players[o.o].color);
   const t = BOARD[i];
   const lvl = t.type === 'city' ? o.lvl : 0;
-  el.innerHTML = `<div class="gshadow lv${lvl}"></div><div class="dust"></div><div class="grow">${model(t, lvl)}</div>
-    <div class="stand">${s.festival === i ? `<div class="fw">${ico('🎆', 'fi')}</div>` : ''}${lvl === 0 && t.type === 'city' ? '<div class="flag"></div>' : ''}</div>`;
+  const [po, pl] = prev.split('|');
+  const same = po === String(o.o) && pl === String(o.lvl);          // chỉ đổi trạng thái lễ hội -> không dựng lại
+  const upgraded = !same && po === String(o.o) && +pl < o.lvl;      // nâng cấp nhà
+  const sparks = upgraded ? `<div class="sparks3">${Array.from({ length: 10 }, (_, k) => `<i style="--a:${k * 36}deg;--d:${k * 35}ms"></i>`).join('')}</div><b class="lvl-badge">⬆ ${LVL_BADGE[lvl]}</b>` : '';
+  el.innerHTML = `<div class="gshadow lv${lvl}"></div>${same ? '' : '<div class="dust"></div>'}<div class="grow${same ? ' still' : upgraded ? ' up' : ''}">${model(t, lvl)}</div>
+    <div class="stand">${sparks}${s.festival === i ? `<div class="fw">${ico('🎆', 'fi')}</div>` : ''}${lvl === 0 && t.type === 'city' ? '<div class="flag"></div>' : ''}</div>`;
 }
 
 function makeTokens() {
@@ -291,27 +304,59 @@ function coins([x0, y0], [x1, y1], n = 8) {
   }
 }
 const boardXY = () => mid($('#board .center'));
-// mất tiền: chỉ hiện xấp tiền và con số ở giữa bàn
-function payPop(amount, dur = 1100) {
-  const [x, y] = boardXY();
-  const el = fxNode('pay-pop', `<img src="assets/icons/cash.webp" alt=""><b>-${fmtFull(amount)}</b>`);
-  const at = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
-  el.animate([
-    { transform: `${at} scale(.4)`, opacity: 0 },
-    { transform: `${at} scale(1.12)`, opacity: 1, offset: 0.16 },
-    { transform: `${at} scale(1)`, opacity: 1, offset: 0.8 },
-    { transform: `${at} translateY(-24px) scale(.95)`, opacity: 0 },
-  ], { duration: dur, easing: 'ease-out', fill: 'both' }).onfinish = () => el.remove();
+
+// ---------- đống tiền giữa bàn: xu vàng (ít) -> xấp tiền (vừa) -> thỏi vàng (nhiều) ----------
+const pileLayer = $('#pile');
+// khối hộp 3 mặt nhìn thấy (trên, trước, phải)
+const slab = (w, d, h, cls, x, y, z) => `<div class="it ${cls}" style="--x:${u(x)};--y:${u(y)};--z:${u(z)}">
+  <div class="fc top" style="left:${u(-w / 2)};top:${u(-d / 2)};width:${u(w)};height:${u(d)};transform:translateZ(${u(h)})"></div>
+  <div class="fc wf" style="left:${u(-w / 2)};top:${u(d / 2 - h)};width:${u(w)};height:${u(h)}"></div>
+  <div class="fc wr" style="left:${u(w / 2 - h)};top:${u(-d / 2)};width:${u(h)};height:${u(d)}"></div></div>`;
+const CASH_POS = [[-2.75, 0, 0], [2.75, 0, 0], [-2.75, -2.95, 0], [2.75, -2.95, 0], [-2.75, 2.95, 0], [2.75, 2.95, 0],
+  [-2.75, -1.47, 1], [2.75, -1.47, 1], [-2.75, 1.47, 1], [2.75, 1.47, 1], [-2.75, 0, 2], [2.75, 0, 2]];
+const GOLD_POS = [[0, -1.2, 0], [0, 1.2, 0], [0, -3.6, 0], [0, 3.6, 0], [0, 0, 1], [0, -2.4, 1], [0, 2.4, 1], [0, -1.2, 2], [0, 1.2, 2]];
+const COIN_POS = [[0, 0], [3.3, -1.1], [-3.1, 1.3], [0.7, 3.4]];
+/** amount tính bằng triệu. Trả về [html các món, chiều cao đống] */
+function pileItems(amount) {
+  const items = [];
+  let top = 0;
+  const coinStack = (k, x, y) => { for (let j = 0; j < k; j++) items.push(`<div class="it coin3" style="--x:${u(x)};--y:${u(y)};--z:${u(j * 0.36)}"></div>`); top = Math.max(top, k * 0.36); };
+  if (amount < 100) {
+    const stacks = Math.min(4, 1 + Math.floor(amount / 30));
+    for (let k = 0; k < stacks; k++) coinStack(3 + ((Math.round(amount) + k * 3) % 5), COIN_POS[k][0], COIN_POS[k][1]);
+  } else if (amount < 600) {
+    const n = Math.min(12, Math.max(2, Math.round(amount / 50)));
+    for (let k = 0; k < n; k++) { const [x, y, l] = CASH_POS[k]; items.push(slab(5.2, 2.7, 1.1, 'cash', x, y, l * 1.15)); top = Math.max(top, (l + 1) * 1.15); }
+  } else {
+    const n = Math.min(9, 2 + Math.floor(amount / 300));
+    for (let k = 0; k < n; k++) { const [x, y, l] = GOLD_POS[k]; items.push(slab(5, 2.1, 1.35, 'gold', x - 1.6, y, l * 1.4)); top = Math.max(top, (l + 1) * 1.4); }
+    coinStack(7, 4.6, -1.8); coinStack(4, 5, 1.6);
+  }
+  return [items.map((h, k) => h.replace('style="', `style="animation-delay:${k * 70}ms;`)).join(''), top];
 }
-function stamp([x, y], text, color) {
-  const el = fxNode('stamp', esc(text));
-  el.style.setProperty('--sc', color);
-  el.animate([
-    { transform: `translate(${x}px, ${y}px) translate(-50%, -50%) scale(2.6) rotate(-14deg)`, opacity: 0 },
-    { transform: `translate(${x}px, ${y}px) translate(-50%, -50%) scale(1) rotate(-8deg)`, opacity: 1, offset: 0.22 },
-    { transform: `translate(${x}px, ${y - 10}px) translate(-50%, -50%) scale(1) rotate(-8deg)`, opacity: 1, offset: 0.8 },
-    { transform: `translate(${x}px, ${y - 40}px) translate(-50%, -50%) scale(.8) rotate(-8deg)`, opacity: 0 },
-  ], { duration: 1200, easing: 'ease-out', fill: 'both' }).onfinish = () => el.remove();
+/** Hiện đống tiền + con số chạy ở giữa bàn. onMid: gọi khi đống tiền đã hiện xong (vd. cho xu bay về chủ đất) */
+async function showPile(amount, { minus = false, dur = 2000, onMid } = {}) {
+  const [html, top] = pileItems(amount);
+  const rootEl = document.createElement('div');
+  rootEl.className = 'pile-root';
+  rootEl.innerHTML = `${html}<div class="pile-lift" style="transform:translateZ(${u(top + 4.5)})"><div class="pile-num${minus ? ' minus' : ''}"><b></b></div></div>`;
+  pileLayer.appendChild(rootEl);
+  boardEl.classList.add('paying');
+  const num = rootEl.querySelector('b'), t0 = performance.now(), cu = Math.min(900, dur * 0.45);
+  const run = (now) => {
+    const k = Math.min(1, (now - t0) / cu);
+    num.textContent = (minus ? '-' : '') + fmtFull(Math.round(amount * (1 - (1 - k) ** 3)));
+    if (k < 1 && rootEl.isConnected) requestAnimationFrame(run);
+  };
+  run(t0);
+  for (let k = 0; k < 5; k++) setTimeout(sfx.clink, 120 + k * 110);
+  await sleep(dur * 0.6);
+  onMid?.();
+  await sleep(dur * 0.4 - 300);
+  rootEl.classList.add('out');
+  await sleep(300);
+  rootEl.remove();
+  if (!pileLayer.childElementCount) boardEl.classList.remove('paying');
 }
 function burst([x, y], color, n = 14) {
   for (let k = 0; k < n; k++) {
@@ -660,25 +705,22 @@ async function play(events, fin) {
       }
       case 'rent':
         if (fast) break;
-        payPop(e.amount, ANIM.rent); sfx.pay();
-        setTimeout(() => coins(boardXY(), cardXY(e.to), 8), 380);
-        await sleep(ANIM.rent);
+        sfx.pay();
+        await showPile(e.amount, { minus: true, dur: ANIM.rent, onMid: () => coins(boardXY(), cardXY(e.to), 10) });
         break;
       case 'tax':
         if (fast) break;
-        payPop(e.amount, ANIM.tax); sfx.pay();
-        await sleep(ANIM.tax);
+        sfx.pay();
+        await showPile(e.amount, { minus: true, dur: ANIM.tax });
         break;
-      case 'buy': case 'buyout': {
+      case 'buy': case 'upgrade':
         if (fast) break;
-        const xy = tileXY(e.tile), color = fin.players[e.pid].color;
-        coins(cardXY(e.pid), xy, 8);
-        if (e.t === 'buyout') coins(xy, cardXY(e.from), 8);
-        await sleep(450);
-        burst(xy, color); stamp(xy, e.t === 'buy' ? 'ĐÃ MUA' : 'MUA LẠI!', color); sfx.coin();
-        await sleep(ANIM[e.t] - 450);
+        await showPile(e.cost, { dur: ANIM[e.t] });
         break;
-      }
+      case 'buyout':
+        if (fast) break;
+        await showPile(e.cost, { dur: ANIM.buyout, onMid: () => coins(boardXY(), cardXY(e.from), 10) });
+        break;
       case 'money':
         view.money[e.pid] += e.delta; updMoney(e.pid);
         if (!fast) { floatMoney(e.pid, e.delta); (e.delta > 0 ? sfx.coin : sfx.pay)(); }
@@ -687,10 +729,19 @@ async function play(events, fin) {
         if (fast) break;
         await showCard(e);
         break;
-      case 'build':
+      case 'build': {
+        const before = bldEls[e.tile]?.dataset.key || '';
         renderTile(e.tile, fin);
-        if (!fast) { sfx.build(); tileEls[e.tile].classList.remove('flash'); void tileEls[e.tile].offsetWidth; tileEls[e.tile].classList.add('flash'); }
+        if (fast) break;
+        tileEls[e.tile].classList.remove('flash'); void tileEls[e.tile].offsetWidth; tileEls[e.tile].classList.add('flash');
+        if (e.up) {
+          const o = fin.own[e.tile];
+          (before && +before.split('|')[1] < o.lvl ? sfx.upgrade : sfx.build)();
+          burst(tileXY(e.tile), fin.players[o.o].color);
+          await sleep(ANIM.build);
+        }
         break;
+      }
       case 'msg': addLog(e.text); break;
       case 'again': addLog(`🎲 ${name(e.pid)} gieo đôi, được gieo tiếp!`); break;
       case 'turn':
@@ -754,7 +805,6 @@ function enterGame(state) {
 }
 
 // ===== Chơi trên máy =====
-const BOT_THINK = 450;
 class LocalCtl {
   constructor(s) { this.s = s; this.t = null; this.last = Date.now(); }
   send(a) {
@@ -970,6 +1020,25 @@ $('#btnMenu').onclick = () => {
 const SOUND_ON = '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>';
 const SOUND_OFF = '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M4 9v6h4l5 4V5L8 9H4zm12.3 3 2.6-2.6-1.4-1.4-2.6 2.6-2.6-2.6-1.4 1.4 2.6 2.6-2.6 2.6 1.4 1.4 2.6-2.6 2.6 2.6 1.4-1.4z"/></svg>';
 const paintSound = () => { $('#btnSound').innerHTML = soundOn ? SOUND_ON : SOUND_OFF; };
+
+// ===== Nhạc nền =====
+const MUSIC_SVG = '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M9 4.5v9.9A3.2 3.2 0 1 0 11 17.4V8.6l7-1.4v5.2a3.2 3.2 0 1 0 2 3V3z"/>';
+const music = createMusic(audioCtx);
+let musicOn = store.get('ctp_music', true);
+function paintMusic() {
+  $('#btnMusic').innerHTML = `${MUSIC_SVG}${musicOn ? '' : '<path stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M4 4l16 16"/>'}</svg>`;
+  $('#btnMusic').classList.toggle('off', !musicOn);
+  $('#btnMusicHome').textContent = `🎵 Nhạc nền: ${musicOn ? 'Bật' : 'Tắt'}`;
+  $('#btnMusicHome').classList.toggle('on', musicOn);
+}
+function syncMusic() { if (musicOn && !document.hidden) music.start(); else music.stop(); }
+function toggleMusic() { musicOn = !musicOn; store.set('ctp_music', musicOn); paintMusic(); syncMusic(); }
+$('#btnMusic').onclick = toggleMusic;
+$('#btnMusicHome').onclick = toggleMusic;
+document.addEventListener('visibilitychange', syncMusic);
+// trình duyệt chỉ cho phát âm thanh sau thao tác đầu tiên của người dùng
+document.addEventListener('pointerdown', syncMusic, { once: true });
+document.addEventListener('keydown', syncMusic, { once: true });
 $('#btnSound').onclick = () => { soundOn = !soundOn; store.set('ctp_sound', soundOn); paintSound(); };
 
 // ===== Giao diện (theme) =====
@@ -996,7 +1065,10 @@ document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () 
 }));
 
 function init() {
-  new Image().src = 'assets/icons/cash.webp'; // tải sẵn để hiệu ứng mất tiền hiện ngay
+  // thời lượng animation trong CSS lấy theo ANIM để luôn khớp với nhịp game
+  const rs = document.documentElement.style;
+  rs.setProperty('--t-step', `${ANIM.step}ms`); rs.setProperty('--t-fly', `${ANIM.fly}ms`); rs.setProperty('--t-dice', `${ANIM.dice}ms`);
+  paintMusic();
   applyTheme(theme);
   buildBoard();
   paintSound();
