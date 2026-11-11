@@ -52,6 +52,7 @@ export const ownedBy = (s, pid) => s.own.map((o, i) => (o && o.o === pid ? i : -
 export const assets = (s, pid) => ownedBy(s, pid).reduce((a, i) => a + tileValue(s, i), 0);
 export const netWorth = (s, pid) => s.players[pid].money + assets(s, pid);
 export const ownsGroup = (s, pid, g) => GROUP_TILES[g].every((i) => s.own[i].o === pid);
+export const MONO_MULT = 1.5;
 export function rentOf(s, i, diceSum = 7) {
   const t = BOARD[i], o = s.own[i];
   if (!o || o.o < 0) return 0;
@@ -59,7 +60,7 @@ export function rentOf(s, i, diceSum = 7) {
   if (t.type === 'resort') r = RESORT_RENT[RESORTS.filter((k) => s.own[k].o === o.o).length];
   else {
     r = t.rent[o.lvl];
-    if (o.lvl === 0 && ownsGroup(s, o.o, t.group)) r *= 2;
+    if (ownsGroup(s, o.o, t.group)) r = Math.round(r * MONO_MULT);   // độc quyền: cả vùng +50%
   }
   if (s.festival === i) r *= s.festMult || 2;
   if (isRandFest(s, i)) r = Math.round(r * RAND_FEST_MULT);
@@ -203,7 +204,7 @@ function proceed(s, ev) {
   nextTurn(s, ev);
 }
 
-// vừa gom đủ một vùng màu -> độc quyền (tiền thuê đất trống ×2)
+// vừa gom đủ một vùng màu -> độc quyền (tiền thuê cả vùng +50%)
 function monoCheck(s, ev, pid, i) {
   const t = BOARD[i];
   if (t.type !== 'city' || !ownsGroup(s, pid, t.group)) return;

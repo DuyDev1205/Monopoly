@@ -885,7 +885,9 @@ body[data-theme] .tile.resort { background: linear-gradient(var(--sea), #fde9b8 
 /* ================= Festival: cổng 2 cột + băng rôn cong ================= */
 .tile.rfest { box-shadow: inset 0 0 0 .4cqw #2fbf6c, 0 0 1.8cqw rgba(47,191,108,.7); }
 .fflag { position: absolute; left: 0; top: 0; transform-style: preserve-3d; pointer-events: none; z-index: 5; }
-.fflag .stand { position: absolute; left: -5.4cqw; bottom: 0; width: 10.8cqw; transform-origin: 50% 100%; transform: var(--unrot); }
+.fflag .stand { position: absolute; left: -4.7cqw; bottom: 0; width: 9.4cqw; transform-origin: 50% 100%; transform: rotateX(-90deg); }
+/* cạnh trái/phải: cổng xoay 90° để 2 cột nằm đúng 2 mép ô, băng rôn song song cạnh ô */
+.fflag.s-l .stand, .fflag.s-r .stand { transform: rotateZ(-90deg) rotateX(-90deg); }
 .fflag svg.arch { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 .35cqw .3cqw rgba(30,10,40,.35)); }
 .fflag .sway { transform-box: view-box; transform-origin: 100px 60px; animation: archSway 3.2s ease-in-out infinite; }
 @keyframes archSway { 0%, 100% { transform: rotate(-1.2deg); } 50% { transform: rotate(1.2deg); } }
@@ -897,10 +899,11 @@ body[data-theme] .tile.resort { background: linear-gradient(var(--sea), #fde9b8 
 .fflag .tw.t2 { animation-delay: -.5s; } .fflag .tw.t3 { animation-delay: -1s; }
 @keyframes twinkle2 { 0%, 100% { opacity: .2; transform: scale(.5); } 50% { opacity: 1; transform: scale(1.1); } }
 .fflag.fresh .stand { animation: archRise .8s cubic-bezier(.2,1.4,.4,1) both; }
-@keyframes archRise { from { transform: var(--unrot) translateY(6cqw) scaleY(.2); opacity: 0; } }
+@keyframes archRise { from { scale: 1 .1; opacity: 0; } }
 /* điện thoại (bàn nghiêng thẳng): cổng nhỏ lại, cột trái/phải thu nhỏ hơn cho vừa ô hẹp */
+/* điện thoại (bàn nhìn thẳng): cổng quay mặt về phía người xem cho dễ thấy */
 @media (max-width: 900px), (orientation: portrait) {
-  .fflag .stand { left: -4.6cqw; width: 9.2cqw; }
+  .fflag .stand, .fflag.s-l .stand, .fflag.s-r .stand { left: -4.6cqw; width: 9.2cqw; transform: var(--unrot); }
   .fflag.s-l .stand, .fflag.s-r .stand { left: -3.6cqw; width: 7.2cqw; }
 }
 
@@ -934,5 +937,5 @@ body.ingame .copyright { display: none; }
 @media (max-width: 900px), (orientation: portrait) {
   .banner b { font-size: 26px; padding: 4px 18px; white-space: nowrap; }
   .banner small { font-size: 14px; max-width: 86vw; }
-  .fflag.s-b .stand, .fflag.s-t .stand { left: -5.4cqw; width: 10.8cqw; }
+  .fflag.s-b .stand, .fflag.s-t .stand { left: -5.4cqw; width: 10.8cqw; transform: var(--unrot); }
 }

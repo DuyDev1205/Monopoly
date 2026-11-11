@@ -22,6 +22,7 @@ Chơi với máy ngay trên trình duyệt, hoặc chơi online cùng bạn bè 
 - Đến đất người khác: trả tiền thuê, sau đó được **mua lại** với giá gấp đôi giá trị (trừ đất đã có Khách sạn).
 - Gieo đôi được đi tiếp. Gieo đôi 3 lần liền thì bị dạt ra Đảo Hoang.
 - Hết tiền phải bán đất cho ngân hàng (nhận 50% giá trị). Không còn gì để bán thì phá sản.
+- **Độc quyền:** đủ một vùng màu thì mọi ô trong vùng được +50% tiền thuê.
 - **Chiến thắng:** độc quyền 3 vùng màu, chiếm trọn thành phố một cạnh bàn cờ, sở hữu cả 4 khu du lịch, là người cuối cùng còn trụ lại, hoặc giàu nhất khi hết giờ (chọn 15–60 phút).
 
 ## Chơi online không cần server

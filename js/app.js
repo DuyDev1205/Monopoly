@@ -301,8 +301,10 @@ function flagAnchor(i) {
     return [L + W / 2, T + H * 0.12];
   }
   switch (sideOf(i)) {
-    case 'b': case 't': return [L + W / 2, T + H * 0.1];
-    case 'l': case 'r': return [L + W * 0.1, T + H / 2];
+    case 'b': return [L + W / 2, T + H * 0.08];
+    case 't': return [L + W / 2, T + H * 0.08];
+    case 'l': return [L + W * 0.08, T + H / 2];
+    case 'r': return [L + W * 0.08, T + H / 2];
   }
   return [L + W / 2, T + H / 2];
 }
@@ -840,7 +842,7 @@ function showTileInfo(i) {
     h += `<span class="gchip" style="background:${g.color}">${esc(g.name)}</span>`;
     h += '<table class="rtable">';
     h += `<tr><td>Giá đất</td><td>${fmt(t.price)}</td></tr>`;
-    LVL_NAME.forEach((n, l) => { h += `<tr class="${o && o.o >= 0 && o.lvl === l ? 'now' : ''}"><td>Thuê: ${l === 0 ? 'đất trống (×2 khi đủ bộ màu)' : n}</td><td>${fmt(t.rent[l])}</td></tr>`; });
+    LVL_NAME.forEach((n, l) => { h += `<tr class="${o && o.o >= 0 && o.lvl === l ? 'now' : ''}"><td>Thuê: ${l === 0 ? 'đất trống' : n}</td><td>${fmt(t.rent[l])}</td></tr>`; });
     h += `<tr><td>Xây mỗi nhà</td><td>${fmt(levelCost(t, 1))}</td></tr><tr><td>Xây khách sạn</td><td>${fmt(levelCost(t, 4))}</td></tr></table>`;
   } else if (t.type === 'resort') {
     h += '<span class="gchip" style="background:#18a0b5">Khu du lịch</span><table class="rtable">';
@@ -887,7 +889,7 @@ function tileTip(i) {
       const tags = [];
       if (S.festival === i) tags.push(`🎆 Lễ hội ×${S.festMult || 2}`);
       if (isRandFest(S, i)) tags.push('🎊 Festival +50%');
-      if (t.type === 'city' && ownsGroup(S, o.o, t.group)) tags.push('👑 Độc quyền');
+      if (t.type === 'city' && ownsGroup(S, o.o, t.group)) tags.push('👑 Độc quyền +50%');
       if (tags.length) h += `<div class="tp-tags">${tags.map((x) => `<span>${x}</span>`).join('')}</div>`;
       h += `<div class="tp-row"><span>Giá trị</span><b>${fmtFull(tileValue(S, i))}</b></div>`;
       h += t.type === 'city' && o.lvl >= 4 ? '<div class="tp-row muted"><span>🏨 Khách sạn: không thể mua lại</span></div>'
@@ -1118,7 +1120,7 @@ async function play(events, fin) {
         if (fast) break;
         sfx.win();
         e.tiles.forEach((k) => burst(tileXY(k), fin.players[e.pid].color, 12));
-        await banner('👑 ĐỘC QUYỀN', `${GROUPS[e.group].name} · thuê đất trống ×2`, GROUPS[e.group].color, ANIM.mono);
+        await banner('👑 ĐỘC QUYỀN', `${GROUPS[e.group].name} · tiền thuê cả vùng +50%`, GROUPS[e.group].color, ANIM.mono);
         break;
       case 'money':
         view.money[e.pid] += e.delta; updMoney(e.pid);
