@@ -943,49 +943,34 @@ body.ingame .copyright { display: none; }
 /* ================= Con tốt luôn đứng trước nhà (không bị khách sạn che) ================= */
 .token .stand { transform: var(--unrot) translateZ(9cqw); }
 
-/* ================= Chân dung doanh nhân: thở, chớp mắt, nhìn theo, cảm xúc ================= */
-svg.pt { overflow: hidden; }
-.pt .rig { transform-box: view-box; transform-origin: 60px 120px; transition: transform .35s cubic-bezier(.2,1.4,.4,1); }
-.pt .torso { transform-box: view-box; transform-origin: 60px 122px; animation: ptBreath 2.86s ease-in-out infinite; }
-.pt .head { transform-box: view-box; transform-origin: 60px 86px; animation: ptHead 2.86s ease-in-out .16s infinite; }
-.pt .tilt { transform-box: view-box; transform-origin: 60px 82px; animation: ptTilt 5.7s ease-in-out infinite; }
-.pt .hairF { animation: ptHair 2.86s ease-in-out .32s infinite; }
-@keyframes ptBreath { 0%, 100% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(-2.5px) scaleY(1.012); } }
-@keyframes ptHead { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-@keyframes ptTilt { 0%, 100% { transform: rotate(-.86deg); } 50% { transform: rotate(.86deg); } }
-@keyframes ptHair { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.8px); } }
-.pt .iris { transform-box: fill-box; transform-origin: center; transform: translate(calc(var(--gx, 0) * 1px), calc(var(--gy, 0) * 1px)); transition: transform .3s ease-out; }
-.pt .lid { transform-box: fill-box; transform-origin: 50% 0; transform: scaleY(0); transition: transform .14s ease-in; }
-.pt.blink .lid { transform: scaleY(1); transition-duration: .07s; }
-.pt .eye, .pt .browL, .pt .browR { transform-box: fill-box; transform-origin: center; transition: transform .3s ease; }
-.pt .happy, .pt .sweat { display: none; }
-.pt .pale { opacity: 0; transition: opacity .4s; }
-.pt .spk { opacity: 0; }
-.pt .mouth > g { display: none; }
-.pt[data-emo="idle"] .m-idle, .pt[data-emo="excited"] .m-excited, .pt[data-emo="victory"] .m-victory, .pt[data-emo="shock"] .m-shock { display: inline; }
-/* Tự tin: nhếch mép, chân mày lệch nhẹ */
-.pt[data-emo="idle"] .browL { transform: translateY(-.9px) rotate(-3deg); }
-/* Hào hứng: mắt mở to, mày nhướn, chồm tới, thở nhanh */
-.pt[data-emo="excited"] .rig { transform: scale(1.04); }
-.pt[data-emo="excited"] .eye { transform: scale(1.14); }
-.pt[data-emo="excited"] .browL, .pt[data-emo="excited"] .browR { transform: translateY(-2.6px); }
-.pt[data-emo="excited"] .torso, .pt[data-emo="excited"] .head, .pt[data-emo="excited"] .hairF { animation-duration: 1.45s; }
-/* Chiến thắng: mắt cười, miệng cười lớn, vai nhún, lấp lánh */
-.pt[data-emo="victory"] .eye { display: none; }
-.pt[data-emo="victory"] .happy { display: inline; }
-.pt[data-emo="victory"] .browL, .pt[data-emo="victory"] .browR { transform: translateY(-1.8px); }
-.pt[data-emo="victory"] .torso { animation: ptBounce .5s ease-in-out infinite; }
-.pt[data-emo="victory"] .spk { opacity: 1; }
-.pt[data-emo="victory"] .spk path { transform-box: fill-box; transform-origin: center; animation: twinkle2 1s ease-in-out infinite; }
-.pt[data-emo="victory"] .spk path:nth-child(2) { animation-delay: -.35s; } .pt[data-emo="victory"] .spk path:nth-child(3) { animation-delay: -.7s; }
-@keyframes ptBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
-/* Sốc: mày chau, nhăn răng, trán tái xanh, mồ hôi chảy */
-.pt[data-emo="shock"] .browL { transform: translateY(1.3px) rotate(14deg); }
-.pt[data-emo="shock"] .browR { transform: translateY(1.3px) rotate(-14deg); }
-.pt[data-emo="shock"] .iris { transform: translate(calc(var(--gx, 0) * 1px), calc(var(--gy, 0) * 1px)) scale(.78); }
-.pt[data-emo="shock"] .pale { opacity: .38; }
-.pt[data-emo="shock"] .sweat { display: inline; transform-box: fill-box; animation: ptSweat 1.5s ease-in infinite; }
-@keyframes ptSweat { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(12px); opacity: 0; } }
+/* ================= Chân dung doanh nhân (ảnh Avataaars): thở, chớp mắt, cảm xúc ================= */
+.chr.pt { display: block; position: relative; width: 100%; height: 100%; overflow: hidden; container-type: size; }
+.pt .pt-rig { position: absolute; inset: 0; transform-origin: 50% 100%; animation: pt2Breath 2.86s ease-in-out infinite; }
+.pt img { position: absolute; inset: 0; width: 100% !important; height: 100% !important; max-width: none; opacity: 0; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+.pt[data-emo="idle"] .s-idle, .pt[data-emo="excited"] .s-excited, .pt[data-emo="victory"] .s-victory, .pt[data-emo="shock"] .s-shock { opacity: 1; }
+.pt.blink[data-emo="idle"] .s-idle { opacity: 0; }
+.pt.blink[data-emo="idle"] .s-blink { opacity: 1; }
+@keyframes pt2Breath { 0%, 100% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(-1.3%) scaleY(1.012); } }
+/* Hào hứng: chồm tới, nhún nhanh */
+.pt[data-emo="excited"] .pt-rig { animation: pt2Excite .8s ease-in-out infinite; }
+@keyframes pt2Excite { 0%, 100% { transform: scale(1.05) translateY(0); } 50% { transform: scale(1.07) translateY(-2.5%); } }
+/* Chiến thắng: nhún vai + lấp lánh */
+.pt[data-emo="victory"] .pt-rig { animation: pt2Bounce .5s ease-in-out infinite; }
+@keyframes pt2Bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5%); } }
+.pt .pt-spk { display: none; position: absolute; inset: 0; pointer-events: none; }
+.pt[data-emo="victory"] .pt-spk { display: block; }
+.pt .pt-spk::before, .pt .pt-spk::after { content: '✦'; position: absolute; color: #ffd23f; text-shadow: 0 0 2cqw #fff3b0; font-size: 20cqw; line-height: 1; animation: twinkle2 1s ease-in-out infinite; }
+.pt .pt-spk::before { left: 8%; top: 10%; }
+.pt .pt-spk::after { right: 8%; top: 32%; font-size: 15cqw; animation-delay: -.5s; }
+/* Sốc: run + giọt mồ hôi */
+.pt[data-emo="shock"] .pt-rig { animation: pt2Shake .3s linear infinite; }
+@keyframes pt2Shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-1.6%); } 75% { transform: translateX(1.6%); } }
+.pt .pt-sweat { display: none; position: absolute; right: 26%; top: 22%; width: 9cqw; height: 9cqw; border-radius: 0 50% 50% 50%;
+  background: radial-gradient(circle at 35% 35%, #fff, #bfe2ff 50%, #6ab0f2); box-shadow: 0 0 0 .4cqw rgba(90,155,224,.6); }
+.pt[data-emo="shock"] .pt-sweat { display: block; animation: pt2Sweat 1.4s ease-in infinite; }
+@keyframes pt2Sweat { 0% { transform: translateY(0) rotate(45deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(14cqw) rotate(45deg); opacity: 0; } }
+.cp-card .pt { width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(circle at 50% 30%, #fffaf0, #f2d8c2 75%); }
+@media (max-width: 480px) { .cp-card .pt { width: 54px; height: 54px; } }
 
 /* khung ảnh người chơi: vòng vàng – gỗ gụ */
 .pc .tk { width: 66px; height: 66px; border: 4px solid transparent;
@@ -1024,3 +1009,5 @@ svg.pt { overflow: hidden; }
 .cp-card svg, .prow .tok svg.chr, .av svg.chr, .tp-av svg.chr, .turn-label .tk svg.chr { overflow: hidden; }
 .cp-card { min-height: 98px; justify-content: flex-start; }
 .cp-card.taken::after { line-height: 1; }
+/* khung ảnh nhỏ: phóng to phần mặt của chân dung cho rõ */
+.pc .tk .pt-rig, .turn-label .tk .pt-rig, .av .pt-rig, .tp-av .pt-rig, .prow .tok .pt-rig { inset: -12% -12% -6% -12%; }

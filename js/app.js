@@ -69,7 +69,7 @@ function emoOf(pid, s = S) {
   const m = emoState[pid];
   return m && m.until > performance.now() ? m.e : 'idle';
 }
-function paintEmo(pid) { document.querySelectorAll(`svg.pt[data-pid="${pid}"]`).forEach((el) => { el.dataset.emo = emoOf(pid); }); }
+function paintEmo(pid) { document.querySelectorAll(`.pt[data-pid="${pid}"]`).forEach((el) => { el.dataset.emo = emoOf(pid); }); }
 function setEmo(pid, e, ms) {
   if (pid == null || pid < 0) return;
   emoState[pid] = { e, until: performance.now() + ms };
@@ -77,7 +77,7 @@ function setEmo(pid, e, ms) {
   setTimeout(() => paintEmo(pid), ms + 30);
 }
 // ảnh đại diện của người chơi pid (chân dung có cảm xúc)
-const avatar = (pid, s = S) => charSVG(charOf(s.players[pid], pid), true, emoOf(pid, s)).replace('<svg ', `<svg data-pid="${pid}" `);
+const avatar = (pid, s = S) => charSVG(charOf(s.players[pid], pid), true, emoOf(pid, s)).replace(/^<(\w+) /, `<$1 data-pid="${pid}" `);
 function emoEvent(e) {
   switch (e.t) {
     case 'dice': return setEmo(e.pid, 'excited', 2400);
@@ -995,7 +995,7 @@ function openCharPicker(cur, taken, color, onPick) {
       <div class="cp-wrap">
         <div class="cp-preview" style="--c:${color}">${charSVG(sel, true, emo)}</div>
         <div class="cp-side"><b class="cp-name">${esc(CHARACTERS[sel].name)}</b>
-          <small>${CHARACTERS[sel].kind === 'suit' ? 'Doanh nhân · thở, chớp mắt, nhìn theo chuột, đổi cảm xúc theo ván' : 'Nhân vật vui nhộn'}</small>
+          <small>${CHARACTERS[sel].kind === 'suit' ? 'Doanh nhân · chớp mắt, đổi cảm xúc theo diễn biến ván' : 'Nhân vật vui nhộn'}</small>
           ${CHARACTERS[sel].kind === 'suit' ? `<div class="cp-emos">${Object.entries(EMOTIONS).map(([k, v]) => `<button class="btn small${k === emo ? ' gold' : ''}" data-emo="${k}">${v}</button>`).join('')}</div>` : ''}
         </div>
       </div>

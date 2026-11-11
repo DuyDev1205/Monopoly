@@ -48,6 +48,7 @@ Thử riêng đường dự phòng: thêm `&relay=1` vào link mời.
 | Giao diện | 2 theme: 🌸 Hoa anh đào (mặc định) và 🏮 Phố đèn lồng; đổi ở trang chủ hoặc menu trong ván |
 | Icon | [Fluent Emoji 3D](https://github.com/microsoft/fluentui-emoji) (Microsoft, giấy phép MIT), đã thu nhỏ thành WebP 96px |
 | Online | WebRTC qua PeerJS |
+| Nhân vật doanh nhân | [Avataaars](https://avataaars.com/) của Pablo Stanley (miễn phí cho cá nhân và thương mại), tạo bằng [DiceBear](https://www.dicebear.com/) |
 
 ## Cấu trúc
 
@@ -58,7 +59,7 @@ assets/icons/     icon 3D (webp)
 js/data.js        bàn cờ, thẻ Cơ Hội, bảng giá
 js/engine.js      luật chơi
 assets/logo.svg   logo (đồng xu TD); icon PNG cho iPhone/Android trong assets/
-js/characters.js  8 nhân vật: 4 chibi + 4 doanh nhân (chân dung nhiều lớp: thở, chớp mắt, nhìn theo chuột, 4 cảm xúc)
+js/characters.js  8 nhân vật: 4 chibi + 4 doanh nhân (ảnh trong assets/chars, 5 trạng thái: thường, chớp mắt, hào hứng, chiến thắng, sốc)
 js/music.js       nhạc nền tổng hợp bằng WebAudio (không dùng file nhạc)
 js/bot.js         máy chơi
 js/room.js        phòng online (chạy ở máy chủ phòng)
