@@ -155,11 +155,13 @@ flatView.addEventListener?.('change', () => bldEls.forEach((_, i) => placeBuildi
 function bldAnchor(i) {
   const t = tileEls[i];
   const L = t.offsetLeft, T = t.offsetTop, W = t.offsetWidth, H = t.offsetHeight;
-  if (BOARD[i].type === 'resort') {   // biển ở mép ngoài, chữ trên bãi cát, chòi ở phía trong
+  if (BOARD[i].type === 'resort') {
+    // biển luôn ở mép ngoài. Cạnh gần (dưới/phải): chòi phía trong, chữ trên bãi cát.
+    // Cạnh xa (trái/trên): chòi là nhà sàn ở mép biển, chữ phía trong -> chòi mọc lên không che chữ.
     switch (sideOf(i)) {
       case 'b': return [L + W / 2, T + H * 0.24];
-      case 't': return [L + W / 2, T + H * 0.76];
-      case 'l': return [L + W * 0.76, T + H / 2];
+      case 't': return [L + W / 2, T + H * 0.26];
+      case 'l': return [L + W * 0.26, T + H / 2];
       case 'r': return [L + W * 0.24, T + H / 2];
     }
   }
@@ -580,6 +582,8 @@ function renderActions() {
   lbl.innerHTML = S.phase === 'over' ? '' : `<span class="tk" style="--c:${p.color}">${charSVG(S.cur, true)}</span>${isMineRaw() ? (mode === 'local' && S.players.filter((q) => !q.bot).length > 1 ? `Lượt của ${esc(p.name)}` : 'Lượt của bạn') : `Lượt của ${esc(p.name)}`}`;
   setPicks([]);
   tileEls.forEach((el) => el.classList.remove('chosen'));
+  const side = $('#sidePanel');
+  side.classList.add('hidden');
   if (S.phase !== 'debt') sellSel.clear();
   if (busy || S.phase === 'over') { box.innerHTML = ''; return; }
   if (!isMine()) { box.innerHTML = ''; return; }
@@ -598,7 +602,7 @@ function renderActions() {
       }
       break;
     case 'travel':
-      h = `<div class="msg">✈️ Chọn ô để bay tới · vé <b>${fmtFull(AIRPORT_FEE)}</b></div><button class="btn" data-a="skip">Không bay, gieo xúc xắc</button>`;
+      h = `<div class="msg">✈️ Chọn ô để bay tới · vé <b>${p.freeFly ? 'miễn phí 🎁' : fmtFull(AIRPORT_FEE)}</b></div><button class="btn" data-a="skip">Không bay, gieo xúc xắc</button>`;
       setPicks(BOARD.map((_, i) => i).filter((i) => i !== AIRPORT));
       break;
     case 'target':
@@ -649,13 +653,15 @@ function renderActions() {
         const lv = t.type === 'resort' ? 'Khu du lịch' : o.lvl ? LVL_NAME[o.lvl] : 'Đất trống';
         return `<button class="sell-row${sellSel.has(k) ? ' on' : ''}" data-sell="${k}"><i class="ck"></i><span class="sn">${esc(t.name)}<small>${lv}</small></span><b>${fmtFull(sellValue(k))}</b></button>`;
       }).join('');
-      h = `<div class="offer sell-box">
+      side.innerHTML = `<div class="sell-box">
         <div class="o-head">💸 Bán đất trả nợ</div>
-        <div class="sub">Tick các ô muốn bán (ngân hàng trả ${SELL_RATE * 100}% giá trị), rồi bấm Bán</div>
+        <div class="sub">Tick ô trong danh sách hoặc bấm thẳng vào ô trên bàn cờ. Ngân hàng trả ${SELL_RATE * 100}% giá trị.</div>
         <div class="sell-list">${rows}</div>
         <div class="sell-sum"><span>Đang thiếu <b class="neg">${fmtFull(need)}</b></span><span>Đã chọn <b class="${got >= need ? 'ok' : ''}">${fmtFull(got)}</b></span></div>
         <div class="row"><button class="btn primary" data-a="sellMany" ${sellSel.size ? '' : 'disabled'}>Bán ${sellSel.size || ''} ô</button><button class="btn" data-a="bankrupt">Phá sản</button></div>
       </div>`;
+      side.classList.remove('hidden');
+      h = '';
       setPicks(mine);
       tileEls.forEach((el, k) => el.classList.toggle('chosen', sellSel.has(k)));
       break;
@@ -665,7 +671,7 @@ function renderActions() {
 }
 const isMineRaw = () => S && (mode === 'local' ? !S.players[S.cur].bot : S.cur === mySeat);
 
-$('#actions').addEventListener('click', (e) => {
+function onActionClick(e) {
   const row = e.target.closest('[data-sell]');
   if (row && isMine() && S.phase === 'debt') return toggleSell(+row.dataset.sell);
   const b = e.target.closest('button[data-a]');
@@ -675,7 +681,9 @@ $('#actions').addEventListener('click', (e) => {
   if (b.dataset.lvl != null) a.lvl = +b.dataset.lvl;
   if (a.type === 'bankrupt' && !confirm('Bạn chắc chắn muốn tuyên bố phá sản?')) return;
   act(a);
-});
+}
+$('#actions').addEventListener('click', onActionClick);
+$('#sidePanel').addEventListener('click', onActionClick);
 document.addEventListener('keydown', (e) => {
   if (e.code !== 'Space' || e.target.closest('input, textarea, select, button')) return;
   if (isMine() && S.phase === 'roll') { e.preventDefault(); act({ type: 'roll' }); }
@@ -684,6 +692,7 @@ document.addEventListener('keydown', (e) => {
 function act(a) {
   if (!isMine()) return;
   $('#actions').innerHTML = '';   // tránh bấm 2 lần
+  $('#sidePanel').classList.add('hidden');
   ctl.send(a);
 }
 
@@ -713,7 +722,7 @@ function showTileInfo(i) {
     h += '</table>';
   } else {
     const desc = {
-      start: `Đi qua hoặc dừng ở đây nhận lương ${fmt(SALARY)}.`,
+      start: `Đi qua nhận lương ${fmt(SALARY)}. Dừng đúng ô này còn được thêm 1 phần thưởng ngẫu nhiên: nâng cấp miễn phí 1 nhà (trừ khách sạn), thêm tiền, thẻ cứu hộ hoặc vé bay miễn phí.`,
       chance: 'Rút một thẻ Cơ Hội: may hay rủi tuỳ số!',
       tax: 'Nộp thuế 10% tổng giá trị đất và nhà (tối thiểu 50tr).',
       island: `Kẹt tối đa 3 lượt. Thoát bằng cách gieo đôi, trả ${fmt(BAIL)} hoặc dùng thẻ cứu hộ.`,
@@ -848,6 +857,20 @@ async function play(events, fin) {
         const lv = burn ? (e.lvl ? `còn nhà cấp ${e.lvl}` : 'còn đất trống') : `${fin.players[e.from].name} mất nhà`;
         await banner(burn ? '🔥 ĐỐT NHÀ' : '💥 PHÁ NHÀ', `${BOARD[e.tile].name} · ${lv}`, burn ? '#e8590c' : '#5b4b45', ANIM[e.t] - 200);
         el?.classList.remove('on-fire', 'boom');
+        break;
+      }
+      case 'bonus': {
+        if (fast) break;
+        const what = {
+          upgrade: () => `${BOARD[e.tile].name} lên ${e.lvl >= 4 ? 'Khách sạn' : `nhà cấp ${e.lvl}`} miễn phí`,
+          cash: () => `Thêm ${fmtFull(e.amount)}`,
+          card: () => 'Nhận 1 thẻ cứu hộ',
+          fly: () => 'Vé bay miễn phí lượt sau',
+        }[e.kind]();
+        sfx.upgrade();
+        if (e.kind === 'cash') setTimeout(() => coins(boardXY(), cardXY(e.pid), 12), 400);
+        if (e.kind === 'upgrade') burst(tileXY(e.tile), '#ffc531', 18);
+        await banner('🎁 THƯỞNG XUẤT PHÁT', what, '#f08c00', ANIM.bonus);
         break;
       }
       case 'mono':

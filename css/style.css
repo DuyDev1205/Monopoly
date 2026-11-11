@@ -780,8 +780,8 @@ body[data-theme] .tile.resort.side-t { --sea: to top; } body[data-theme] .tile.r
 body[data-theme] .tile.resort { background: linear-gradient(var(--sea), #fde9b8 0 70%, #fffaf0 70% 74%, #8fdcf5 74%, #35a7e3 100%); }
 .tile.resort::before { -webkit-mask-image: linear-gradient(var(--sea), transparent 75%, #000 77%); mask-image: linear-gradient(var(--sea), transparent 75%, #000 77%); }
 .tile.resort.side-b .body { justify-content: flex-end; padding-bottom: 28%; }
-.tile.resort.side-t .body { justify-content: flex-start; padding-top: 28%; }
-.tile.resort.side-l .body { justify-content: flex-start; padding-left: 28%; }
+.tile.resort.side-t .body { justify-content: flex-end; padding-bottom: 6%; }
+.tile.resort.side-l .body { justify-content: flex-end; padding-right: 6%; }
 .tile.resort.side-r .body { justify-content: flex-end; padding-right: 28%; }
 
 /* ================= Lựa chọn: được chọn thì sáng, không được thì tối hẳn ================= */
@@ -818,3 +818,28 @@ body[data-theme] .tile.resort { background: linear-gradient(var(--sea), #fde9b8 
 .bld .flames img.fi:nth-child(2) { width: 4.6cqw; height: 4.6cqw; animation-delay: -.15s; }
 @keyframes flame { to { transform: scaleY(1.2) scaleX(.9); } }
 .card3d.fire { --cc: #e8590c; }
+
+/* ================= Bảng bán đất: khung bên phải, không che bàn cờ ================= */
+.side-panel { position: absolute; z-index: 14; right: 16px; top: 50%; transform: translateY(-50%); width: 340px;
+  max-height: calc(100dvh - 380px); min-height: 300px; display: flex; animation: slideIn .35s cubic-bezier(.2,1.2,.4,1); }
+@keyframes slideIn { from { transform: translate(60px, -50%); opacity: 0; } }
+.side-panel .sell-box { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; font-size: 15px;
+  background: linear-gradient(180deg, #fff, #fbf3e0); border-radius: 18px; box-shadow: 0 6px 0 #cdb682, 0 18px 40px rgba(0,0,0,.4); max-height: none; }
+.side-panel .sell-box .o-head { font-size: 20px; font-weight: 800; color: var(--accent); justify-content: center; display: flex; gap: 8px; }
+.side-panel .sell-box .sub { font-size: 13px; color: var(--muted); text-align: center; text-shadow: none; }
+.side-panel .sell-list { flex: 1 1 auto; min-height: 60px; max-height: none; gap: 6px; }
+.side-panel .sell-row { padding: 8px 10px; border-radius: 10px; gap: 10px; font-size: 15px; }
+.side-panel .sell-row .ck { width: 22px; height: 22px; border-radius: 6px; }
+.side-panel .sell-row.on .ck::after { font-size: 15px; }
+.side-panel .sell-sum { font-size: 14px; }
+.side-panel .row { justify-content: center; }
+.side-panel .btn { flex: 0 1 auto; font-size: 16px; padding: 10px 20px; }
+/* điện thoại: khung trượt lên từ dưới */
+@media (max-width: 900px), (orientation: portrait) {
+  .side-panel { position: fixed; left: 8px; right: 8px; bottom: 8px; top: auto; width: auto; transform: none; max-height: 46vh; min-height: 0; z-index: 25;
+    animation: slideUp .35s cubic-bezier(.2,1.2,.4,1); }
+  @keyframes slideUp { from { transform: translateY(80px); opacity: 0; } }
+}
+
+/* điện thoại: cột trái của ô biển -> chữ phía trong (phải), chòi nhà sàn bên mép biển (trái) */
+@media (max-width: 900px), (orientation: portrait) { .tile.resort.side-l .body { justify-content: flex-end; } }

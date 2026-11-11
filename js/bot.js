@@ -32,7 +32,7 @@ export function botAction(s, pid) {
       return { type: 'roll' };
 
     case 'travel': {
-      if (p.money < AIRPORT_FEE + res * 0.5) return { type: 'skip' };   // tiếc tiền vé
+      if (!p.freeFly && p.money < AIRPORT_FEE + res * 0.5) return { type: 'skip' };   // tiếc tiền vé
       let best = 0, bestScore = -1;
       BOARD.forEach((t, i) => {
         if (i === AIRPORT) return;

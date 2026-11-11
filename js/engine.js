@@ -147,7 +147,7 @@ function nextTurn(s, ev) {
   }
   s.cur = i;
   const p = s.players[i];
-  if (p.travel && p.money < AIRPORT_FEE) { p.travel = false; log(s, ev, `${p.name} không đủ ${fmt(AIRPORT_FEE)} mua vé máy bay.`); }
+  if (p.travel && !p.freeFly && p.money < AIRPORT_FEE) { p.travel = false; log(s, ev, `${p.name} không đủ ${fmt(AIRPORT_FEE)} mua vé máy bay.`); }
   s.phase = p.travel ? 'travel' : 'roll';
   ev.push({ t: 'turn', pid: i });
 }
@@ -265,7 +265,45 @@ function land(s, ev, pid, diceSum) {
       log(s, ev, `${p.name} tới Sân Bay — lượt sau được bay tới ô bất kỳ (vé ${fmt(AIRPORT_FEE)}) ✈️`);
       return proceed(s, ev);
     case 'festival': return startFestival(s, ev, pid);
+    case 'start': startBonus(s, ev, pid); return proceed(s, ev);
     default: return proceed(s, ev);
+  }
+}
+
+// Thưởng khi dừng đúng ô Xuất Phát (ngoài lương): nâng cấp miễn phí 1 nhà ngẫu nhiên (trừ khách sạn),
+// thưởng thêm tiền, thẻ cứu hộ hoặc vé bay miễn phí.
+export const START_BONUS_CASH = 100;
+function startBonus(s, ev, pid) {
+  const p = s.players[pid];
+  const up = ownedBy(s, pid).filter((k) => BOARD[k].type === 'city' && s.own[k].lvl < 4);
+  const pool = [['cash', 25], ['card', 15], ['fly', 20]];
+  if (up.length) pool.push(['upgrade', 40]);
+  let r = rnd(pool.reduce((a, [, w]) => a + w, 0)), kind = pool[0][0];
+  for (const [k, w] of pool) { if (r < w) { kind = k; break; } r -= w; }
+  switch (kind) {
+    case 'upgrade': {
+      const k = up[rnd(up.length)], o = s.own[k];
+      o.lvl += 1;
+      ev.push({ t: 'bonus', pid, kind, tile: k, lvl: o.lvl });
+      ev.push({ t: 'build', tile: k, up: true });
+      log(s, ev, `🎁 Thưởng Xuất Phát: ${p.name} được nâng ${BOARD[k].name} lên ${o.lvl >= 4 ? 'Khách sạn' : `nhà cấp ${o.lvl}`} miễn phí!`);
+      break;
+    }
+    case 'cash':
+      ev.push({ t: 'bonus', pid, kind, amount: START_BONUS_CASH });
+      money(s, ev, pid, START_BONUS_CASH);
+      log(s, ev, `🎁 Thưởng Xuất Phát: ${p.name} nhận thêm ${fmt(START_BONUS_CASH)}!`);
+      break;
+    case 'card':
+      p.freeCards++;
+      ev.push({ t: 'bonus', pid, kind });
+      log(s, ev, `🎁 Thưởng Xuất Phát: ${p.name} nhận 1 thẻ cứu hộ (rời Đảo Hoang miễn phí).`);
+      break;
+    case 'fly':
+      p.travel = true; p.freeFly = true; s.rolledDouble = false;
+      ev.push({ t: 'bonus', pid, kind });
+      log(s, ev, `🎁 Thưởng Xuất Phát: ${p.name} được vé bay miễn phí, lượt sau bay tới ô bất kỳ ✈️`);
+      break;
   }
 }
 
@@ -392,10 +430,10 @@ export function apply(s, pid, a) {
     case 'travel': {
       if (s.phase !== 'travel') return err('Không thể bay lúc này');
       if (tile < 0 || tile === AIRPORT) return err('Chọn ô khác');
-      if (p.money < AIRPORT_FEE) return err(`Cần ${fmt(AIRPORT_FEE)} để mua vé`);
-      p.travel = false;
-      ev.push({ t: 'fee', pid, amount: AIRPORT_FEE });
-      money(s, ev, pid, -AIRPORT_FEE);
+      const fee = p.freeFly ? 0 : AIRPORT_FEE;
+      if (p.money < fee) return err(`Cần ${fmt(fee)} để mua vé`);
+      p.travel = false; p.freeFly = false;
+      if (fee) { ev.push({ t: 'fee', pid, amount: fee }); money(s, ev, pid, -fee); }
       log(s, ev, `✈️ ${p.name} bay tới ${BOARD[tile].name}.`);
       goTo(s, ev, pid, tile);
       s.rolledDouble = false;
@@ -465,7 +503,7 @@ export function apply(s, pid, a) {
 
     case 'skip':
       if (s.phase === 'travel') {   // không bay: gieo xúc xắc như bình thường
-        p.travel = false; s.phase = 'roll';
+        p.travel = false; p.freeFly = false; s.phase = 'roll';
         log(s, ev, `${p.name} không bay, gieo xúc xắc.`);
         break;
       }
@@ -515,7 +553,7 @@ export function apply(s, pid, a) {
 }
 
 // Thời lượng animation (ms) của một loạt sự kiện — client và server dùng chung
-export const ANIM = { dice: 1000, target: 550, step: 210, fly: 750, card: 3000, turn: 450, rent: 2000, buy: 2000, upgrade: 1900, buyout: 2200, tax: 1900, build: 700, fest: 1900, mono: 1900, fee: 1500, demolish: 2000, burn: 2000 };
+export const ANIM = { dice: 1000, target: 550, step: 210, fly: 750, card: 3000, turn: 450, rent: 2000, buy: 2000, upgrade: 1900, buyout: 2200, tax: 1900, build: 700, fest: 1900, mono: 1900, fee: 1500, demolish: 2000, burn: 2000, bonus: 2000 };
 export const BOT_THINK = 800;   // máy "nghĩ" trước mỗi hành động
 export function animTime(events) {
   let t = 0;
@@ -523,7 +561,7 @@ export function animTime(events) {
     if (e.t === 'dice') t += ANIM.dice;
     else if (e.t === 'move') t += e.path.length * ANIM.step + 80 + ANIM.target;
     else if (e.t === 'fly') t += ANIM.fly + ANIM.target;
-    else if (['rent', 'buy', 'buyout', 'tax', 'upgrade', 'fest', 'mono', 'fee', 'demolish', 'burn'].includes(e.t)) t += ANIM[e.t];
+    else if (['rent', 'buy', 'buyout', 'tax', 'upgrade', 'fest', 'mono', 'fee', 'demolish', 'burn', 'bonus'].includes(e.t)) t += ANIM[e.t];
     else if (e.t === 'build' && e.up) t += ANIM.build;
     else if (e.t === 'card') t += ANIM.card;
     else if (e.t === 'turn') t += ANIM.turn;
