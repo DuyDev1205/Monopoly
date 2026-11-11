@@ -1084,34 +1084,68 @@ body.ingame .copyright { display: none; }
 
 /* ================= Theme Vịnh Hạ Long ================= */
 .halong-sky { display: none; position: absolute; inset: 0; overflow: hidden;
-  background: linear-gradient(180deg, #5fb8f0 0%, #9ad8fb 38%, #dff4ff 62%, #fff4dc 70%, #bfe6f2 70.5%); }
+  background: linear-gradient(180deg, #2f86d4 0%, #5fb2ec 22%, #9ad6f7 42%, #d4f0fc 56%, #fff3dc 66%, #ffe7c2 69%); }
 body[data-theme="halong"] .lantern-sky, body[data-theme="halong"] .sakura-sky { display: none; }
 body[data-theme="halong"] .halong-sky { display: block; }
-body[data-theme="halong"] { background: #9ad8fb; }
-.hl-sun { position: absolute; right: 14%; top: 10%; width: 110px; height: 110px; border-radius: 50%;
-  background: radial-gradient(circle, #fffbe6 0 40%, #ffe9a3 60%, rgba(255,233,163,0) 72%); animation: breathe2 6s ease-in-out infinite; }
-.hl-cloud { position: absolute; height: 40px; border-radius: 40px; background: rgba(255,255,255,.85); animation: drift linear infinite; filter: drop-shadow(0 6px 8px rgba(80,140,180,.2)); }
+body[data-theme="halong"] { background: #9ad6f7; }
+.hl-rays { position: absolute; right: -40%; top: -60%; width: 140%; height: 160%;
+  background: repeating-conic-gradient(from 0deg at 72% 38%, rgba(255,250,220,.22) 0 4deg, transparent 4deg 13deg);
+  -webkit-mask-image: radial-gradient(circle at 72% 38%, #000 0, transparent 45%); mask-image: radial-gradient(circle at 72% 38%, #000 0, transparent 45%);
+  animation: hlRays 90s linear infinite; transform-origin: 72% 38%; }
+@keyframes hlRays { to { transform: rotate(360deg); } }
+.hl-sun { position: absolute; right: 16%; top: 11%; width: 130px; height: 130px; border-radius: 50%;
+  background: radial-gradient(circle, #fffef4 0 30%, #fff1b8 46%, rgba(255,226,140,.55) 58%, rgba(255,226,140,0) 72%); animation: breathe2 6s ease-in-out infinite; }
+.hl-cloud { position: absolute; height: 42px; border-radius: 42px; background: linear-gradient(180deg, #fff, #e6f4fb); animation: drift linear infinite; filter: drop-shadow(0 8px 10px rgba(60,130,180,.18)); }
 .hl-cloud::before, .hl-cloud::after { content: ''; position: absolute; border-radius: 50%; background: inherit; }
-.hl-cloud::before { width: 55%; height: 160%; left: 16%; bottom: 25%; }
-.hl-cloud::after { width: 38%; height: 130%; right: 14%; bottom: 25%; }
-.hl-cloud.k1 { width: 200px; top: 8%; animation-duration: 80s; animation-delay: -20s; }
-.hl-cloud.k2 { width: 150px; top: 20%; animation-duration: 110s; animation-delay: -60s; opacity: .8; }
-.hl-cloud.k3 { width: 240px; top: 4%; animation-duration: 140s; animation-delay: -100s; opacity: .7; }
-.hl-karst { position: absolute; left: 0; width: 100%; }
-.hl-karst.far { bottom: 30%; height: 22vh; opacity: .85; }
-.hl-karst.near { bottom: 28%; height: 26vh; }
-.hl-sea { position: absolute; left: 0; right: 0; bottom: 0; height: 30%;
-  background: repeating-linear-gradient(180deg, rgba(255,255,255,0) 0 18px, rgba(255,255,255,.35) 18px 20px), linear-gradient(180deg, #4fb3d6, #2a8fb8 60%, #1d6f95);
-  animation: lake 5s linear infinite; }
-.hl-boat { position: absolute; width: 70px; height: 62px; bottom: 22%; animation: sail linear infinite; filter: drop-shadow(0 4px 3px rgba(20,60,90,.3)); }
-.hl-boat.b1 { animation-duration: 90s; animation-delay: -30s; }
-.hl-boat.b2 { width: 50px; height: 44px; bottom: 25%; animation-duration: 120s; animation-delay: -80s; opacity: .9; }
-@keyframes sail { from { transform: translateX(-12vw) translateY(0); } 50% { transform: translateX(50vw) translateY(-4px); } to { transform: translateX(112vw) translateY(0); } }
-.hl-gull { position: absolute; width: 34px; height: 14px; animation: gull 26s linear infinite; }
-.hl-gull.g1 { top: 18%; animation-delay: -4s; }
-.hl-gull.g2 { top: 24%; width: 26px; animation-delay: -12s; animation-duration: 32s; }
-.hl-gull.g3 { top: 14%; width: 22px; animation-delay: -20s; animation-duration: 30s; }
-@keyframes gull { from { transform: translateX(110vw) translateY(0) scaleY(1); } 25% { transform: translateX(80vw) translateY(-14px) scaleY(.6); } 50% { transform: translateX(50vw) translateY(4px) scaleY(1); } 75% { transform: translateX(20vw) translateY(-10px) scaleY(.6); } to { transform: translateX(-10vw) translateY(0) scaleY(1); } }
+.hl-cloud::before { width: 55%; height: 170%; left: 14%; bottom: 25%; }
+.hl-cloud::after { width: 38%; height: 135%; right: 12%; bottom: 25%; }
+.hl-cloud.k1 { width: 230px; top: 7%; animation-duration: 90s; animation-delay: -20s; }
+.hl-cloud.k2 { width: 160px; top: 19%; animation-duration: 120s; animation-delay: -70s; opacity: .85; }
+.hl-cloud.k3 { width: 280px; top: 3%; animation-duration: 150s; animation-delay: -110s; opacity: .7; }
+.hl-cloud.k4 { width: 120px; top: 26%; animation-duration: 100s; animation-delay: -40s; opacity: .6; }
+.hl-flock { position: absolute; width: 120px; height: 45px; animation: gull 40s linear infinite; }
+.hl-flock.f1 { top: 16%; }
+.hl-flock.f2 { top: 24%; width: 80px; animation-duration: 55s; animation-delay: -25s; }
+@keyframes gull { from { transform: translateX(110vw) translateY(0); } 50% { transform: translateX(45vw) translateY(-18px); } to { transform: translateX(-15vw) translateY(0); } }
+.hl-flock g { transform-box: fill-box; transform-origin: center; animation: flap .7s ease-in-out infinite alternate; }
+.hl-flock g:nth-child(2n) { animation-delay: -.35s; }
+@keyframes flap { to { scale: 1 .55; } }
+.hl-karst { position: absolute; left: 0; width: 100%; pointer-events: none; }
+.hl-karst.far { bottom: 31%; height: 26vh; opacity: .9; }
+.hl-karst.mid { bottom: 30%; height: 30vh; }
+.hl-karst.near { bottom: 29.6%; height: 36vh; filter: drop-shadow(0 -2px 0 rgba(255,255,255,.15)); }
+.hl-mist { position: absolute; left: -20%; width: 140%; height: 7vh; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(255,255,255,.75), rgba(255,255,255,0) 70%); animation: mist 40s ease-in-out infinite alternate; }
+.hl-mist.m1 { bottom: 31%; opacity: .8; }
+.hl-mist.m2 { bottom: 29%; height: 6vh; opacity: .65; animation-duration: 55s; animation-direction: alternate-reverse; }
+@keyframes mist { from { transform: translateX(-6%); } to { transform: translateX(6%); } }
+.hl-sea { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; overflow: hidden;
+  background: linear-gradient(180deg, #6fcbe3 0%, #3fa9cf 30%, #2a8fbd 60%, #1b6f99 100%); }
+.hl-reflect { position: absolute; left: 0; top: 0; width: 100%; height: 70%; opacity: .45; filter: blur(1.5px); }
+.hl-waves { position: absolute; inset: 0;
+  background: repeating-linear-gradient(180deg, rgba(255,255,255,0) 0 16px, rgba(255,255,255,.28) 16px 18px),
+              repeating-linear-gradient(90deg, rgba(255,255,255,0) 0 60px, rgba(255,255,255,.06) 60px 120px);
+  animation: hlWave 6s linear infinite; }
+@keyframes hlWave { to { background-position: 0 36px, 120px 0; } }
+.hl-glitter { position: absolute; right: 12%; top: 0; width: 220px; height: 100%;
+  background: repeating-linear-gradient(180deg, rgba(255,250,220,0) 0 7px, rgba(255,250,220,.8) 7px 9px);
+  -webkit-mask-image: radial-gradient(ellipse 50% 100% at 50% 0, #000, transparent 75%); mask-image: radial-gradient(ellipse 50% 100% at 50% 0, #000, transparent 75%);
+  animation: glitter 2.2s ease-in-out infinite alternate; }
+@keyframes glitter { from { opacity: .45; transform: translateY(0); } to { opacity: .95; transform: translateY(4px); } }
+.hl-village { position: absolute; left: 4%; bottom: 25%; width: 260px; height: 70px; filter: drop-shadow(0 6px 4px rgba(10,50,80,.3)); animation: bob2 4s ease-in-out infinite; }
+@keyframes bob2 { 50% { transform: translateY(2px); } }
+.hl-boat { position: absolute; width: 84px; height: 76px; bottom: 21%; animation: sail linear infinite; filter: drop-shadow(0 5px 3px rgba(10,50,80,.3)); }
+.hl-boat.b1 { animation-duration: 100s; animation-delay: -30s; }
+.hl-boat.b2 { width: 56px; height: 50px; bottom: 25.5%; animation-duration: 140s; animation-delay: -90s; opacity: .92; }
+.hl-boat.b3 { width: 104px; height: 94px; bottom: 9%; animation: sailBack 120s linear infinite; animation-delay: -50s; }
+@keyframes sail { from { transform: translateX(-14vw); } 50% { transform: translateX(50vw) translateY(-3px); } to { transform: translateX(114vw); } }
+@keyframes sailBack { from { transform: translateX(114vw) scaleX(-1); } 50% { transform: translateX(50vw) translateY(-4px) scaleX(-1); } to { transform: translateX(-16vw) scaleX(-1); } }
+.hl-basket { position: absolute; left: 30%; bottom: 14%; width: 48px; height: 24px; animation: bob2 3s ease-in-out infinite; }
+@media (max-width: 900px), (orientation: portrait) {
+  .hl-karst.far { bottom: 33%; height: 18vh; } .hl-karst.mid { bottom: 32%; height: 20vh; } .hl-karst.near { bottom: 31%; height: 24vh; }
+  .hl-sun { width: 80px; height: 80px; } .hl-village { width: 160px; height: 44px; }
+}
+
 /* bàn cờ theo tông biển */
 body[data-theme="halong"] .board { background: linear-gradient(135deg, #f2fbff, #cfe9f7);
   box-shadow: 0 .5cqw 0 #b6dcee, 0 1cqw 0 #8fc5df, 0 1.6cqw 0 #6aa9c9, 0 2.2cqw 0 #4f8fb0, 0 3.5cqw 4cqw rgba(20,60,90,.4); }
@@ -1126,7 +1160,6 @@ body[data-theme="halong"] .tb-title span { color: #fff3a8; }
 body[data-theme="halong"] .pill, body[data-theme="halong"] .icon-btn { background: rgba(20,90,130,.5); }
 body[data-theme="halong"] .ticker { background: rgba(20,80,120,.8); }
 body[data-theme="halong"] .home-card { box-shadow: 0 10px 0 #9fcde3, 0 12px 0 #5f9fb8, 0 30px 60px rgba(20,70,110,.35); }
-@media (max-width: 900px), (orientation: portrait) { .hl-karst.far { bottom: 32%; } .hl-sun { width: 70px; height: 70px; } }
 /* thẻ người chơi dạng ngang cho gọn (máy tính) */
 @media (min-width: 521px) {
   .pcard { display: grid; grid-template-columns: 96px 1fr; grid-template-rows: auto auto auto; column-gap: 12px; row-gap: 6px; align-items: center; padding: 12px; }
@@ -1146,3 +1179,4 @@ body[data-theme="halong"] .home-card { box-shadow: 0 10px 0 #9fcde3, 0 12px 0 #5
   .pcard input { font-size: 14px; }
   .copyright { position: static; display: block; width: max-content; margin: 0 auto 14px; }
 }
+@media (max-width: 900px), (orientation: portrait) { .hl-boat { width: 46px; height: 42px; } .hl-boat.b3 { width: 60px; height: 54px; } .hl-boat.b2 { width: 34px; height: 30px; } .hl-basket { width: 32px; height: 16px; } }
