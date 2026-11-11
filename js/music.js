@@ -5,7 +5,7 @@
 
 const BPM = 104;
 const STEP = 60 / BPM / 2;   // một nốt móc đơn (8 nốt / ô nhịp)
-const VOLUME = 0.34;
+const VOLUME = 0.15;
 
 const SEMI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const midi = (n) => SEMI[n[0]] + (n[1] === '#' ? 1 : n[1] === 'b' ? -1 : 0) + 12 * (+n.slice(-1) + 1);

@@ -1011,3 +1011,138 @@ body.ingame .copyright { display: none; }
 .cp-card.taken::after { line-height: 1; }
 /* khung ảnh nhỏ: phóng to phần mặt của chân dung cho rõ */
 .pc .tk .pt-rig, .turn-label .tk .pt-rig, .av .pt-rig, .tp-av .pt-rig, .prow .tok .pt-rig { inset: -12% -12% -6% -12%; }
+
+/* ================= Trang chủ mới ================= */
+.home-card { width: min(620px, 100%); gap: 16px; padding: 22px 24px 18px; }
+.brand { display: flex; align-items: center; justify-content: center; gap: 16px; text-align: left; }
+.brand .brand-logo { width: 84px; height: 84px; margin: 0; border-radius: 22px; flex: none; }
+.brand-txt h1 { margin: 0; font-size: 34px; line-height: 1.05; }
+.brand-txt p { margin: 4px 0 0; color: var(--muted); font-weight: 600; letter-spacing: .3px; }
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tab.mode { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; text-align: left;
+  padding: 12px 14px; border-radius: 16px; border: 2px solid #eadfc4; background: #fff; color: var(--ink); box-shadow: 0 3px 0 #eadfc4; transition: transform .15s, border-color .15s, box-shadow .15s; }
+.tab.mode .mi { grid-row: span 2; font-size: 30px; width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; background: var(--paper2); }
+.tab.mode b { font-size: 16px; }
+.tab.mode small { font-size: 12px; font-weight: 500; color: var(--muted); }
+.tab.mode:hover { transform: translateY(-2px); }
+.tab.mode.active { border-color: var(--accent); box-shadow: 0 3px 0 #b8121f, 0 6px 16px rgba(224,38,47,.18); background: linear-gradient(180deg, #fff, #fff4ee); }
+.tab.mode.active .mi { background: linear-gradient(180deg, #ff6a55, #d6162a); }
+.sec-title { font-weight: 800; font-size: 15px; display: flex; align-items: baseline; gap: 8px; margin-bottom: -4px; }
+.sec-title small { font-weight: 500; color: var(--muted); font-size: 12px; }
+/* thẻ người chơi */
+.pgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.pcard { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 10px 10px; border-radius: 18px;
+  background: linear-gradient(180deg, #fff, #fffaf0); border: 2px solid color-mix(in srgb, var(--c) 45%, #eadfc4); box-shadow: 0 4px 0 color-mix(in srgb, var(--c) 35%, #e0d2b0); }
+.pc-num { position: absolute; left: 10px; top: 8px; font-size: 11px; font-weight: 800; color: #fff; background: var(--c); padding: 1px 8px; border-radius: 99px; }
+.pc-rm { position: absolute; right: 6px; top: 4px; border: 0; background: none; color: #b44; font-size: 16px; cursor: pointer; padding: 4px; }
+.pc-av { position: relative; width: 108px; height: 108px; border-radius: 22px; border: 3px solid var(--c); overflow: hidden; cursor: pointer; padding: 0;
+  background: radial-gradient(circle at 50% 35%, #fff, color-mix(in srgb, var(--c) 18%, #fff6ea) 80%); box-shadow: 0 4px 10px rgba(0,0,0,.12); transition: transform .15s; }
+.pc-av:hover { transform: scale(1.04); }
+.pc-av > svg.chr, .pc-av > .chr { width: 100%; height: 100%; display: block; }
+.pc-change { position: absolute; left: 0; right: 0; bottom: 0; font-size: 12px; font-weight: 800; color: #fff; background: color-mix(in srgb, var(--c) 85%, #000); padding: 3px 0; opacity: .92; }
+.pc-char { font-size: 13px; color: var(--muted); }
+.pcard input { width: 100%; text-align: center; font-weight: 700; border: 1.5px solid var(--line); border-radius: 10px; padding: 7px 8px; background: #fff; }
+.pc-type { display: grid; grid-template-columns: 1fr 1fr; width: 100%; background: var(--paper2); border-radius: 10px; padding: 3px; }
+.pc-type button { border: 0; background: none; padding: 6px 4px; border-radius: 8px; cursor: pointer; font-weight: 700; color: var(--muted); font-size: 13px; }
+.pc-type button.on { background: #fff; color: var(--ink); box-shadow: 0 2px 0 #d9c9a3; }
+.pcard.add { justify-content: center; cursor: pointer; border-style: dashed; border-color: #d9c9a3; box-shadow: none; color: var(--muted); font-weight: 800; min-height: 220px; background: rgba(255,255,255,.5); font-family: inherit; font-size: 14px; }
+.pcard.add span { font-size: 40px; line-height: 1; color: var(--accent); }
+.pcard.add:hover { border-color: var(--accent); color: var(--accent); }
+/* chọn thời gian */
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--paper2); border-radius: 12px; padding: 4px; gap: 4px; }
+.seg button { border: 0; background: none; padding: 9px 4px; border-radius: 9px; cursor: pointer; font-weight: 700; color: var(--muted); font-family: inherit; }
+.seg button.on { background: #fff; color: var(--accent); box-shadow: 0 2px 0 #d9c9a3; }
+.big-start { font-size: 19px !important; padding: 15px !important; border-radius: 16px !important; }
+/* chân trang: giao diện, nhạc, luật */
+.home-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.themes { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.theme-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 5px 10px 5px 5px; }
+.theme-btn i { width: 22px; height: 22px; border-radius: 50%; display: block; box-shadow: inset 0 0 0 2px rgba(255,255,255,.7); }
+.sw-sakura i { background: linear-gradient(135deg, #ffd1e6, #f490bf); }
+.sw-lantern i { background: linear-gradient(135deg, #3a1f7a, #ff8a4c); }
+.sw-halong i { background: linear-gradient(135deg, #8fd3ff, #2a8fb8); }
+.foot-btns { display: flex; gap: 6px; }
+.chip { border: 0; border-radius: 99px; padding: 7px 12px; cursor: pointer; font-weight: 700; font-size: 13px; background: var(--paper2); color: var(--ink); font-family: inherit; }
+.chip.on { background: #fff; box-shadow: 0 2px 0 #d9c9a3; }
+.rules-body ul { margin: 0 0 12px; padding-left: 18px; line-height: 1.55; font-size: 14px; }
+/* bảng chọn nhân vật: ô vuông lớn, thấy rõ dáng */
+.cp-preview { border-radius: 26px; width: 170px; height: 170px; }
+.cp-card .pt, .cp-card > svg { width: 84px !important; height: 84px !important; border-radius: 16px !important; background: radial-gradient(circle at 50% 35%, #fff, #f2e2cf 80%) !important; }
+@media (max-width: 520px) {
+  .home-card { padding: 18px 14px 14px; }
+  .brand .brand-logo { width: 64px; height: 64px; border-radius: 18px; }
+  .brand-txt h1 { font-size: 26px; }
+  .modes { gap: 8px; }
+  .tab.mode { grid-template-columns: 1fr; text-align: center; justify-items: center; padding: 10px 8px; }
+  .tab.mode .mi { grid-row: auto; width: 40px; height: 40px; font-size: 24px; }
+  .tab.mode small { display: none; }
+  .pc-av { width: 84px; height: 84px; }
+  .pcard.add { min-height: 190px; }
+  .home-foot { justify-content: center; }
+  .cp-card .pt, .cp-card > svg { width: 64px !important; height: 64px !important; }
+}
+
+/* ================= Theme Vịnh Hạ Long ================= */
+.halong-sky { display: none; position: absolute; inset: 0; overflow: hidden;
+  background: linear-gradient(180deg, #5fb8f0 0%, #9ad8fb 38%, #dff4ff 62%, #fff4dc 70%, #bfe6f2 70.5%); }
+body[data-theme="halong"] .lantern-sky, body[data-theme="halong"] .sakura-sky { display: none; }
+body[data-theme="halong"] .halong-sky { display: block; }
+body[data-theme="halong"] { background: #9ad8fb; }
+.hl-sun { position: absolute; right: 14%; top: 10%; width: 110px; height: 110px; border-radius: 50%;
+  background: radial-gradient(circle, #fffbe6 0 40%, #ffe9a3 60%, rgba(255,233,163,0) 72%); animation: breathe2 6s ease-in-out infinite; }
+.hl-cloud { position: absolute; height: 40px; border-radius: 40px; background: rgba(255,255,255,.85); animation: drift linear infinite; filter: drop-shadow(0 6px 8px rgba(80,140,180,.2)); }
+.hl-cloud::before, .hl-cloud::after { content: ''; position: absolute; border-radius: 50%; background: inherit; }
+.hl-cloud::before { width: 55%; height: 160%; left: 16%; bottom: 25%; }
+.hl-cloud::after { width: 38%; height: 130%; right: 14%; bottom: 25%; }
+.hl-cloud.k1 { width: 200px; top: 8%; animation-duration: 80s; animation-delay: -20s; }
+.hl-cloud.k2 { width: 150px; top: 20%; animation-duration: 110s; animation-delay: -60s; opacity: .8; }
+.hl-cloud.k3 { width: 240px; top: 4%; animation-duration: 140s; animation-delay: -100s; opacity: .7; }
+.hl-karst { position: absolute; left: 0; width: 100%; }
+.hl-karst.far { bottom: 30%; height: 22vh; opacity: .85; }
+.hl-karst.near { bottom: 28%; height: 26vh; }
+.hl-sea { position: absolute; left: 0; right: 0; bottom: 0; height: 30%;
+  background: repeating-linear-gradient(180deg, rgba(255,255,255,0) 0 18px, rgba(255,255,255,.35) 18px 20px), linear-gradient(180deg, #4fb3d6, #2a8fb8 60%, #1d6f95);
+  animation: lake 5s linear infinite; }
+.hl-boat { position: absolute; width: 70px; height: 62px; bottom: 22%; animation: sail linear infinite; filter: drop-shadow(0 4px 3px rgba(20,60,90,.3)); }
+.hl-boat.b1 { animation-duration: 90s; animation-delay: -30s; }
+.hl-boat.b2 { width: 50px; height: 44px; bottom: 25%; animation-duration: 120s; animation-delay: -80s; opacity: .9; }
+@keyframes sail { from { transform: translateX(-12vw) translateY(0); } 50% { transform: translateX(50vw) translateY(-4px); } to { transform: translateX(112vw) translateY(0); } }
+.hl-gull { position: absolute; width: 34px; height: 14px; animation: gull 26s linear infinite; }
+.hl-gull.g1 { top: 18%; animation-delay: -4s; }
+.hl-gull.g2 { top: 24%; width: 26px; animation-delay: -12s; animation-duration: 32s; }
+.hl-gull.g3 { top: 14%; width: 22px; animation-delay: -20s; animation-duration: 30s; }
+@keyframes gull { from { transform: translateX(110vw) translateY(0) scaleY(1); } 25% { transform: translateX(80vw) translateY(-14px) scaleY(.6); } 50% { transform: translateX(50vw) translateY(4px) scaleY(1); } 75% { transform: translateX(20vw) translateY(-10px) scaleY(.6); } to { transform: translateX(-10vw) translateY(0) scaleY(1); } }
+/* bàn cờ theo tông biển */
+body[data-theme="halong"] .board { background: linear-gradient(135deg, #f2fbff, #cfe9f7);
+  box-shadow: 0 .5cqw 0 #b6dcee, 0 1cqw 0 #8fc5df, 0 1.6cqw 0 #6aa9c9, 0 2.2cqw 0 #4f8fb0, 0 3.5cqw 4cqw rgba(20,60,90,.4); }
+body[data-theme="halong"] .center {
+  background: radial-gradient(circle at 50% 45%, rgba(255,255,255,.35), transparent 55%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0) 0 2.4cqw, rgba(255,255,255,.22) 2.4cqw 2.7cqw),
+    linear-gradient(135deg, #6fd0e6, #2f9cc4);
+  box-shadow: inset 0 0 0 1cqw #e6f5fb, inset 0 0 0 1.3cqw #fff, inset 0 0 4cqw rgba(10,60,90,.35); }
+body[data-theme="halong"] .tile { background: linear-gradient(160deg, #ffffff, #f2f9fc); box-shadow: 0 .3cqw 0 #b6dcee, inset 0 0 0 .12cqw rgba(0,0,0,.04); }
+body[data-theme="halong"] .tb-title { background: rgba(20,90,130,.45); padding: 3px 14px; border-radius: 99px; color: #fff; text-shadow: 0 2px 0 #1d6f95; }
+body[data-theme="halong"] .tb-title span { color: #fff3a8; }
+body[data-theme="halong"] .pill, body[data-theme="halong"] .icon-btn { background: rgba(20,90,130,.5); }
+body[data-theme="halong"] .ticker { background: rgba(20,80,120,.8); }
+body[data-theme="halong"] .home-card { box-shadow: 0 10px 0 #9fcde3, 0 12px 0 #5f9fb8, 0 30px 60px rgba(20,70,110,.35); }
+@media (max-width: 900px), (orientation: portrait) { .hl-karst.far { bottom: 32%; } .hl-sun { width: 70px; height: 70px; } }
+/* thẻ người chơi dạng ngang cho gọn (máy tính) */
+@media (min-width: 521px) {
+  .pcard { display: grid; grid-template-columns: 96px 1fr; grid-template-rows: auto auto auto; column-gap: 12px; row-gap: 6px; align-items: center; padding: 12px; }
+  .pc-av { grid-row: 1 / 4; width: 96px; height: 96px; border-radius: 20px; }
+  .pc-char { grid-column: 2; justify-self: start; font-size: 12px; margin-top: 6px; }
+  .pcard input { grid-column: 2; text-align: left; }
+  .pc-type { grid-column: 2; }
+  .pc-num { left: 8px; top: -9px; }
+  .pcard.add { min-height: 120px; display: flex; flex-direction: row; gap: 10px; }
+  .pcard.add span { font-size: 30px; }
+}
+@media (max-width: 520px) {
+  .brand { flex-direction: column; gap: 8px; text-align: center; }
+  .brand-txt h1 { font-size: 27px; white-space: nowrap; }
+  .brand-txt p { font-size: 13px; }
+  .pc-type button { font-size: 12px; padding: 6px 2px; white-space: nowrap; }
+  .pcard input { font-size: 14px; }
+  .copyright { position: static; display: block; width: max-content; margin: 0 auto 14px; }
+}

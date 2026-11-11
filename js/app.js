@@ -1311,14 +1311,16 @@ let setup = store.get('ctp_setup', [
   { name: 'Bạn', bot: false }, { name: 'Máy 1', bot: true }, { name: 'Máy 2', bot: true }, { name: 'Máy 3', bot: true },
 ]).slice(0, 4).map((p, i) => ({ ...p, char: Number.isInteger(p.char) ? p.char : i }));
 function renderSetup() {
-  $('#localPlayers').innerHTML = setup.map((p, i) => `
-    <div class="prow">
-      <button class="tok pick-char" data-pick="${i}" title="Chọn nhân vật" style="border-color:${PLAYER_COLORS[i]};--c:${PLAYER_COLORS[i]}">${charSVG(charOf(p, i), true)}<i>✎</i></button>
-      <input data-i="${i}" value="${esc(p.name)}" maxlength="16">
-      <button class="toggle ${p.bot ? 'bot' : ''}" data-tg="${i}">${p.bot ? '🤖 Máy' : '🙂 Người'}</button>
-      ${setup.length > 2 ? `<button class="xbtn" data-rm="${i}" title="Bỏ">✕</button>` : ''}
+  const cards = setup.map((p, i) => `
+    <div class="pcard" style="--c:${PLAYER_COLORS[i]}">
+      <span class="pc-num">P${i + 1}</span>
+      ${setup.length > 2 ? `<button class="pc-rm" data-rm="${i}" title="Bỏ người chơi này">✕</button>` : ''}
+      <button class="pc-av" data-pick="${i}" title="Đổi nhân vật">${charSVG(charOf(p, i), true)}<span class="pc-change">✎ Đổi</span></button>
+      <b class="pc-char">${esc(CHARACTERS[charOf(p, i) % CHARACTERS.length].name)}</b>
+      <input data-i="${i}" value="${esc(p.name)}" maxlength="16" placeholder="Tên người chơi">
+      <div class="pc-type"><button data-bot="${i}:0" class="${p.bot ? '' : 'on'}">🙂 Người</button><button data-bot="${i}:1" class="${p.bot ? 'on' : ''}">🤖 Máy</button></div>
     </div>`).join('');
-  $('#btnAddPlayer').disabled = setup.length >= 4;
+  $('#localPlayers').innerHTML = cards + (setup.length < 4 ? '<button class="pcard add" data-add><span>＋</span>Thêm người chơi</button>' : '');
 }
 $('#localPlayers').addEventListener('input', (e) => { const i = e.target.dataset.i; if (i != null) { setup[i].name = e.target.value; store.set('ctp_setup', setup); } });
 $('#localPlayers').addEventListener('click', (e) => {
@@ -1331,13 +1333,21 @@ $('#localPlayers').addEventListener('click', (e) => {
       setup[i].char = c; store.set('ctp_setup', setup); renderSetup();
     });
   }
-  const tg = e.target.closest('[data-tg]'), rm = e.target.closest('[data-rm]');
-  if (tg) { const p = setup[tg.dataset.tg]; p.bot = !p.bot; }
+  const bt = e.target.closest('[data-bot]'), rm = e.target.closest('[data-rm]'), add = e.target.closest('[data-add]');
+  if (bt) { const [i, v] = bt.dataset.bot.split(':'); setup[+i].bot = v === '1'; }
   else if (rm) setup.splice(+rm.dataset.rm, 1);
+  else if (add && setup.length < 4) setup.push({ name: `Máy ${setup.length}`, bot: true, char: [0, 1, 2, 3, 4, 5, 6, 7].find((c) => !setup.some((q) => q.char === c)) ?? 0 });
   else return;
   store.set('ctp_setup', setup); renderSetup();
 });
-$('#btnAddPlayer').onclick = () => { if (setup.length < 4) { setup.push({ name: `Máy ${setup.length}`, bot: true, char: [0, 1, 2, 3, 4, 5, 6, 7].find((c) => !setup.some((q) => q.char === c)) ?? 0 }); store.set('ctp_setup', setup); renderSetup(); } };
+// chọn thời gian ván
+$('#timeSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-t]'); if (!b) return;
+  $('#localTime').value = b.dataset.t; store.set('ctp_time', +b.dataset.t);
+  $('#timeSeg').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+});
+(() => { const t = store.get('ctp_time', 60); const b = $(`#timeSeg [data-t="${t}"]`); if (b) b.click(); })();
+$('#btnRules').onclick = () => openModal(`<h3>📜 Luật chơi</h3><div class="rules-body">${$('#rulesTpl').innerHTML}</div><button class="btn wide" data-close>Đã hiểu</button>`);
 $('#btnStartLocal').onclick = () => {
   const players = setup.map((p, i) => ({ name: p.name.trim() || `Người ${i + 1}`, bot: p.bot, char: p.char }));
   startLocal(players, +$('#localTime').value);
@@ -1483,14 +1493,14 @@ function goHome() {
 $('#btnMenu').onclick = () => {
   const h = `<h3>☰ Menu</h3><div class="menu-list">
     <button class="btn wide" data-close>▶ Chơi tiếp</button>
-    <button class="btn wide" id="mTheme">🎨 Đổi giao diện (${theme === 'sakura' ? 'sang Phố đèn lồng' : 'sang Hoa anh đào'})</button>
+    <button class="btn wide" id="mTheme">🎨 Đổi giao diện (sang ${THEME_NAME[THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]]})</button>
     ${mode === 'local' ? '<button class="btn wide" id="mNew">🔁 Ván mới (cùng người chơi)</button><button class="btn ghost wide" id="mHome" style="background:var(--paper2)">💾 Lưu và về trang chủ</button>'
       : `<button class="btn wide" id="mInvite">🔗 Sao chép link mời xem</button><button class="btn primary wide" id="mHome">🚪 ${net?.isHost ? 'Đóng phòng' : 'Rời phòng (máy sẽ đánh thay)'}</button>`}
     </div>`;
   openModal(h);
   $('#mNew')?.addEventListener('click', () => { if (confirm('Bỏ ván hiện tại và chơi ván mới?')) { closeModal(); startLocal(S.players.map((p, i) => ({ name: p.name, bot: p.bot, char: charOf(p, i) })), S.timeLimit); } });
   $('#mInvite')?.addEventListener('click', () => $('#btnCopyLink').click());
-  $('#mTheme').addEventListener('click', () => { applyTheme(theme === 'sakura' ? 'lantern' : 'sakura'); closeModal(); });
+  $('#mTheme').addEventListener('click', () => { applyTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]); closeModal(); });
   $('#mHome').addEventListener('click', () => { if (mode === 'local' || confirm(net?.isHost ? 'Đóng phòng? Ván sẽ kết thúc với mọi người.' : 'Rời phòng? Máy sẽ chơi thay bạn.')) goHome(); });
 };
 const SOUND_ON = '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>';
@@ -1504,7 +1514,7 @@ let musicOn = store.get('ctp_music', true);
 function paintMusic() {
   $('#btnMusic').innerHTML = `${MUSIC_SVG}${musicOn ? '' : '<path stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M4 4l16 16"/>'}</svg>`;
   $('#btnMusic').classList.toggle('off', !musicOn);
-  $('#btnMusicHome').textContent = `🎵 Nhạc nền: ${musicOn ? 'Bật' : 'Tắt'}`;
+  $('#btnMusicHome').textContent = `🎵 Nhạc: ${musicOn ? 'Bật' : 'Tắt'}`;
   $('#btnMusicHome').classList.toggle('on', musicOn);
 }
 function syncMusic() { if (musicOn && !document.hidden) music.start(); else music.stop(); }
@@ -1518,13 +1528,15 @@ document.addEventListener('keydown', syncMusic, { once: true });
 $('#btnSound').onclick = () => { soundOn = !soundOn; store.set('ctp_sound', soundOn); paintSound(); };
 
 // ===== Giao diện (theme) =====
+const THEMES = ['sakura', 'lantern', 'halong'];
+const THEME_NAME = { sakura: 'Hoa anh đào', lantern: 'Phố đèn lồng', halong: 'Vịnh Hạ Long' };
 let theme = store.get('ctp_theme', 'sakura');
 function applyTheme(t) {
-  theme = t === 'lantern' ? 'lantern' : 'sakura';
+  theme = THEMES.includes(t) ? t : 'sakura';
   document.body.dataset.theme = theme;
   store.set('ctp_theme', theme);
   document.querySelectorAll('.theme-btn').forEach((b) => b.classList.toggle('on', b.dataset.theme === theme));
-  document.querySelector('meta[name="theme-color"]').content = theme === 'sakura' ? '#f7c6e0' : '#2a1747';
+  document.querySelector('meta[name="theme-color"]').content = { sakura: '#f7c6e0', lantern: '#2a1747', halong: '#8fd3ff' }[theme];
 }
 document.querySelectorAll('.theme-btn').forEach((b) => b.addEventListener('click', () => applyTheme(b.dataset.theme)));
 

@@ -45,7 +45,7 @@ Thử riêng đường dự phòng: thêm `&relay=1` vào link mời.
 |---|---|
 | Giao diện | HTML, CSS và JavaScript thuần (ES modules): không cần build, nhẹ, tải nhanh |
 | 3D | CSS 3D transforms: bàn cờ isometric, xúc xắc lập phương, con tốt 3D, nhà và khách sạn dựng bằng khối 3D (tường, cửa sổ, mái màu chủ đất) có khói ống khói, đèn hiệu, cờ bay |
-| Giao diện | 2 theme: 🌸 Hoa anh đào (mặc định) và 🏮 Phố đèn lồng; đổi ở trang chủ hoặc menu trong ván |
+| Giao diện | 3 theme: 🌸 Hoa anh đào (mặc định), 🏮 Phố đèn lồng, 🌊 Vịnh Hạ Long; đổi ở trang chủ hoặc menu trong ván |
 | Icon | [Fluent Emoji 3D](https://github.com/microsoft/fluentui-emoji) (Microsoft, giấy phép MIT), đã thu nhỏ thành WebP 96px |
 | Online | WebRTC qua PeerJS |
 | Nhân vật doanh nhân | [Avataaars](https://avataaars.com/) của Pablo Stanley (miễn phí cho cá nhân và thương mại), tạo bằng [DiceBear](https://www.dicebear.com/) |
