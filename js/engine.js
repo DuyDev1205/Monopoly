@@ -132,9 +132,9 @@ const timeUp = (s) => timeLeft(s) <= 0;
 // ---------- vòng lượt ----------
 // ---------- lễ hội địa phương (ngẫu nhiên mỗi vòng) ----------
 export const RAND_FEST_MULT = 1.5;   // tiền thuê +50%
-export const RAND_FEST_COUNT = 3;    // mỗi vòng 3 ô
+export const RAND_FEST_COUNT = 3;    // 3 ô, chọn ngẫu nhiên lúc bắt đầu ván và giữ tới hết ván
 const FEST_TILES = BOARD.map((t, i) => (t.type === 'city' || t.type === 'resort' ? i : -1)).filter((i) => i >= 0);
-// chọn 3 ô mới, tránh lặp lại đúng các ô của vòng trước
+// chọn ngẫu nhiên các ô Festival (không trùng các ô trong prev)
 function pickFestTiles(prev) {
   const pool = shuffle(FEST_TILES.filter((i) => !prev.includes(i)));
   return pool.slice(0, RAND_FEST_COUNT).sort((a, b) => a - b);
@@ -151,10 +151,6 @@ function nextTurn(s, ev) {
   }
   if (i <= s.cur) {
     s.round++;
-    // vòng mới: lễ hội địa phương chuyển sang một ô ngẫu nhiên khác
-    s.randFests = pickFestTiles(s.randFests || []);
-    ev.push({ t: 'rfest', tiles: s.randFests });
-    log(s, ev, `🎊 Festival vòng ${s.round}: ${s.randFests.map((k) => BOARD[k].name).join(', ')} — tiền thuê +50%!`);
   }
   if (timeUp(s)) {
     const best = alive(s).sort((a, b) => netWorth(s, b) - netWorth(s, a))[0];

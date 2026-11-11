@@ -17,7 +17,7 @@ Chơi với máy ngay trên trình duyệt, hoặc chơi online cùng bạn bè 
 | 🎆 Lễ Hội | Chọn 1 đất của mình, tiền thuê ở đó ×2 |
 | ✈️ Sân Bay | Lượt sau bay tới ô bất kỳ |
 | 💸 Thuế | Nộp 10% giá trị đất và nhà |
-| 🎊 Festival | Mỗi vòng 3 ô ngẫu nhiên cắm cờ FESTIVAL, tiền thuê +50% trong vòng đó |
+| 🎊 Festival | Đầu ván chọn ngẫu nhiên 3 ô đất/biển dựng cổng FESTIVAL, tiền thuê +50% tới hết ván |
 
 - Đến đất người khác: trả tiền thuê, sau đó được **mua lại** với giá gấp đôi giá trị (trừ đất đã có Khách sạn).
 - Gieo đôi được đi tiếp. Gieo đôi 3 lần liền thì bị dạt ra Đảo Hoang.

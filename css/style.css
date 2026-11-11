@@ -882,21 +882,27 @@ body[data-theme] .tile.resort { background: linear-gradient(var(--sea), #fde9b8 
 .tp-list b { font-variant-numeric: tabular-nums; min-width: 46px; text-align: right; }
 .pc { cursor: help; }
 
-/* ================= Festival ngẫu nhiên: cờ nền xanh chữ vàng ================= */
-.tile.rfest { box-shadow: inset 0 0 0 .4cqw #2fbf6c, 0 0 1.8cqw rgba(47,191,108,.75); }
+/* ================= Festival: cổng 2 cột + băng rôn cong ================= */
+.tile.rfest { box-shadow: inset 0 0 0 .4cqw #2fbf6c, 0 0 1.8cqw rgba(47,191,108,.7); }
 .fflag { position: absolute; left: 0; top: 0; transform-style: preserve-3d; pointer-events: none; z-index: 5; }
-.fflag .stand { position: absolute; left: -.2cqw; bottom: 0; width: 8cqw; height: 11.6cqw; transform-origin: 0 100%; transform: var(--unrot); }
-.fflag .pole { position: absolute; left: 0; bottom: 0; width: .4cqw; height: 11cqw; border-radius: .2cqw; background: linear-gradient(90deg, #8a6a3a, #d8b77a, #8a6a3a); }
-.fflag .pole::before { content: ''; position: absolute; left: -.25cqw; top: -.5cqw; width: .9cqw; height: .9cqw; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6b8, #ffc531 60%, #b77c00); }
-.fflag .cloth { position: absolute; left: .4cqw; top: .3cqw; padding: .45cqw .9cqw .45cqw .7cqw; border-radius: 0 .6cqw .6cqw 0;
-  background: linear-gradient(180deg, #34c46e, #178a45); border: .2cqw solid #0f6a33; border-left: 0;
-  box-shadow: 0 .3cqw .6cqw rgba(0,0,0,.3); transform-origin: 0 50%; animation: clothWave 1.4s ease-in-out infinite; }
-.fflag .cloth::after { content: ''; position: absolute; right: -1cqw; top: 50%; margin-top: -1.15cqw; border-left: 1cqw solid #178a45; border-top: 1.15cqw solid transparent; border-bottom: 1.15cqw solid transparent; }
-.fflag .cloth b { display: block; font-size: 1.45cqw; font-weight: 900; letter-spacing: .08cqw; color: #ffe14d; white-space: nowrap; text-shadow: 0 .15cqw 0 #0f6a33; }
-@keyframes clothWave { 0%, 100% { transform: skewY(0deg) scaleX(1); } 50% { transform: skewY(-4deg) scaleX(.94); } }
-.fflag.fresh .stand { animation: flagPlant .7s cubic-bezier(.2,1.5,.4,1) both; }
-@keyframes flagPlant { from { transform: var(--unrot) translateY(-8cqw) scale(.4); opacity: 0; } }
-@media (max-width: 900px), (orientation: portrait) { .fflag .cloth b { font-size: 1.9cqw; } .fflag .pole { height: 9cqw; } .fflag .stand { height: 9.6cqw; } }
+.fflag .stand { position: absolute; left: -5.4cqw; bottom: 0; width: 10.8cqw; transform-origin: 50% 100%; transform: var(--unrot); }
+.fflag svg.arch { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 .35cqw .3cqw rgba(30,10,40,.35)); }
+.fflag .sway { transform-box: view-box; transform-origin: 100px 60px; animation: archSway 3.2s ease-in-out infinite; }
+@keyframes archSway { 0%, 100% { transform: rotate(-1.2deg); } 50% { transform: rotate(1.2deg); } }
+.fflag .bf { transform-box: fill-box; transform-origin: 50% 0; animation: buntSwing 1.1s ease-in-out infinite alternate; }
+@keyframes buntSwing { from { rotate: -10deg; } to { rotate: 10deg; } }
+.fflag .pn { transform-box: fill-box; transform-origin: 0 50%; animation: pennant .8s ease-in-out infinite alternate; }
+@keyframes pennant { from { transform: skewY(-8deg) scaleX(.9); } to { transform: skewY(6deg) scaleX(1); } }
+.fflag .tw { transform-box: fill-box; transform-origin: center; animation: twinkle2 1.6s ease-in-out infinite; }
+.fflag .tw.t2 { animation-delay: -.5s; } .fflag .tw.t3 { animation-delay: -1s; }
+@keyframes twinkle2 { 0%, 100% { opacity: .2; transform: scale(.5); } 50% { opacity: 1; transform: scale(1.1); } }
+.fflag.fresh .stand { animation: archRise .8s cubic-bezier(.2,1.4,.4,1) both; }
+@keyframes archRise { from { transform: var(--unrot) translateY(6cqw) scaleY(.2); opacity: 0; } }
+/* điện thoại (bàn nghiêng thẳng): cổng nhỏ lại, cột trái/phải thu nhỏ hơn cho vừa ô hẹp */
+@media (max-width: 900px), (orientation: portrait) {
+  .fflag .stand { left: -4.6cqw; width: 9.2cqw; }
+  .fflag.s-l .stand, .fflag.s-r .stand { left: -3.6cqw; width: 7.2cqw; }
+}
 
 /* ================= Nhà sụp (phá / bán) ================= */
 .bld.crumble > .grow { animation: crumble .6s cubic-bezier(.5,0,.8,.4) forwards; }
@@ -922,3 +928,11 @@ body[data-theme] .tile.resort { background: linear-gradient(var(--sea), #fde9b8 
 .copyright { position: fixed; right: 12px; bottom: 8px; z-index: 5; font-size: 12px; font-weight: 600; color: rgba(90,30,60,.75);
   background: rgba(255,255,255,.55); padding: 2px 10px; border-radius: 99px; pointer-events: none; }
 body.ingame .copyright { display: none; }
+
+/* băng rôn: chữ phụ tự xuống dòng, không tràn màn hình điện thoại */
+.banner small { white-space: normal; text-align: center; max-width: min(640px, 90vw); line-height: 1.35; }
+@media (max-width: 900px), (orientation: portrait) {
+  .banner b { font-size: 26px; padding: 4px 18px; white-space: nowrap; }
+  .banner small { font-size: 14px; max-width: 86vw; }
+  .fflag.s-b .stand, .fflag.s-t .stand { left: -5.4cqw; width: 10.8cqw; }
+}

@@ -290,31 +290,87 @@ function renderBuilding(i, s) {
 
 // ---------- cờ FESTIVAL trên các ô lễ hội ngẫu nhiên ----------
 const flagEls = new Map();
+// Cổng đặt ở mép xa của ô (phía sau nhà, không che chữ và giá)
 function flagAnchor(i) {
   const t = tileEls[i];
   const L = t.offsetLeft, T = t.offsetTop, W = t.offsetWidth, H = t.offsetHeight;
-  switch (sideOf(i)) {   // cắm ở góc ô, cạnh nhà, không che chữ
-    case 'b': return [L + W * 0.84, T + H * 0.2];
-    case 't': return [L + W * 0.16, T + H * 0.2];
-    case 'l': return [L + W * 0.2, T + H * 0.84];
-    case 'r': return [L + W * 0.8, T + H * 0.16];
+  if (flatView.matches) {
+    // điện thoại: cột trái/phải ô thấp -> cổng đứng ở mép trong (sát bãi cỏ) để không đè chữ ô phía trên
+    if (sideOf(i) === 'l') return [L + W, T + H * 0.92];
+    if (sideOf(i) === 'r') return [L, T + H * 0.92];
+    return [L + W / 2, T + H * 0.12];
+  }
+  switch (sideOf(i)) {
+    case 'b': case 't': return [L + W / 2, T + H * 0.1];
+    case 'l': case 'r': return [L + W * 0.1, T + H / 2];
   }
   return [L + W / 2, T + H / 2];
 }
 function placeFlag(i) { const el = flagEls.get(i); if (!el) return; const [x, y] = flagAnchor(i); el.style.transform = `translate(${x}px, ${y}px)`; }
+
+// Cổng Festival: 2 cột gỗ, băng rôn cong nền xanh chữ vàng, dây cờ tam giác bên dưới
+const BUNT_COLORS = ['#ff4d6d', '#ffb703', '#3a86ff', '#ff8c42', '#b15cff', '#06d6a0', '#ffd60a', '#ef476f'];
+function archSVG(id) {
+  // dây cờ: chấm theo đường cong bậc 2 từ (26,100) qua (100,128) tới (174,100)
+  const q = (t, a, c, b) => (1 - t) ** 2 * a + 2 * (1 - t) * t * c + t * t * b;
+  let flags = '';
+  for (let k = 0; k < 9; k++) {
+    const t = 0.07 + k * 0.107, x = q(t, 26, 100, 174), y = q(t, 100, 128, 100);
+    const dx = 2 * (1 - t) * (100 - 26) + 2 * t * (174 - 100), dy = 2 * (1 - t) * (128 - 100) + 2 * t * (100 - 128);
+    const ang = (Math.atan2(dy, dx) * 180) / Math.PI;
+    flags += `<path class="bf" style="animation-delay:${-k * 0.13}s" transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${ang.toFixed(1)})" d="M-6 0 L6 0 L0 13Z" fill="${BUNT_COLORS[k % BUNT_COLORS.length]}" stroke="rgba(0,0,0,.18)" stroke-width=".8"/>`;
+  }
+  const pole = (x) => `
+    <rect x="${x - 4}" y="34" width="8" height="136" rx="3" fill="url(#wood${id})"/>
+    <rect x="${x - 6}" y="160" width="12" height="10" rx="2" fill="#6b4a26"/>
+    <rect x="${x - 5.5}" y="44" width="11" height="6" rx="2" fill="#e8b33a"/>
+    <circle cx="${x}" cy="30" r="7" fill="url(#gold${id})" stroke="#9a6a00" stroke-width="1.2"/>
+    <path class="pn" d="M${x} 23 L${x} 6 L${x + 20} 12 Z" fill="#ff4d6d" stroke="#b3122e" stroke-width="1"/>
+    <line x1="${x}" y1="6" x2="${x}" y2="24" stroke="#6b4a26" stroke-width="2"/>`;
+  return `<svg class="arch" viewBox="0 0 200 172" aria-hidden="true">
+    <defs>
+      <linearGradient id="wood${id}" x1="0" x2="1"><stop offset="0" stop-color="#7a5328"/><stop offset=".45" stop-color="#d9a866"/><stop offset="1" stop-color="#7a5328"/></linearGradient>
+      <radialGradient id="gold${id}" cx="35%" cy="30%"><stop offset="0" stop-color="#fff6c2"/><stop offset=".6" stop-color="#ffc531"/><stop offset="1" stop-color="#b77c00"/></radialGradient>
+      <linearGradient id="band${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3fd47e"/><stop offset=".55" stop-color="#1f9d55"/><stop offset="1" stop-color="#127a3e"/></linearGradient>
+      <path id="tp${id}" d="M30 76 Q100 44 170 76"/>
+    </defs>
+    ${pole(18)}${pole(182)}
+    <g class="sway">
+      <!-- đuôi băng rôn gấp ở 2 đầu -->
+      <path d="M30 60 L4 66 L14 78 L4 92 L32 88 Z" fill="#0f6a33" stroke="#0a4f26" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M170 60 L196 66 L186 78 L196 92 L168 88 Z" fill="#0f6a33" stroke="#0a4f26" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M30 60 L32 88 L24 84 Z" fill="#0a4f26"/><path d="M170 60 L168 88 L176 84 Z" fill="#0a4f26"/>
+      <!-- băng rôn cong -->
+      <path d="M24 56 Q100 22 176 56 L176 92 Q100 58 24 92 Z" fill="url(#band${id})" stroke="#ffd23f" stroke-width="3.5" stroke-linejoin="round"/>
+      <path d="M30 62 Q100 30 170 62" fill="none" stroke="#ffe680" stroke-width="1.2" stroke-dasharray="2 4" opacity=".9"/>
+      <path d="M30 86 Q100 54 170 86" fill="none" stroke="#ffe680" stroke-width="1.2" stroke-dasharray="2 4" opacity=".9"/>
+      <path d="M40 50 Q100 26 160 50" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".25"/>
+      <text font-family="'Be Vietnam Pro','Segoe UI',Arial,sans-serif" font-weight="900" font-size="22" letter-spacing="1.5"
+            fill="#ffe14d" stroke="#0a4f26" stroke-width="4" paint-order="stroke"><textPath href="#tp${id}" startOffset="50%" text-anchor="middle">FESTIVAL</textPath></text>
+      <!-- dây cờ -->
+      <path d="M22 98 Q100 130 178 98" fill="none" stroke="#5b4630" stroke-width="1.6"/>
+      <g class="bunt">${flags}</g>
+    </g>
+    <!-- lấp lánh -->
+    <path class="tw" d="M100 6 l2.5 6 6 2.5 -6 2.5 -2.5 6 -2.5 -6 -6 -2.5 6 -2.5Z" fill="#fff6b0"/>
+    <path class="tw t2" d="M60 22 l1.8 4.2 4.2 1.8 -4.2 1.8 -1.8 4.2 -1.8 -4.2 -4.2 -1.8 4.2 -1.8Z" fill="#fff6b0"/>
+    <path class="tw t3" d="M142 20 l1.8 4.2 4.2 1.8 -4.2 1.8 -1.8 4.2 -1.8 -4.2 -4.2 -1.8 4.2 -1.8Z" fill="#fff6b0"/>
+  </svg>`;
+}
 function renderFlags(s = S, fresh = false) {
   const want = new Set(s?.randFests || []);
   for (const [i, el] of flagEls) if (!want.has(i)) { el.remove(); flagEls.delete(i); }
   for (const i of want) {
     if (flagEls.has(i)) continue;
     const el = document.createElement('div');
-    el.className = `fflag${fresh ? ' fresh' : ''}`;
-    el.innerHTML = '<div class="stand"><div class="pole"></div><div class="cloth"><b>FESTIVAL</b></div></div>';
+    el.className = `fflag s-${sideOf(i)}${fresh ? ' fresh' : ''}`;
+    el.innerHTML = `<div class="stand">${archSVG(i)}</div>`;
     bldLayer.appendChild(el);
     flagEls.set(i, el);
     placeFlag(i);
   }
 }
+flatView.addEventListener?.('change', () => flagEls.forEach((_, i) => placeFlag(i)));
 
 // ---------- hiệu ứng nhà sụp (phá / bán) ----------
 function debris([x, y], colors, n = 18) {
@@ -822,7 +878,7 @@ function tileTip(i) {
   const g = t.group ? GROUPS[t.group] : null;
   let h = `<div class="tp-head"><span class="tp-bar" style="background:${g ? g.color : t.type === 'resort' ? '#18a0b5' : '#c9b68f'}"></span><b>${esc(t.name)}</b>${g ? `<small>${esc(g.name)}</small>` : t.type === 'resort' ? '<small>Khu du lịch</small>' : ''}</div>`;
   if (o) {
-    if (o.o < 0) h += `<div class="tp-row"><span>Giá mua</span><b>${fmtFull(t.price)}</b></div><div class="tp-row muted"><span>Chưa có chủ</span></div>${isRandFest(S, i) ? '<div class="tp-tags"><span style="background:#1f9d55">🎊 Festival: thuê +50% vòng này</span></div>' : ''}`;
+    if (o.o < 0) h += `<div class="tp-row"><span>Giá mua</span><b>${fmtFull(t.price)}</b></div><div class="tp-row muted"><span>Chưa có chủ</span></div>${isRandFest(S, i) ? '<div class="tp-tags"><span style="background:#1f9d55">🎊 Festival: thuê +50% cả ván</span></div>' : ''}`;
     else {
       const ow = S.players[o.o];
       h += `<div class="tp-row"><span>Chủ</span><b style="color:${ow.color}">${esc(ow.name)}</b></div>`;
@@ -1132,6 +1188,7 @@ function confetti() {
 }
 
 // ---------- khởi động ván ----------
+let festIntro = false;
 function enterGame(state) {
   S = state;
   stateAt = Date.now();
@@ -1145,6 +1202,11 @@ function enterGame(state) {
   $('#bubbles').innerHTML = '';
   $('#netInfo').classList.toggle('hidden', mode !== 'online');
   requestAnimationFrame(() => { tokensEl.classList.add('notrans'); render(); requestAnimationFrame(() => tokensEl.classList.remove('notrans')); });
+  // ván mới: giới thiệu 3 ô Festival (giữ tới hết ván)
+  if ((festIntro || (state.seq === 0 && state.randFests?.length)) && state.phase !== 'over') {
+    festIntro = false;
+    setTimeout(() => { if (S === state || S?.seq === 0) banner('🎊 FESTIVAL', `${state.randFests.map((k) => BOARD[k].name).join(' · ')} — thuê +50% cả ván`, '#1f9d55', 2200); }, 500);
+  }
 }
 
 // ===== Chơi trên máy =====
@@ -1172,6 +1234,7 @@ class LocalCtl {
   stop() { clearTimeout(this.t); }
 }
 function startLocal(players, timeLimit) {
+  festIntro = true;
   ctl?.stop?.();
   mode = 'local';
   const s = newGame(players, { timeLimit });
