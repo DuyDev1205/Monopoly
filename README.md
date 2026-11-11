@@ -25,15 +25,17 @@ Chơi với máy ngay trên trình duyệt, hoặc chơi online cùng bạn bè 
 
 ## Chơi online không cần server
 
-Online dùng **WebRTC** (thư viện [PeerJS](https://peerjs.com), chỉ tải khi bấm chơi online):
+Chơi được giữa máy tính và điện thoại, khác mạng (Wi-Fi, 4G) vẫn vào chung phòng.
 
-- **Chủ phòng** chạy luôn phần "server" trong trình duyệt của mình ([`js/room.js`](js/room.js)), dùng cùng file luật [`js/engine.js`](js/engine.js) với chế độ chơi với máy.
-- **Khách** nhập mã phòng 4 ký tự (hoặc bấm link mời), rồi nối thẳng tới máy chủ phòng. Độ trễ thấp vì không qua server trung gian.
-- Máy chủ PeerJS miễn phí chỉ dùng để hai bên tìm thấy nhau lúc đầu; dữ liệu ván chơi đi thẳng giữa các máy.
-- Mất mạng thì tự kết nối lại. Khách tải lại trang vẫn vào đúng phòng. Chủ phòng tải lại trang thì phòng được khôi phục từ bản lưu.
-- Ai rớt mạng quá 15 giây hoặc để quá 45 giây không đánh thì máy tự đánh thay, ván không bị treo.
+- **Đường chính: nối thẳng** giữa các trình duyệt bằng WebRTC ([PeerJS](https://peerjs.com)). Độ trễ thấp nhất.
+- **Đường dự phòng: chuyển tiếp qua MQTT broker công cộng** (EMQX, HiveMQ, Mosquitto, qua `wss://`) — tự bật khi sau 4 giây chưa nối thẳng được. Hay gặp khi điện thoại dùng 4G (NAT nhà mạng) hoặc router chặn kết nối trực tiếp. Nhãn mạng trong ván sẽ ghi `· chuyển tiếp`.
+- **Chủ phòng** chạy luôn phần "server" trong trình duyệt của mình ([`js/room.js`](js/room.js)) và nghe cả 2 đường; khách có thể đi đường nào cũng được.
+- Mất mạng thì tự kết nối lại; khách tải lại trang vẫn vào đúng phòng; chủ phòng tải lại trang thì phòng được khôi phục.
+- Ai rớt mạng quá 15 giây hoặc để quá 45 giây không đánh thì máy tự đánh thay.
 
-**Lưu ý:** chủ phòng phải giữ tab game mở trong lúc chơi. Một số mạng 4G hoặc mạng công ty chặn kết nối P2P trực tiếp; khi đó nên đổi sang wifi khác.
+**Lưu ý:** chủ phòng phải giữ tab game mở trong lúc chơi. Đường dự phòng dùng broker công cộng nên tin nhắn ván chơi (không có thông tin cá nhân) đi qua máy chủ của bên thứ ba.
+
+Thử riêng đường dự phòng: thêm `&relay=1` vào link mời.
 
 ## Công nghệ
 
@@ -57,7 +59,8 @@ js/characters.js  nhân vật hình người (SVG) — thêm nhân vật mới �
 js/music.js       nhạc nền tổng hợp bằng WebAudio (không dùng file nhạc)
 js/bot.js         máy chơi
 js/room.js        phòng online (chạy ở máy chủ phòng)
-js/net.js         kết nối WebRTC (chủ phòng / khách)
+js/net.js         kết nối online: nối thẳng WebRTC + tự chuyển đường dự phòng
+js/relay.js       client MQTT tối giản cho đường dự phòng
 js/app.js         giao diện, animation, mô hình nhà 3D
 ```
 

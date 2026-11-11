@@ -1022,7 +1022,7 @@ const netHandlers = {
     $('#netInfo').textContent = ok ? (net?.isHost ? '👑 Chủ phòng' : '🟢 Online') : '🔴 Đang kết nối lại…';
     $('#netHint').textContent = ok ? '' : 'Đang kết nối…';
   },
-  ping: (ms) => { $('#netInfo').textContent = `🟢 ${ms}ms`; },
+  ping: (ms, kind) => { $('#netInfo').textContent = `🟢 ${ms}ms${kind === 'relay' ? ' · chuyển tiếp' : ''}`; },
 };
 function hostRoom(name, restore) {
   net?.close();
