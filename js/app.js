@@ -1,9 +1,9 @@
 // Giao diện Cờ Tỷ Phú Việt Nam
 import { BOARD, GROUPS, SIZE, AIRPORT, AIRPORT_FEE, BAIL, SALARY, RESORT_RENT, PLAYER_COLORS, WIN_LABEL, levelCost, SELL_RATE, BUYOUT_RATE, ICONS } from './data.js';
-import { newGame, apply, tick, timeLeft, BOT_THINK, ownsGroup, RAND_FEST_MULT, isRandFest, fmt, fmtFull, rentOf, tileValue, buyoutCost, buildCost, maxBuildLevel, ownedBy, netWorth, animTime, ANIM } from './engine.js';
+import { canFly, newGame, apply, tick, timeLeft, BOT_THINK, ownsGroup, RAND_FEST_MULT, isRandFest, fmt, fmtFull, rentOf, tileValue, buyoutCost, buildCost, maxBuildLevel, ownedBy, netWorth, animTime, ANIM } from './engine.js';
 import { botAction } from './bot.js';
 import { HostNet, GuestNet } from './net.js';
-import { charSVG } from './characters.js';
+import { charSVG, CHARACTERS, EMOTIONS, startPortraitRig } from './characters.js';
 import { createMusic } from './music.js';
 
 // ---------- tiện ích ----------
@@ -59,6 +59,34 @@ const sfx = {
   turn: () => beep(740, 0.08, 'sine', 0.05),
   win: () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.22, 'triangle', 0.07), i * 130)),
 };
+
+// ---------- nhân vật + cảm xúc ----------
+const charOf = (p, i) => (Number.isInteger(p?.char) ? p.char : i);
+const emoState = {};
+function emoOf(pid, s = S) {
+  if (s && s.winner === pid) return 'victory';
+  if (s?.players[pid]?.out) return 'shock';
+  const m = emoState[pid];
+  return m && m.until > performance.now() ? m.e : 'idle';
+}
+function paintEmo(pid) { document.querySelectorAll(`svg.pt[data-pid="${pid}"]`).forEach((el) => { el.dataset.emo = emoOf(pid); }); }
+function setEmo(pid, e, ms) {
+  if (pid == null || pid < 0) return;
+  emoState[pid] = { e, until: performance.now() + ms };
+  paintEmo(pid);
+  setTimeout(() => paintEmo(pid), ms + 30);
+}
+// ảnh đại diện của người chơi pid (chân dung có cảm xúc)
+const avatar = (pid, s = S) => charSVG(charOf(s.players[pid], pid), true, emoOf(pid, s)).replace('<svg ', `<svg data-pid="${pid}" `);
+function emoEvent(e) {
+  switch (e.t) {
+    case 'dice': return setEmo(e.pid, 'excited', 2400);
+    case 'rent': setEmo(e.to, 'victory', 2400); return setEmo(e.from, 'shock', 2600);
+    case 'tax': case 'fee': case 'sell': return setEmo(e.pid, 'shock', 2200);
+    case 'buy': case 'upgrade': case 'buyout': case 'mono': case 'bonus': return setEmo(e.pid, 'victory', 2200);
+    case 'demolish': case 'burn': setEmo(e.pid, 'victory', 2400); return setEmo(e.from, 'shock', 2600);
+  }
+}
 
 // ---------- trạng thái giao diện ----------
 let mode = null;         // 'local' | 'online'
@@ -416,7 +444,7 @@ function makeTokens() {
     el.className = 'token';
     el.style.setProperty('--c', p.color);
     el.title = p.name;
-    el.innerHTML = `<div class="shadow"></div><div class="stand"><div class="fig">${charSVG(i)}</div></div>`;
+    el.innerHTML = `<div class="shadow"></div><div class="stand"><div class="fig">${charSVG(charOf(p, i))}</div></div>`;
     tokensEl.appendChild(el);
     return el;
   });
@@ -649,7 +677,7 @@ function renderPlayers() {
     const tag = p.bot ? 'máy' : (mode === 'online' && i === mySeat ? 'bạn' : '');
     const st = [props ? `🏠 ${props} đất` : 'Chưa có đất', p.island ? `🌴 kẹt ${p.island}` : '', p.travel ? '✈️' : '', p.freeCards ? `🛟×${p.freeCards}` : '', p.out ? '💥 phá sản' : ''].filter(Boolean).join(' · ');
     return `<div class="pc${i === S.cur && S.phase !== 'over' ? ' cur' : ''}${p.out ? ' out' : ''}" style="--c:${p.color}" data-pid="${i}">
-      <div class="tk">${charSVG(i, true)}</div>
+      <div class="tk">${avatar(i)}</div>
       <div class="nm">${esc(p.name)}${tag ? `<small>${tag}</small>` : ''}</div>
       <div class="mn${view.money[i] < 0 ? ' neg' : ''}">${fmtFull(view.money[i])}</div>
       <div class="st">${st}</div>
@@ -707,7 +735,7 @@ function renderActions() {
   const p = S.players[S.cur];
   const lbl = $('#turnLabel');
   lbl.style.setProperty('--pc', p.color);
-  lbl.innerHTML = S.phase === 'over' ? '' : `<span class="tk" style="--c:${p.color}">${charSVG(S.cur, true)}</span>${isMineRaw() ? (mode === 'local' && S.players.filter((q) => !q.bot).length > 1 ? `Lượt của ${esc(p.name)}` : 'Lượt của bạn') : `Lượt của ${esc(p.name)}`}`;
+  lbl.innerHTML = S.phase === 'over' ? '' : `<span class="tk" style="--c:${p.color}">${avatar(S.cur)}</span>${isMineRaw() ? (mode === 'local' && S.players.filter((q) => !q.bot).length > 1 ? `Lượt của ${esc(p.name)}` : 'Lượt của bạn') : `Lượt của ${esc(p.name)}`}`;
   setPicks([]);
   tileEls.forEach((el) => el.classList.remove('chosen'));
   const side = $('#sidePanel');
@@ -731,7 +759,7 @@ function renderActions() {
       break;
     case 'travel':
       h = `<div class="msg">✈️ Chọn ô để bay tới · vé <b>${p.freeFly ? 'miễn phí 🎁' : fmtFull(AIRPORT_FEE)}</b></div><button class="btn" data-a="skip">Không bay, gieo xúc xắc</button>`;
-      setPicks(BOARD.map((_, i) => i).filter((i) => i !== AIRPORT));
+      setPicks(BOARD.map((_, i) => i).filter((i) => canFly(S, S.cur, i)));
       break;
     case 'target':
       h = `<div class="msg">${pd.kind === 'burn' ? '🔥 Chọn nhà của đối thủ để <b>đốt</b> (giảm 1 cấp)' : '💥 Chọn nhà của đối thủ để <b>phá</b>'}</div><button class="btn" data-a="skip">Bỏ qua</button>`;
@@ -856,7 +884,7 @@ function showTileInfo(i) {
       tax: 'Nộp thuế 10% tổng giá trị đất và nhà (tối thiểu 50tr).',
       island: `Kẹt tối đa 3 lượt. Thoát bằng cách gieo đôi, trả ${fmt(BAIL)} hoặc dùng thẻ cứu hộ.`,
       festival: 'Chọn một ô đất của bạn để tổ chức lễ hội: tiền thuê ×2. Tổ chức lại đúng ô đó thì tăng lên ×3, ×4, tối đa ×5.',
-      airport: `Lượt sau được bay tới bất kỳ ô nào trên bàn cờ, vé ${fmtFull(AIRPORT_FEE)}. Không muốn bay thì gieo xúc xắc như thường.`,
+      airport: `Lượt sau được bay tới ô đất trống, đất của mình, Xuất Phát hoặc Lễ Hội (không bay vào đất người khác), vé ${fmtFull(AIRPORT_FEE)}.`,
     };
     h += `<p>${desc[t.type] || ''}</p>`;
   }
@@ -902,7 +930,7 @@ function tileTip(i) {
       chance: 'Rút thẻ Cơ Hội: may hoặc rủi!', tax: 'Nộp 10% giá trị đất và nhà.',
       island: `Kẹt tối đa 3 lượt. Thoát: gieo đôi, trả ${fmt(BAIL)} hoặc thẻ cứu hộ.`,
       festival: `Mở lễ hội trên đất của bạn: thuê ×2, mở lại cùng chỗ tăng tới ×5.${S && S.festival >= 0 ? ` Đang ở ${BOARD[S.festival].name} ×${S.festMult || 2}.` : ''}`,
-      airport: `Lượt sau bay tới ô bất kỳ, vé ${fmtFull(AIRPORT_FEE)}.`,
+      airport: `Lượt sau bay tới đất trống, đất của mình, Xuất Phát hoặc Lễ Hội. Vé ${fmtFull(AIRPORT_FEE)}.`,
     };
     h += `<div class="tp-desc">${desc[t.type] || ''}</div>`;
   }
@@ -913,7 +941,7 @@ function playerTip(pid) {
   const mine = ownedBy(S, pid).sort((a, b) => a - b);
   const st = [p.island ? `🌴 Kẹt đảo ${p.island} lượt` : '', p.travel ? `✈️ Lượt sau được bay${p.freeFly ? ' (miễn phí)' : ''}` : '', p.freeCards ? `🛟 ${p.freeCards} thẻ cứu hộ` : '', p.out ? '💥 Đã phá sản' : ''].filter(Boolean);
   const groups = Object.keys(GROUPS).filter((g) => mine.some((k) => BOARD[k].group === g) && ownsGroup(S, pid, g));
-  let h = `<div class="tp-head"><span class="tp-av" style="--c:${p.color}">${charSVG(pid, true)}</span><b>${esc(p.name)}</b>${p.bot ? '<small>máy</small>' : ''}</div>`;
+  let h = `<div class="tp-head"><span class="tp-av" style="--c:${p.color}">${avatar(pid)}</span><b>${esc(p.name)}</b>${p.bot ? '<small>máy</small>' : ''}</div>`;
   h += `<div class="tp-row big"><span>Tiền mặt</span><b class="${p.money < 0 ? 'neg' : 'pos'}">${fmtFull(p.money)}</b></div>`;
   h += `<div class="tp-row"><span>Tổng tài sản</span><b>${fmtFull(netWorth(S, pid))}</b></div>`;
   if (groups.length) h += `<div class="tp-tags">${groups.map((g) => `<span style="background:${GROUPS[g].color}">👑 ${esc(GROUPS[g].name)}</span>`).join('')}</div>`;
@@ -958,6 +986,28 @@ $('#players').addEventListener('click', (e) => {
   if (!pc || !S) return;
   openModal(`<div class="tip-modal">${playerTip(+pc.dataset.pid)}</div><button class="btn wide" data-close>Đóng</button>`);
 });
+
+// ---------- bảng chọn nhân vật (xem trước + thử 4 cảm xúc) ----------
+function openCharPicker(cur, taken, color, onPick) {
+  let sel = cur, emo = 'idle';
+  const draw = () => {
+    openModal(`<h3>🎭 Chọn nhân vật</h3>
+      <div class="cp-wrap">
+        <div class="cp-preview" style="--c:${color}">${charSVG(sel, true, emo)}</div>
+        <div class="cp-side"><b class="cp-name">${esc(CHARACTERS[sel].name)}</b>
+          <small>${CHARACTERS[sel].kind === 'suit' ? 'Doanh nhân · thở, chớp mắt, nhìn theo chuột, đổi cảm xúc theo ván' : 'Nhân vật vui nhộn'}</small>
+          ${CHARACTERS[sel].kind === 'suit' ? `<div class="cp-emos">${Object.entries(EMOTIONS).map(([k, v]) => `<button class="btn small${k === emo ? ' gold' : ''}" data-emo="${k}">${v}</button>`).join('')}</div>` : ''}
+        </div>
+      </div>
+      <div class="cp-grid">${CHARACTERS.map((c, k) => `<button class="cp-card${k === sel ? ' on' : ''}${taken.includes(k) && k !== cur ? ' taken' : ''}" data-ch="${k}" style="--c:${color}">${charSVG(k, true)}<span>${esc(c.name)}</span></button>`).join('')}</div>
+      <div class="row"><button class="btn primary" id="cpOk">Chọn ${esc(CHARACTERS[sel].name)}</button><button class="btn" data-close>Huỷ</button></div>`);
+    const box = $('#modalBox');
+    box.querySelectorAll('[data-ch]').forEach((b) => b.addEventListener('click', () => { sel = +b.dataset.ch; emo = 'idle'; draw(); }));
+    box.querySelectorAll('[data-emo]').forEach((b) => b.addEventListener('click', () => { emo = b.dataset.emo; draw(); }));
+    $('#cpOk').addEventListener('click', () => { closeModal(); onPick(sel); });
+  };
+  draw();
+}
 
 // ---------- modal ----------
 function openModal(html) {
@@ -1019,6 +1069,7 @@ async function play(events, fin) {
   const fast = document.hidden || queue.length > 1;
   const name = (pid) => fin.players[pid]?.name || '';
   for (const e of events) {
+    if (!fast) emoEvent(e);
     switch (e.t) {
       case 'dice': if (fast) showDice(e.d); else await rollDice(e.d); break;
       case 'move':
@@ -1164,14 +1215,14 @@ function showWin() {
   sfx.win();
   confetti();
   const ranking = S.players.map((p, i) => i).sort((a, b) => netWorth(S, b) - netWorth(S, a));
-  let h = `<div class="win-big">${ico('🏆', 'wi')}</div><h3 style="justify-content:center"><span class="av" style="--c:${w.color}">${charSVG(S.winner, true)}</span> ${esc(w.name)} chiến thắng!</h3><p class="center muted">${WIN_LABEL[S.winReason]}</p><table class="rtable">`;
-  ranking.forEach((i, k) => { const p = S.players[i]; h += `<tr><td>${k + 1}. <span class="av sm" style="--c:${p.color}">${charSVG(i, true)}</span> ${esc(p.name)}${p.out ? ' 💥' : ''}</td><td>${fmtFull(netWorth(S, i))}</td></tr>`; });
+  let h = `<div class="win-big">${ico('🏆', 'wi')}</div><h3 style="justify-content:center"><span class="av" style="--c:${w.color}">${avatar(S.winner)}</span> ${esc(w.name)} chiến thắng!</h3><p class="center muted">${WIN_LABEL[S.winReason]}</p><table class="rtable">`;
+  ranking.forEach((i, k) => { const p = S.players[i]; h += `<tr><td>${k + 1}. <span class="av sm" style="--c:${p.color}">${avatar(i)}</span> ${esc(p.name)}${p.out ? ' 💥' : ''}</td><td>${fmtFull(netWorth(S, i))}</td></tr>`; });
   h += '</table><div class="menu-list">';
   if (mode === 'local') h += '<button class="btn primary wide" id="wAgain">🔁 Ván mới</button>';
   else if (lobbyInfo?.host) h += '<button class="btn primary wide" id="wRematch">🔁 Chơi lại phòng này</button>';
   h += '<button class="btn wide" data-close>Xem lại bàn cờ</button><button class="btn ghost wide" id="wHome" style="background:var(--paper2)">🏠 Trang chủ</button></div>';
   openModal(h);
-  $('#wAgain')?.addEventListener('click', () => { closeModal(); startLocal(S.players.map((p) => ({ name: p.name, bot: p.bot })), S.timeLimit); });
+  $('#wAgain')?.addEventListener('click', () => { closeModal(); startLocal(S.players.map((p, i) => ({ name: p.name, bot: p.bot, char: charOf(p, i) })), S.timeLimit); });
   $('#wRematch')?.addEventListener('click', () => { closeModal(); net.send({ t: 'rematch' }); });
   $('#wHome').addEventListener('click', () => { closeModal(); goHome(); });
 }
@@ -1258,11 +1309,11 @@ function resumeLocal() {
 // Màn thiết lập
 let setup = store.get('ctp_setup', [
   { name: 'Bạn', bot: false }, { name: 'Máy 1', bot: true }, { name: 'Máy 2', bot: true }, { name: 'Máy 3', bot: true },
-]).slice(0, 4);
+]).slice(0, 4).map((p, i) => ({ ...p, char: Number.isInteger(p.char) ? p.char : i }));
 function renderSetup() {
   $('#localPlayers').innerHTML = setup.map((p, i) => `
     <div class="prow">
-      <div class="tok" style="border-color:${PLAYER_COLORS[i]};--c:${PLAYER_COLORS[i]}">${charSVG(i, true)}</div>
+      <button class="tok pick-char" data-pick="${i}" title="Chọn nhân vật" style="border-color:${PLAYER_COLORS[i]};--c:${PLAYER_COLORS[i]}">${charSVG(charOf(p, i), true)}<i>✎</i></button>
       <input data-i="${i}" value="${esc(p.name)}" maxlength="16">
       <button class="toggle ${p.bot ? 'bot' : ''}" data-tg="${i}">${p.bot ? '🤖 Máy' : '🙂 Người'}</button>
       ${setup.length > 2 ? `<button class="xbtn" data-rm="${i}" title="Bỏ">✕</button>` : ''}
@@ -1271,15 +1322,24 @@ function renderSetup() {
 }
 $('#localPlayers').addEventListener('input', (e) => { const i = e.target.dataset.i; if (i != null) { setup[i].name = e.target.value; store.set('ctp_setup', setup); } });
 $('#localPlayers').addEventListener('click', (e) => {
+  const pk = e.target.closest('[data-pick]');
+  if (pk) {
+    const i = +pk.dataset.pick;
+    return openCharPicker(setup[i].char, setup.map((q) => q.char), PLAYER_COLORS[i], (c) => {
+      const other = setup.findIndex((q, k) => k !== i && q.char === c);
+      if (other >= 0) setup[other].char = setup[i].char;   // trùng nhân vật -> đổi chỗ cho nhau
+      setup[i].char = c; store.set('ctp_setup', setup); renderSetup();
+    });
+  }
   const tg = e.target.closest('[data-tg]'), rm = e.target.closest('[data-rm]');
   if (tg) { const p = setup[tg.dataset.tg]; p.bot = !p.bot; }
   else if (rm) setup.splice(+rm.dataset.rm, 1);
   else return;
   store.set('ctp_setup', setup); renderSetup();
 });
-$('#btnAddPlayer').onclick = () => { if (setup.length < 4) { setup.push({ name: `Máy ${setup.length}`, bot: true }); store.set('ctp_setup', setup); renderSetup(); } };
+$('#btnAddPlayer').onclick = () => { if (setup.length < 4) { setup.push({ name: `Máy ${setup.length}`, bot: true, char: [0, 1, 2, 3, 4, 5, 6, 7].find((c) => !setup.some((q) => q.char === c)) ?? 0 }); store.set('ctp_setup', setup); renderSetup(); } };
 $('#btnStartLocal').onclick = () => {
-  const players = setup.map((p, i) => ({ name: p.name.trim() || `Người ${i + 1}`, bot: p.bot }));
+  const players = setup.map((p, i) => ({ name: p.name.trim() || `Người ${i + 1}`, bot: p.bot, char: p.char }));
   startLocal(players, +$('#localTime').value);
 };
 $('#btnResume').onclick = resumeLocal;
@@ -1298,13 +1358,13 @@ const netHandlers = {
 };
 function hostRoom(name, restore) {
   net?.close();
-  net = new HostNet(netHandlers, { name, restore });
+  net = new HostNet(netHandlers, { name, restore, char: store.get('ctp_char', 0) });
   store.set('ctp_room', { host: true });
 }
 function joinRoom(code, name) {
   net?.close();
   net = new GuestNet(netHandlers, code);
-  if (name) net.send({ t: 'join', name });
+  if (name) net.send({ t: 'join', name, char: store.get('ctp_char', 0) });
   store.set('ctp_room', { code });
 }
 function dropNet() { net?.close(); net = null; store.del('ctp_room'); }
@@ -1350,7 +1410,7 @@ function renderLobby() {
   $('#roomCode').textContent = L.code;
   $('#seatList').innerHTML = L.seats.map((s, i) => `
     <div class="prow">
-      <div class="tok" style="border-color:${PLAYER_COLORS[i]};--c:${PLAYER_COLORS[i]}">${charSVG(i, true)}</div>
+      ${i === L.you ? `<button class="tok pick-char" data-mychar title="Chọn nhân vật" style="border-color:${PLAYER_COLORS[i]};--c:${PLAYER_COLORS[i]}">${charSVG(charOf(s, i), true)}<i>✎</i></button>` : `<div class="tok" style="border-color:${PLAYER_COLORS[i]};--c:${PLAYER_COLORS[i]}">${charSVG(charOf(s, i), true)}</div>`}
       <div class="nm">${esc(s.name)}${i === L.you ? ' (bạn)' : ''}</div>
       ${s.host ? '<span class="tag">👑 chủ phòng</span>' : ''}
       <span class="tag ${s.bot ? '' : s.online ? 'on' : 'off'}">${s.bot ? '🤖 máy' : s.online ? 'online' : 'offline'}</span>
@@ -1366,7 +1426,15 @@ function renderLobby() {
     : 'Đang chờ chủ phòng bắt đầu…';
 }
 const inviteLink = () => `${location.origin}${location.pathname}?room=${lobbyInfo?.code || ''}`;
-$('#seatList').addEventListener('click', (e) => { const k = e.target.closest('[data-kick]'); if (k) net.send({ t: 'kick', seat: +k.dataset.kick }); });
+$('#seatList').addEventListener('click', (e) => {
+  if (e.target.closest('[data-mychar]') && lobbyInfo) {
+    const me = lobbyInfo.seats[lobbyInfo.you];
+    return openCharPicker(charOf(me, lobbyInfo.you), lobbyInfo.seats.map((q, i) => charOf(q, i)), PLAYER_COLORS[lobbyInfo.you], (c) => {
+      store.set('ctp_char', c); net?.send({ t: 'char', char: c });
+    });
+  }
+  const k = e.target.closest('[data-kick]'); if (k) net.send({ t: 'kick', seat: +k.dataset.kick });
+});
 $('#btnAddBot').onclick = () => net.send({ t: 'addBot' });
 $('#onTime').onchange = () => net.send({ t: 'settings', timeLimit: +$('#onTime').value });
 $('#btnStartOnline').onclick = () => net.send({ t: 'start' });
@@ -1420,7 +1488,7 @@ $('#btnMenu').onclick = () => {
       : `<button class="btn wide" id="mInvite">🔗 Sao chép link mời xem</button><button class="btn primary wide" id="mHome">🚪 ${net?.isHost ? 'Đóng phòng' : 'Rời phòng (máy sẽ đánh thay)'}</button>`}
     </div>`;
   openModal(h);
-  $('#mNew')?.addEventListener('click', () => { if (confirm('Bỏ ván hiện tại và chơi ván mới?')) { closeModal(); startLocal(S.players.map((p) => ({ name: p.name, bot: p.bot })), S.timeLimit); } });
+  $('#mNew')?.addEventListener('click', () => { if (confirm('Bỏ ván hiện tại và chơi ván mới?')) { closeModal(); startLocal(S.players.map((p, i) => ({ name: p.name, bot: p.bot, char: charOf(p, i) })), S.timeLimit); } });
   $('#mInvite')?.addEventListener('click', () => $('#btnCopyLink').click());
   $('#mTheme').addEventListener('click', () => { applyTheme(theme === 'sakura' ? 'lantern' : 'sakura'); closeModal(); });
   $('#mHome').addEventListener('click', () => { if (mode === 'local' || confirm(net?.isHost ? 'Đóng phòng? Ván sẽ kết thúc với mọi người.' : 'Rời phòng? Máy sẽ chơi thay bạn.')) goHome(); });
@@ -1473,6 +1541,7 @@ document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () 
 }));
 
 function init() {
+  startPortraitRig();
   // thời lượng animation trong CSS lấy theo ANIM để luôn khớp với nhịp game
   const rs = document.documentElement.style;
   rs.setProperty('--t-step', `${ANIM.step}ms`); rs.setProperty('--t-fly', `${ANIM.fly}ms`); rs.setProperty('--t-dice', `${ANIM.dice}ms`);

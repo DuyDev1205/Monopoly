@@ -939,3 +939,88 @@ body.ingame .copyright { display: none; }
   .banner small { font-size: 14px; max-width: 86vw; }
   .fflag.s-b .stand, .fflag.s-t .stand { left: -5.4cqw; width: 10.8cqw; transform: var(--unrot); }
 }
+
+/* ================= Con tốt luôn đứng trước nhà (không bị khách sạn che) ================= */
+.token .stand { transform: var(--unrot) translateZ(9cqw); }
+
+/* ================= Chân dung doanh nhân: thở, chớp mắt, nhìn theo, cảm xúc ================= */
+svg.pt { overflow: hidden; }
+.pt .rig { transform-box: view-box; transform-origin: 60px 120px; transition: transform .35s cubic-bezier(.2,1.4,.4,1); }
+.pt .torso { transform-box: view-box; transform-origin: 60px 122px; animation: ptBreath 2.86s ease-in-out infinite; }
+.pt .head { transform-box: view-box; transform-origin: 60px 86px; animation: ptHead 2.86s ease-in-out .16s infinite; }
+.pt .tilt { transform-box: view-box; transform-origin: 60px 82px; animation: ptTilt 5.7s ease-in-out infinite; }
+.pt .hairF { animation: ptHair 2.86s ease-in-out .32s infinite; }
+@keyframes ptBreath { 0%, 100% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(-2.5px) scaleY(1.012); } }
+@keyframes ptHead { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes ptTilt { 0%, 100% { transform: rotate(-.86deg); } 50% { transform: rotate(.86deg); } }
+@keyframes ptHair { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.8px); } }
+.pt .iris { transform-box: fill-box; transform-origin: center; transform: translate(calc(var(--gx, 0) * 1px), calc(var(--gy, 0) * 1px)); transition: transform .3s ease-out; }
+.pt .lid { transform-box: fill-box; transform-origin: 50% 0; transform: scaleY(0); transition: transform .14s ease-in; }
+.pt.blink .lid { transform: scaleY(1); transition-duration: .07s; }
+.pt .eye, .pt .browL, .pt .browR { transform-box: fill-box; transform-origin: center; transition: transform .3s ease; }
+.pt .happy, .pt .sweat { display: none; }
+.pt .pale { opacity: 0; transition: opacity .4s; }
+.pt .spk { opacity: 0; }
+.pt .mouth > g { display: none; }
+.pt[data-emo="idle"] .m-idle, .pt[data-emo="excited"] .m-excited, .pt[data-emo="victory"] .m-victory, .pt[data-emo="shock"] .m-shock { display: inline; }
+/* Tự tin: nhếch mép, chân mày lệch nhẹ */
+.pt[data-emo="idle"] .browL { transform: translateY(-.9px) rotate(-3deg); }
+/* Hào hứng: mắt mở to, mày nhướn, chồm tới, thở nhanh */
+.pt[data-emo="excited"] .rig { transform: scale(1.04); }
+.pt[data-emo="excited"] .eye { transform: scale(1.14); }
+.pt[data-emo="excited"] .browL, .pt[data-emo="excited"] .browR { transform: translateY(-2.6px); }
+.pt[data-emo="excited"] .torso, .pt[data-emo="excited"] .head, .pt[data-emo="excited"] .hairF { animation-duration: 1.45s; }
+/* Chiến thắng: mắt cười, miệng cười lớn, vai nhún, lấp lánh */
+.pt[data-emo="victory"] .eye { display: none; }
+.pt[data-emo="victory"] .happy { display: inline; }
+.pt[data-emo="victory"] .browL, .pt[data-emo="victory"] .browR { transform: translateY(-1.8px); }
+.pt[data-emo="victory"] .torso { animation: ptBounce .5s ease-in-out infinite; }
+.pt[data-emo="victory"] .spk { opacity: 1; }
+.pt[data-emo="victory"] .spk path { transform-box: fill-box; transform-origin: center; animation: twinkle2 1s ease-in-out infinite; }
+.pt[data-emo="victory"] .spk path:nth-child(2) { animation-delay: -.35s; } .pt[data-emo="victory"] .spk path:nth-child(3) { animation-delay: -.7s; }
+@keyframes ptBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+/* Sốc: mày chau, nhăn răng, trán tái xanh, mồ hôi chảy */
+.pt[data-emo="shock"] .browL { transform: translateY(1.3px) rotate(14deg); }
+.pt[data-emo="shock"] .browR { transform: translateY(1.3px) rotate(-14deg); }
+.pt[data-emo="shock"] .iris { transform: translate(calc(var(--gx, 0) * 1px), calc(var(--gy, 0) * 1px)) scale(.78); }
+.pt[data-emo="shock"] .pale { opacity: .38; }
+.pt[data-emo="shock"] .sweat { display: inline; transform-box: fill-box; animation: ptSweat 1.5s ease-in infinite; }
+@keyframes ptSweat { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(12px); opacity: 0; } }
+
+/* khung ảnh người chơi: vòng vàng – gỗ gụ */
+.pc .tk { width: 66px; height: 66px; border: 4px solid transparent;
+  background: radial-gradient(circle at 50% 30%, #fffaf0, #f2d8c2 75%) padding-box, conic-gradient(from 200deg, #6b2f1a, #f6d77a, #b8862b, #fff1b8, #8a4b2a, #f6d77a, #6b2f1a) border-box;
+  box-shadow: 0 0 0 3px var(--c), 0 4px 0 3px color-mix(in srgb, var(--c) 55%, #000); }
+@media (max-width: 900px), (orientation: portrait) { .pc .tk { width: 44px; height: 44px; border-width: 3px; } }
+
+/* ================= Chọn nhân vật ================= */
+.pick-char { position: relative; cursor: pointer; padding: 0; overflow: hidden; }
+.pick-char i { position: absolute; right: -2px; bottom: -2px; width: 15px; height: 15px; border-radius: 50%; background: #fff; color: var(--accent); font-style: normal; font-size: 10px; font-weight: 800; display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.prow .tok svg.chr { width: 100%; height: 100%; }
+.modal-box:has(.cp-grid) { width: min(560px, 100%); }
+.cp-wrap { display: flex; gap: 16px; align-items: center; margin: 8px 0 12px; }
+.cp-preview { width: 150px; height: 150px; flex: none; border-radius: 50%; overflow: hidden; border: 6px solid transparent;
+  background: radial-gradient(circle at 50% 30%, #fffaf0, #f2d8c2 75%) padding-box, conic-gradient(from 200deg, #6b2f1a, #f6d77a, #b8862b, #fff1b8, #8a4b2a, #f6d77a, #6b2f1a) border-box;
+  box-shadow: 0 0 0 4px var(--c), 0 10px 20px rgba(0,0,0,.25); }
+.cp-preview svg { width: 100%; height: 100%; display: block; }
+.cp-side { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cp-name { font-size: 22px; font-weight: 900; color: var(--accent); }
+.cp-side small { color: var(--muted); font-size: 13px; }
+.cp-emos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.cp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+.cp-card { border: 2px solid #eadfc4; background: #fff; border-radius: 14px; padding: 6px 4px 4px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; font: inherit; font-size: 12px; font-weight: 700; transition: transform .15s, border-color .15s; }
+.cp-card:hover { transform: translateY(-2px); }
+.cp-card svg { width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(circle at 50% 30%, #fffaf0, #f2d8c2 75%); }
+.cp-card.on { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(224,38,47,.2); }
+.cp-card.taken { opacity: .55; }
+.cp-card.taken::after { content: 'đã có người chọn'; font-size: 9px; color: var(--muted); font-weight: 600; }
+@media (max-width: 480px) {
+  .cp-wrap { flex-direction: column; text-align: center; }
+  .cp-side { align-items: center; }
+  .cp-preview { width: 120px; height: 120px; }
+  .cp-card svg { width: 54px; height: 54px; }
+}
+
+.cp-card svg, .prow .tok svg.chr, .av svg.chr, .tp-av svg.chr, .turn-label .tk svg.chr { overflow: hidden; }
+.cp-card { min-height: 98px; justify-content: flex-start; }
+.cp-card.taken::after { line-height: 1; }

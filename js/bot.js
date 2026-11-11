@@ -1,6 +1,6 @@
 // Máy chơi đơn giản nhưng biết tính toán.
 import { BOARD, GROUP_TILES, RESORTS, BAIL, AIRPORT, FESTIVAL, AIRPORT_FEE } from './data.js';
-import { ownedBy, tileValue, buyoutCost, buildCost, maxBuildLevel, rentOf, ownsGroup } from './engine.js';
+import { ownedBy, tileValue, buyoutCost, buildCost, maxBuildLevel, rentOf, ownsGroup, canFly } from './engine.js';
 
 // Đất này giúp hoàn thành nhóm / gần hoàn thành?
 function groupBonus(s, pid, i) {
@@ -35,7 +35,7 @@ export function botAction(s, pid) {
       if (!p.freeFly && p.money < AIRPORT_FEE + res * 0.5) return { type: 'skip' };   // tiếc tiền vé
       let best = 0, bestScore = -1;
       BOARD.forEach((t, i) => {
-        if (i === AIRPORT) return;
+        if (!canFly(s, pid, i)) return;
         let sc = 0;
         const o = s.own[i];
         if (o && o.o < 0 && p.money - t.price > res) sc = groupBonus(s, pid, i) * 10 + t.price / 50;

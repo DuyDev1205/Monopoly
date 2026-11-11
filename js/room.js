@@ -6,14 +6,15 @@ import { botAction } from './bot.js';
 export const TURN_LIMIT = 45000;       // treo máy quá lâu -> máy đánh hộ
 export const DISCONNECT_GRACE = 15000; // rớt mạng -> chờ 15s rồi máy đánh hộ
 export const MAX_PLAYERS = 4;
+const okChar = (c) => (Number.isInteger(c) && c >= 0 && c < 16 ? c : null);
 export const cleanName = (n) => String(n || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 16) || 'Khách';
 
 export class HostRoom {
   /** onChange(): gọi sau mỗi thay đổi để chủ phòng lưu lại (khôi phục khi tải lại trang) */
-  constructor({ code, host, name, timeLimit = 60, onChange }) {
+  constructor({ code, host, name, char, timeLimit = 60, onChange }) {
     this.code = code;
     this.host = host;
-    this.seats = [{ token: host, name: cleanName(name), bot: false }];
+    this.seats = [{ token: host, name: cleanName(name), bot: false, char: okChar(char) ?? 0 }];
     this.watchers = new Set();
     this.state = null;
     this.timeLimit = TIME_OPTS.includes(timeLimit) ? timeLimit : 60;
@@ -49,6 +50,7 @@ export class HostRoom {
     this.broadcastRoom();
     if (this.state && this.seatOf(token) === this.state.cur) this.schedule(0);
   }
+  freeChar() { const used = this.seats.map((s) => s.char); for (let c = 0; c < 8; c++) if (!used.includes(c)) return c; return 0; }
   online(token) { return token === this.host || this.clients.has(token); }
   seatOf(token) { return this.seats.findIndex((s) => s.token === token); }
   members() {
@@ -62,7 +64,7 @@ export class HostRoom {
   roomMsg(token) {
     return {
       t: 'room', code: this.code, started: !!this.state, host: this.host === token, you: this.seatOf(token),
-      seats: this.seats.map((s) => ({ name: s.name, bot: s.bot, online: s.bot || this.online(s.token), host: s.token === this.host })),
+      seats: this.seats.map((s, i) => ({ name: s.name, char: s.char ?? i, bot: s.bot, online: s.bot || this.online(s.token), host: s.token === this.host })),
       timeLimit: this.timeLimit,
     };
   }
@@ -110,7 +112,7 @@ export class HostRoom {
         if (this.seatOf(token) >= 0) return this.broadcastRoom();
         if (this.state) { this.watchers.add(token); this.broadcastRoom(); return this.sendTo(token, this.stateMsg([])); }
         if (this.seats.length >= MAX_PLAYERS) return err(`Phòng đã đủ ${MAX_PLAYERS} người`);
-        this.seats.push({ token, name: cleanName(m.name), bot: false });
+        this.seats.push({ token, name: cleanName(m.name), bot: false, char: okChar(m.char) ?? this.freeChar() });
         return this.broadcastRoom();
       }
       case 'leave': {
@@ -127,10 +129,16 @@ export class HostRoom {
         if (this.state) this.schedule(0);
         return;
       }
+      case 'char': {   // đổi nhân vật trước khi bắt đầu
+        const seat = this.seats[this.seatOf(token)];
+        if (!seat || this.state || okChar(m.char) == null) return;
+        seat.char = okChar(m.char);
+        return this.broadcastRoom();
+      }
       case 'addBot':
         if (!isHost || this.state) return;
         if (this.seats.length >= MAX_PLAYERS) return err(`Phòng đã đủ ${MAX_PLAYERS} người`);
-        this.seats.push({ token: null, name: `Máy ${this.seats.filter((s) => s.bot).length + 1}`, bot: true });
+        this.seats.push({ token: null, name: `Máy ${this.seats.filter((s) => s.bot).length + 1}`, bot: true, char: this.freeChar() });
         return this.broadcastRoom();
       case 'kick': {
         if (!isHost || this.state) return;
@@ -147,7 +155,7 @@ export class HostRoom {
       case 'start':
         if (!isHost || this.state) return;
         if (this.seats.length < 2) return err('Cần ít nhất 2 người (có thể thêm máy)');
-        this.state = newGame(this.seats.map((s) => ({ name: s.name, bot: s.bot })), { timeLimit: this.timeLimit });
+        this.state = newGame(this.seats.map((s, i) => ({ name: s.name, bot: s.bot, char: s.char ?? i })), { timeLimit: this.timeLimit });
         this.lastTick = Date.now();
         this.broadcastRoom();
         this.schedule(0);

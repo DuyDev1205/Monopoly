@@ -26,6 +26,7 @@ export function newGame(players, opts = {}) {
     players: players.slice(0, 4).map((p, i) => ({
       name: String(p.name || `Người ${i + 1}`).slice(0, 16),
       bot: !!p.bot,
+      char: Number.isInteger(p.char) && p.char >= 0 && p.char < 16 ? p.char : i,
       color: PLAYER_COLORS[i % PLAYER_COLORS.length],
       token: PLAYER_TOKENS[i % PLAYER_TOKENS.length],
       money: START_MONEY, pos: 0, island: 0, freeCards: 0, travel: false, out: false,
@@ -53,6 +54,10 @@ export const assets = (s, pid) => ownedBy(s, pid).reduce((a, i) => a + tileValue
 export const netWorth = (s, pid) => s.players[pid].money + assets(s, pid);
 export const ownsGroup = (s, pid, g) => GROUP_TILES[g].every((i) => s.own[i].o === pid);
 export const MONO_MULT = 1.5;
+// Ô bay tới được từ Sân Bay: ô đất/biển chưa có chủ hoặc của chính mình, Xuất Phát, Lễ Hội
+export const canFly = (s, pid, i) => ['city', 'resort', 'start', 'festival'].includes(BOARD[i]?.type)
+  && !(s.own[i] && s.own[i].o >= 0 && s.own[i].o !== pid);
+
 export function rentOf(s, i, diceSum = 7) {
   const t = BOARD[i], o = s.own[i];
   if (!o || o.o < 0) return 0;
@@ -443,7 +448,7 @@ export function apply(s, pid, a) {
 
     case 'travel': {
       if (s.phase !== 'travel') return err('Không thể bay lúc này');
-      if (tile < 0 || tile === AIRPORT) return err('Chọn ô khác');
+      if (tile < 0 || !canFly(s, pid, tile)) return err('Không bay tới ô này được');
       const fee = p.freeFly ? 0 : AIRPORT_FEE;
       if (p.money < fee) return err(`Cần ${fmt(fee)} để mua vé`);
       p.travel = false; p.freeFly = false;

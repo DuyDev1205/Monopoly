@@ -83,7 +83,7 @@ export class HostNet {
     const save = () => this.save();
     this.room = this.opts.restore
       ? HostRoom.restore(this.opts.restore, save)
-      : new HostRoom({ code: this.code, host: this.token, name: this.opts.name, onChange: save });
+      : new HostRoom({ code: this.code, host: this.token, name: this.opts.name, char: this.opts.char, onChange: save });
     this.room.attach(this.token, this.local);
     this.queue.splice(0).forEach((m) => this.room.handle(this.token, m));
     this.startRelay();

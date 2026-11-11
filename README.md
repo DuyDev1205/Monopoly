@@ -15,7 +15,7 @@ Chơi với máy ngay trên trình duyệt, hoặc chơi online cùng bạn bè 
 | 🧧 Cơ Hội | Rút thẻ: lì xì Tết, xổ số, kẹt xe, viện phí… |
 | 🌴 Đảo Hoang | Kẹt tối đa 3 lượt. Thoát bằng cách gieo đôi, trả 100tr hoặc dùng thẻ cứu hộ |
 | 🎆 Lễ Hội | Chọn 1 đất của mình, tiền thuê ở đó ×2 |
-| ✈️ Sân Bay | Lượt sau bay tới ô bất kỳ |
+| ✈️ Sân Bay | Lượt sau bay (vé 50tr) tới đất trống, đất của mình, Xuất Phát hoặc Lễ Hội |
 | 💸 Thuế | Nộp 10% giá trị đất và nhà |
 | 🎊 Festival | Đầu ván chọn ngẫu nhiên 3 ô đất/biển dựng cổng FESTIVAL, tiền thuê +50% tới hết ván |
 
@@ -58,7 +58,7 @@ assets/icons/     icon 3D (webp)
 js/data.js        bàn cờ, thẻ Cơ Hội, bảng giá
 js/engine.js      luật chơi
 assets/logo.svg   logo (đồng xu TD); icon PNG cho iPhone/Android trong assets/
-js/characters.js  nhân vật hình người (SVG) — thêm nhân vật mới ở đây
+js/characters.js  8 nhân vật: 4 chibi + 4 doanh nhân (chân dung nhiều lớp: thở, chớp mắt, nhìn theo chuột, 4 cảm xúc)
 js/music.js       nhạc nền tổng hợp bằng WebAudio (không dùng file nhạc)
 js/bot.js         máy chơi
 js/room.js        phòng online (chạy ở máy chủ phòng)
