@@ -82,6 +82,7 @@ export function buildCost(i, from, to) {
 export function maxBuildLevel(s, i) {
   const o = s.own[i];
   if (BOARD[i].type !== 'city') return 0;
+  if (s.round <= 1) return 3;            // vòng đầu tiên chưa được lên khách sạn
   return o.lvl >= 3 ? 4 : 3;
 }
 
@@ -256,7 +257,7 @@ function land(s, ev, pid, diceSum) {
         return;
       }
       if (o.o === pid) {
-        if (t.type === 'city' && o.lvl < 4) { s.phase = 'upgrade'; s.pending = { tile: i }; return; }
+        if (t.type === 'city' && o.lvl < maxBuildLevel(s, i)) { s.phase = 'upgrade'; s.pending = { tile: i }; return; }
         return proceed(s, ev);
       }
       const owner = s.players[o.o];
@@ -294,7 +295,7 @@ function land(s, ev, pid, diceSum) {
 export const START_BONUS_CASH = 100;
 function startBonus(s, ev, pid) {
   const p = s.players[pid];
-  const up = ownedBy(s, pid).filter((k) => BOARD[k].type === 'city' && s.own[k].lvl < 4);
+  const up = ownedBy(s, pid).filter((k) => BOARD[k].type === 'city' && s.own[k].lvl < maxBuildLevel(s, k));
   const pool = [['cash', 25], ['card', 15], ['fly', 20]];
   if (up.length) pool.push(['upgrade', 40]);
   let r = rnd(pool.reduce((a, [, w]) => a + w, 0)), kind = pool[0][0];
@@ -504,7 +505,7 @@ export function apply(s, pid, a) {
       log(s, ev, `🤝 ${p.name} mua lại ${BOARD[i].name} từ ${s.players[prev].name} với giá ${fmt(cost)}.`);
       monoCheck(s, ev, pid, i);
       if (checkWin(s, ev, pid)) break;
-      if (BOARD[i].type === 'city' && o.lvl < 4) { s.phase = 'upgrade'; s.pending = { tile: i }; break; }
+      if (BOARD[i].type === 'city' && o.lvl < maxBuildLevel(s, i)) { s.phase = 'upgrade'; s.pending = { tile: i }; break; }
       proceed(s, ev); break;
     }
 
