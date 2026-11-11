@@ -1,6 +1,6 @@
 // Giao diện Cờ Tỷ Phú Việt Nam
 import { BOARD, GROUPS, SIZE, AIRPORT, AIRPORT_FEE, BAIL, SALARY, RESORT_RENT, PLAYER_COLORS, WIN_LABEL, levelCost, SELL_RATE, BUYOUT_RATE, ICONS } from './data.js';
-import { newGame, apply, tick, timeLeft, BOT_THINK, ownsGroup, RAND_FEST_MULT, fmt, fmtFull, rentOf, tileValue, buyoutCost, buildCost, maxBuildLevel, ownedBy, netWorth, animTime, ANIM } from './engine.js';
+import { newGame, apply, tick, timeLeft, BOT_THINK, ownsGroup, RAND_FEST_MULT, isRandFest, fmt, fmtFull, rentOf, tileValue, buyoutCost, buildCost, maxBuildLevel, ownedBy, netWorth, animTime, ANIM } from './engine.js';
 import { botAction } from './bot.js';
 import { HostNet, GuestNet } from './net.js';
 import { charSVG } from './characters.js';
@@ -126,13 +126,13 @@ function buildBoard() {
       el.className = `tile side-${side} ${t.type}`;
       const g = t.group ? GROUPS[t.group].color : t.type === 'resort' ? '#18a0b5' : 'transparent';
       const icon = t.type === 'city' || t.type === 'resort' ? '' : ico(t.icon);
-      el.innerHTML = `<div class="band" style="--g:${g}"></div><div class="body">${icon}<div class="txt"><div class="nm">${esc(t.name)}</div><div class="pr">${tileSub(t)}</div></div></div><i class="rf-badge">🎊 ×${RAND_FEST_MULT}</i>`;
+      el.innerHTML = `<div class="band" style="--g:${g}"></div><div class="body">${icon}<div class="txt"><div class="nm">${esc(t.name)}</div><div class="pr">${tileSub(t)}</div></div></div>`;
     }
     el.addEventListener('click', () => onTileClick(i));
     boardEl.insertBefore(el, boardEl.querySelector('.center'));
     tileEls[i] = el;
   });
-  new ResizeObserver(() => { tokensEl.classList.add('notrans'); layoutTokens(); bldEls.forEach((_, i) => placeBuilding(i)); requestAnimationFrame(() => tokensEl.classList.remove('notrans')); }).observe(boardEl);
+  new ResizeObserver(() => { tokensEl.classList.add('notrans'); layoutTokens(); bldEls.forEach((_, i) => placeBuilding(i)); flagEls.forEach((_, i) => placeFlag(i)); requestAnimationFrame(() => tokensEl.classList.remove('notrans')); }).observe(boardEl);
 }
 
 function renderTile(i, s = S) {
@@ -142,7 +142,7 @@ function renderTile(i, s = S) {
   el.classList.toggle('owned', owned);
   el.classList.toggle('fest', s.festival === i);
   el.classList.toggle('mono', owned && t.type === 'city' && ownsGroup(s, o.o, t.group));
-  el.classList.toggle('rfest', s.randFest === i);
+  el.classList.toggle('rfest', isRandFest(s, i));
   if (owned) el.style.setProperty('--own', s.players[o.o].color); else el.style.removeProperty('--own');
   renderBuilding(i, s);
   el.querySelector('.pr').textContent = owned ? fmt(rentOf(s, i)) : fmt(t.price);
@@ -273,7 +273,7 @@ function renderBuilding(i, s) {
   const prev = el.dataset.key || '';
   if (prev === key) return;
   el.dataset.key = key;
-  if (!key) { el.innerHTML = ''; return; }
+  if (!key) { el.innerHTML = ''; el.className = 'bld'; return; }
   el.style.setProperty('--c', s.players[o.o].color);
   const t = BOARD[i];
   const lvl = t.type === 'city' ? o.lvl : 0;
@@ -286,6 +286,68 @@ function renderBuilding(i, s) {
   const sparks = upgraded ? `<div class="sparks3">${Array.from({ length: 10 }, (_, k) => `<i style="--a:${k * 36}deg;--d:${k * 35}ms"></i>`).join('')}</div><b class="lvl-badge">⬆ ${LVL_BADGE[lvl]}</b>` : '';
   el.innerHTML = `<div class="gshadow lv${lvl}"></div>${same ? '' : '<div class="dust"></div>'}<div class="grow${same ? ' still' : upgraded ? ' up' : ''}">${side === 'l' || side === 'r' ? `<div class="m" style="transform:rotateZ(-90deg)">${model(t, lvl, st)}</div>` : model(t, lvl, st)}</div>
     <div class="stand">${sparks}${s.festival === i ? `<div class="fest3" style="--fh:${(t.type === 'resort' ? 5.5 : MODEL_H[st][lvl]) + 1}cqw"><div class="bunt">${'<i></i>'.repeat(7)}</div><b>LỄ HỘI ×${s.festMult || 2}</b></div>` : ''}${lvl === 0 && t.type === 'city' ? '<div class="flag"></div>' : ''}</div>`;
+}
+
+// ---------- cờ FESTIVAL trên các ô lễ hội ngẫu nhiên ----------
+const flagEls = new Map();
+function flagAnchor(i) {
+  const t = tileEls[i];
+  const L = t.offsetLeft, T = t.offsetTop, W = t.offsetWidth, H = t.offsetHeight;
+  switch (sideOf(i)) {   // cắm ở góc ô, cạnh nhà, không che chữ
+    case 'b': return [L + W * 0.84, T + H * 0.2];
+    case 't': return [L + W * 0.16, T + H * 0.2];
+    case 'l': return [L + W * 0.2, T + H * 0.84];
+    case 'r': return [L + W * 0.8, T + H * 0.16];
+  }
+  return [L + W / 2, T + H / 2];
+}
+function placeFlag(i) { const el = flagEls.get(i); if (!el) return; const [x, y] = flagAnchor(i); el.style.transform = `translate(${x}px, ${y}px)`; }
+function renderFlags(s = S, fresh = false) {
+  const want = new Set(s?.randFests || []);
+  for (const [i, el] of flagEls) if (!want.has(i)) { el.remove(); flagEls.delete(i); }
+  for (const i of want) {
+    if (flagEls.has(i)) continue;
+    const el = document.createElement('div');
+    el.className = `fflag${fresh ? ' fresh' : ''}`;
+    el.innerHTML = '<div class="stand"><div class="pole"></div><div class="cloth"><b>FESTIVAL</b></div></div>';
+    bldLayer.appendChild(el);
+    flagEls.set(i, el);
+    placeFlag(i);
+  }
+}
+
+// ---------- hiệu ứng nhà sụp (phá / bán) ----------
+function debris([x, y], colors, n = 18) {
+  for (let k = 0; k < n; k++) {
+    const el = fxNode('debris');
+    el.style.background = colors[k % colors.length];
+    const a = Math.random() * Math.PI * 2, r = 40 + Math.random() * 70, up = 50 + Math.random() * 60;
+    el.animate([
+      { transform: `translate(${x}px, ${y}px) rotate(0deg)`, opacity: 1 },
+      { transform: `translate(${x + Math.cos(a) * r * 0.6}px, ${y - up}px) rotate(${180 + Math.random() * 180}deg)`, opacity: 1, offset: 0.4 },
+      { transform: `translate(${x + Math.cos(a) * r}px, ${y + 30 + Math.sin(a) * 20}px) rotate(${360 + Math.random() * 360}deg)`, opacity: 0 },
+    ], { duration: 900 + Math.random() * 300, easing: 'cubic-bezier(.3,.6,.5,1)', fill: 'both' }).onfinish = () => el.remove();
+  }
+}
+function dustCloud([x, y], n = 7) {
+  for (let k = 0; k < n; k++) {
+    const el = fxNode('dust-puff');
+    const dx = (k - (n - 1) / 2) * 16;
+    el.animate([
+      { transform: `translate(${x + dx}px, ${y}px) scale(.3)`, opacity: .9 },
+      { transform: `translate(${x + dx * 1.8}px, ${y - 24 - Math.random() * 18}px) scale(1.6)`, opacity: 0 },
+    ], { duration: 1000, delay: k * 30, easing: 'ease-out', fill: 'both' }).onfinish = () => el.remove();
+  }
+}
+async function collapse(i, color, dur = 700) {
+  const el = bldEls[i];
+  if (!el || !el.querySelector('.grow')) return;
+  const xy = tileXY(i);
+  el.classList.add('crumble');
+  debris(xy, [color, '#c9a77a', '#8a7a70', '#e9d9b8']);
+  dustCloud(xy);
+  sfx.pay();
+  await sleep(dur);
 }
 
 function makeTokens() {
@@ -435,6 +497,14 @@ async function showPile(amount, { minus = false, dur = 2000, onMid } = {}) {
   await sleep(300);
   rootEl.remove();
   if (!pileLayer.childElementCount) boardEl.classList.remove('paying');
+}
+function floatAt([x, y], text) {
+  const el = fxNode('float-at', esc(text));
+  el.animate([
+    { transform: `translate(${x}px, ${y}px) translate(-50%, -50%) scale(.6)`, opacity: 0 },
+    { transform: `translate(${x}px, ${y - 30}px) translate(-50%, -50%) scale(1.1)`, opacity: 1, offset: 0.25 },
+    { transform: `translate(${x}px, ${y - 60}px) translate(-50%, -50%) scale(1)`, opacity: 0 },
+  ], { duration: 1300, easing: 'ease-out', fill: 'both' }).onfinish = () => el.remove();
 }
 function burst([x, y], color, n = 14) {
   for (let k = 0; k < n; k++) {
@@ -752,7 +822,7 @@ function tileTip(i) {
   const g = t.group ? GROUPS[t.group] : null;
   let h = `<div class="tp-head"><span class="tp-bar" style="background:${g ? g.color : t.type === 'resort' ? '#18a0b5' : '#c9b68f'}"></span><b>${esc(t.name)}</b>${g ? `<small>${esc(g.name)}</small>` : t.type === 'resort' ? '<small>Khu du lịch</small>' : ''}</div>`;
   if (o) {
-    if (o.o < 0) h += `<div class="tp-row"><span>Giá mua</span><b>${fmtFull(t.price)}</b></div><div class="tp-row muted"><span>Chưa có chủ</span></div>${S.randFest === i ? `<div class="tp-tags"><span style="background:#f08c00">🎊 Lễ hội địa phương: thuê ×${RAND_FEST_MULT} vòng này</span></div>` : ''}`;
+    if (o.o < 0) h += `<div class="tp-row"><span>Giá mua</span><b>${fmtFull(t.price)}</b></div><div class="tp-row muted"><span>Chưa có chủ</span></div>${isRandFest(S, i) ? '<div class="tp-tags"><span style="background:#1f9d55">🎊 Festival: thuê +50% vòng này</span></div>' : ''}`;
     else {
       const ow = S.players[o.o];
       h += `<div class="tp-row"><span>Chủ</span><b style="color:${ow.color}">${esc(ow.name)}</b></div>`;
@@ -760,7 +830,7 @@ function tileTip(i) {
       h += `<div class="tp-row big"><span>Tiền thuê</span><b>${fmtFull(rentOf(S, i))}</b></div>`;
       const tags = [];
       if (S.festival === i) tags.push(`🎆 Lễ hội ×${S.festMult || 2}`);
-      if (S.randFest === i) tags.push(`🎊 Lễ hội địa phương ×${RAND_FEST_MULT}`);
+      if (isRandFest(S, i)) tags.push('🎊 Festival +50%');
       if (t.type === 'city' && ownsGroup(S, o.o, t.group)) tags.push('👑 Độc quyền');
       if (tags.length) h += `<div class="tp-tags">${tags.map((x) => `<span>${x}</span>`).join('')}</div>`;
       h += `<div class="tp-row"><span>Giá trị</span><b>${fmtFull(tileValue(S, i))}</b></div>`;
@@ -844,6 +914,7 @@ function render() {
   if (!S) return;
   S.players.forEach((p, i) => { view.pos[i] = p.pos; view.money[i] = p.money; });
   BOARD.forEach((_, i) => renderTile(i));
+  renderFlags();
   showDice(S.dice);
   renderPlayers();
   layoutTokens();
@@ -946,6 +1017,8 @@ async function play(events, fin) {
         el?.classList.add(burn ? 'on-fire' : 'boom');
         if (el && burn) el.querySelector('.stand')?.insertAdjacentHTML('afterbegin', `<div class="flames">${ico('🔥', 'fi')}${ico('🔥', 'fi')}${ico('🔥', 'fi')}</div>`);
         burst(xy, burn ? '#ff7a1a' : '#8a7a70', 22); sfx.pay();
+        // phá nhà: rung 0,5s rồi sụp xuống, gạch đá văng, bụi tung
+        if (!burn) setTimeout(() => { el?.classList.remove('boom'); collapse(e.tile, fin.players[e.from].color, 600); }, 500);
         const lv = burn ? (e.lvl ? `còn nhà cấp ${e.lvl}` : 'còn đất trống') : `${fin.players[e.from].name} mất nhà`;
         await banner(burn ? '🔥 ĐỐT NHÀ' : '💥 PHÁ NHÀ', `${BOARD[e.tile].name} · ${lv}`, burn ? '#e8590c' : '#5b4b45', ANIM[e.t] - 200);
         el?.classList.remove('on-fire', 'boom');
@@ -953,10 +1026,23 @@ async function play(events, fin) {
       }
       case 'rfest':
         BOARD.forEach((_, k) => renderTile(k, fin));
+        renderFlags(fin, !fast);
         if (fast) break;
-        sfx.card(); burst(tileXY(e.tile), '#ffb703', 18);
-        await banner(`🎊 LỄ HỘI ĐỊA PHƯƠNG`, `${BOARD[e.tile].name} · thuê ×${RAND_FEST_MULT} vòng này`, '#f08c00', ANIM.rfest);
+        sfx.card();
+        e.tiles.forEach((k) => burst(tileXY(k), '#ffd60a', 14));
+        await banner('🎊 FESTIVAL', `${e.tiles.map((k) => BOARD[k].name).join(' · ')} — thuê +50%`, '#1f9d55', ANIM.rfest);
         break;
+      case 'sell': {
+        if (fast) break;
+        const o = S.own[e.tile] || {};
+        const col = o.o >= 0 ? S.players[o.o]?.color : '#999';
+        const p1 = collapse(e.tile, col || '#999', 600);
+        coins(tileXY(e.tile), cardXY(e.pid), 8);
+        floatAt(tileXY(e.tile), `+${fmtFull(e.value)}`);
+        await p1;
+        await sleep(ANIM.sell - 600);
+        break;
+      }
       case 'bonus': {
         if (fast) break;
         const what = {

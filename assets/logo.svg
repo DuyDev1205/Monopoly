@@ -1,63 +1,68 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Logo Cờ Tỷ Phú · Thanh Duy: đồng xu vàng chữ TD, mái nhà đỏ, xúc xắc, hoa anh đào -->
+  <!-- Logo Cờ Tỷ Phú: đồng xu vàng chữ TD, hai xúc xắc, hoa anh đào, lấp lánh -->
   <defs>
-    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
-      <stop offset="0" stop-color="#ff7a8a"/><stop offset=".55" stop-color="#e0263f"/><stop offset="1" stop-color="#9c0d24"/>
+    <radialGradient id="bg" cx="50%" cy="35%" r="78%">
+      <stop offset="0" stop-color="#ff7a8a"/><stop offset=".55" stop-color="#e0263f"/><stop offset="1" stop-color="#930c22"/>
     </radialGradient>
-    <radialGradient id="coin" cx="38%" cy="32%" r="75%">
-      <stop offset="0" stop-color="#fff6c2"/><stop offset=".45" stop-color="#ffd23f"/><stop offset="1" stop-color="#d48a00"/>
+    <radialGradient id="coin" cx="36%" cy="30%" r="78%">
+      <stop offset="0" stop-color="#fff8cf"/><stop offset=".42" stop-color="#ffd447"/><stop offset=".85" stop-color="#e09a00"/><stop offset="1" stop-color="#c47f00"/>
     </radialGradient>
-    <linearGradient id="roof" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ff5a4f"/><stop offset="1" stop-color="#b8121f"/>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe27a"/><stop offset="1" stop-color="#a86400"/>
     </linearGradient>
     <linearGradient id="txt" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#d6162a"/><stop offset="1" stop-color="#8e0f1c"/>
+      <stop offset="0" stop-color="#e3192d"/><stop offset="1" stop-color="#8e0f1c"/>
     </linearGradient>
     <g id="petal"><path d="M0 -1 C -4.6 -3 -4.8 -9 -1.6 -11 L0 -9.6 L1.6 -11 C 4.8 -9 4.6 -3 0 -1Z"/></g>
     <g id="flower">
-      <g fill="#ffd3e6" stroke="#f48cbc" stroke-width=".5">
+      <g fill="#ffd8e8" stroke="#f48cbc" stroke-width=".5">
         <use href="#petal"/><use href="#petal" transform="rotate(72)"/><use href="#petal" transform="rotate(144)"/>
         <use href="#petal" transform="rotate(216)"/><use href="#petal" transform="rotate(288)"/>
       </g>
       <circle r="2.6" fill="#ff7fb0"/>
     </g>
+    <path id="spark" d="M0 -12 C 1.5 -3 3 -1.5 12 0 C 3 1.5 1.5 3 0 12 C -1.5 3 -3 1.5 -12 0 C -3 -1.5 -1.5 -3 0 -12Z" fill="#fff6c8"/>
+    <g id="die">
+      <rect x="-44" y="-44" width="88" height="88" rx="19" fill="#6e0a14" transform="translate(5 8)"/>
+      <rect x="-44" y="-44" width="88" height="88" rx="19" fill="#fff" stroke="#eadcc8" stroke-width="3"/>
+      <rect x="-38" y="-38" width="76" height="30" rx="14" fill="#fff" opacity=".7"/>
+    </g>
   </defs>
 
   <rect width="512" height="512" fill="url(#bg)"/>
-  <!-- tia sáng -->
-  <g opacity=".13" fill="#fff">
-    <path d="M256 290 L180 -40 L332 -40Z"/><path d="M256 290 L-40 60 L-40 220Z"/><path d="M256 290 L552 60 L552 220Z"/>
-    <path d="M256 290 L-40 420 L-40 560 L60 560Z"/><path d="M256 290 L552 420 L552 560 L452 560Z"/>
+  <!-- tia sáng phía sau đồng xu -->
+  <g opacity=".14" fill="#fff">
+    <path d="M256 250 L190 -40 L322 -40Z"/><path d="M256 250 L-40 70 L-40 210Z"/><path d="M256 250 L552 70 L552 210Z"/>
+    <path d="M256 250 L-40 380 L-40 520 L40 552Z"/><path d="M256 250 L552 380 L552 520 L472 552Z"/>
   </g>
 
-  <!-- bóng đồng xu -->
-  <ellipse cx="256" cy="452" rx="150" ry="22" fill="#5a0612" opacity=".35"/>
-  <!-- cạnh đồng xu (độ dày) -->
-  <circle cx="256" cy="304" r="158" fill="#a86400"/>
-  <!-- mặt đồng xu -->
-  <circle cx="256" cy="290" r="158" fill="url(#coin)" stroke="#b77c00" stroke-width="6"/>
-  <circle cx="256" cy="290" r="128" fill="none" stroke="#c98a00" stroke-width="5" stroke-dasharray="4 10" opacity=".8"/>
-  <circle cx="256" cy="290" r="140" fill="none" stroke="#fff3b0" stroke-width="3" opacity=".7"/>
-
-  <!-- mái nhà đỏ trên đồng xu -->
-  <path d="M120 176 L256 66 L392 176 L364 176 L256 92 L148 176Z" fill="#7a0b16"/>
-  <path d="M110 170 L256 52 L402 170 L372 176 L256 84 L140 176Z" fill="url(#roof)" stroke="#7a0b16" stroke-width="5" stroke-linejoin="round"/>
-  <rect x="318" y="72" width="26" height="54" rx="4" fill="#b8121f" stroke="#7a0b16" stroke-width="5"/>
-  <path d="M136 168 L256 74 L376 168" fill="none" stroke="#ff9a8a" stroke-width="4" opacity=".7"/>
+  <!-- đồng xu lớn -->
+  <ellipse cx="256" cy="440" rx="160" ry="22" fill="#5a0612" opacity=".35"/>
+  <circle cx="256" cy="262" r="178" fill="#8a5200"/>
+  <circle cx="256" cy="250" r="178" fill="url(#rim)"/>
+  <circle cx="256" cy="250" r="158" fill="url(#coin)" stroke="#b77c00" stroke-width="4"/>
+  <circle cx="256" cy="250" r="138" fill="none" stroke="#c98a00" stroke-width="4" stroke-dasharray="3 11" opacity=".75"/>
+  <path d="M146 170 A 140 140 0 0 1 300 118" fill="none" stroke="#fffbe6" stroke-width="12" stroke-linecap="round" opacity=".55"/>
 
   <!-- chữ lồng TD -->
-  <text x="256" y="352" text-anchor="middle" font-family="'Be Vietnam Pro','Segoe UI',Arial,sans-serif" font-weight="900" font-size="168"
-        letter-spacing="-8" fill="url(#txt)" stroke="#fff6d0" stroke-width="8" paint-order="stroke">TD</text>
+  <text x="256" y="313" text-anchor="middle" font-family="'Be Vietnam Pro','Segoe UI',Arial,sans-serif" font-weight="900" font-size="176"
+        letter-spacing="-8" fill="url(#txt)" stroke="#fff6d0" stroke-width="9" paint-order="stroke">TD</text>
 
-  <!-- xúc xắc -->
-  <g transform="translate(398 404) rotate(14)">
-    <rect x="-46" y="-46" width="92" height="92" rx="20" fill="#7a0b16" transform="translate(5 7)"/>
-    <rect x="-46" y="-46" width="92" height="92" rx="20" fill="#fff" stroke="#e8d9c4" stroke-width="3"/>
-    <g fill="#d6162a"><circle cx="-22" cy="-22" r="10"/><circle cx="0" cy="0" r="10"/><circle cx="22" cy="22" r="10"/></g>
+  <!-- hai xúc xắc -->
+  <g transform="translate(390 392) rotate(16)">
+    <use href="#die"/>
+    <g fill="#d6162a"><circle cx="-21" cy="-21" r="9.5"/><circle cx="0" cy="0" r="9.5"/><circle cx="21" cy="21" r="9.5"/></g>
+  </g>
+  <g transform="translate(118 404) rotate(-14) scale(.78)">
+    <use href="#die"/>
+    <g fill="#2b2118"><circle cx="-21" cy="-21" r="9.5"/><circle cx="21" cy="-21" r="9.5"/><circle cx="-21" cy="21" r="9.5"/><circle cx="21" cy="21" r="9.5"/></g>
   </g>
 
-  <!-- hoa anh đào -->
-  <use href="#flower" transform="translate(96 118) scale(3.4) rotate(12)"/>
-  <use href="#flower" transform="translate(58 196) scale(2.2) rotate(40)"/>
-  <use href="#flower" transform="translate(440 82) scale(2.4)"/>
+  <!-- hoa anh đào + lấp lánh -->
+  <use href="#flower" transform="translate(84 92) scale(3.3) rotate(12)"/>
+  <use href="#flower" transform="translate(438 86) scale(2.6) rotate(-20)"/>
+  <use href="#flower" transform="translate(452 214) scale(1.7) rotate(40)"/>
+  <use href="#spark" transform="translate(150 70) scale(1.3)"/>
+  <use href="#spark" transform="translate(372 148) scale(.9)"/>
+  <use href="#spark" transform="translate(64 260) scale(.8)"/>
 </svg>
