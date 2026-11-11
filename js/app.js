@@ -1,6 +1,6 @@
 // Giao diện Cờ Tỷ Phú Việt Nam
 import { BOARD, GROUPS, SIZE, AIRPORT, BAIL, SALARY, RESORT_RENT, PLAYER_COLORS, WIN_LABEL, levelCost, SELL_RATE, BUYOUT_RATE, ICONS } from './data.js';
-import { newGame, apply, tick, timeLeft, BOT_THINK, fmt, fmtFull, rentOf, tileValue, buyoutCost, buildCost, maxBuildLevel, ownedBy, netWorth, animTime, ANIM } from './engine.js';
+import { newGame, apply, tick, timeLeft, BOT_THINK, ownsGroup, fmt, fmtFull, rentOf, tileValue, buyoutCost, buildCost, maxBuildLevel, ownedBy, netWorth, animTime, ANIM } from './engine.js';
 import { botAction } from './bot.js';
 import { HostNet, GuestNet } from './net.js';
 import { charSVG } from './characters.js';
@@ -107,7 +107,7 @@ function tileSub(t) {
     case 'tax': return '10% tài sản';
     case 'start': return `Nhận ${fmt(SALARY)}`;
     case 'island': return 'Kẹt 3 lượt';
-    case 'festival': return 'Thuê ×2';
+    case 'festival': return 'Thuê ×2 → ×5';
     case 'airport': return 'Bay tự do';
   }
   return '';
@@ -125,7 +125,8 @@ function buildBoard() {
     } else {
       el.className = `tile side-${side} ${t.type}`;
       const g = t.group ? GROUPS[t.group].color : t.type === 'resort' ? '#18a0b5' : 'transparent';
-      el.innerHTML = `<div class="band" style="--g:${g}"></div><div class="body">${ico(t.icon)}<div class="txt"><div class="nm">${esc(t.name)}</div><div class="pr">${tileSub(t)}</div></div></div>`;
+      const icon = t.type === 'city' || t.type === 'resort' ? '' : ico(t.icon);
+      el.innerHTML = `<div class="band" style="--g:${g}"></div><div class="body">${icon}<div class="txt"><div class="nm">${esc(t.name)}</div><div class="pr">${tileSub(t)}</div></div></div>`;
     }
     el.addEventListener('click', () => onTileClick(i));
     boardEl.insertBefore(el, boardEl.querySelector('.center'));
@@ -140,6 +141,7 @@ function renderTile(i, s = S) {
   const owned = o.o >= 0;
   el.classList.toggle('owned', owned);
   el.classList.toggle('fest', s.festival === i);
+  el.classList.toggle('mono', owned && t.type === 'city' && ownsGroup(s, o.o, t.group));
   if (owned) el.style.setProperty('--own', s.players[o.o].color); else el.style.removeProperty('--own');
   renderBuilding(i, s);
   el.querySelector('.pr').textContent = owned ? fmt(rentOf(s, i)) : fmt(t.price);
@@ -148,14 +150,16 @@ function renderTile(i, s = S) {
 // ---------- nhà / công trình mọc trên ô (lớp 3D) ----------
 const bldLayer = $('#buildings');
 const bldEls = [];
+const flatView = matchMedia('(max-width: 900px), (orientation: portrait)');
+flatView.addEventListener?.('change', () => bldEls.forEach((_, i) => placeBuilding(i)));
 function bldAnchor(i) {
   const t = tileEls[i];
   const L = t.offsetLeft, T = t.offsetTop, W = t.offsetWidth, H = t.offsetHeight;
   switch (sideOf(i)) {
-    case 'b': return [L + W / 2, T + H * 0.3];
-    case 't': return [L + W / 2, T + H * 0.72];
-    case 'l': return [L + W * 0.74, T + H * 0.55];
-    case 'r': return [L + W * 0.26, T + H * 0.55];
+    case 'b': return [L + W / 2, T + H * 0.36];
+    case 't': return [L + W / 2, T + H * 0.3];
+    case 'l': return [L + W * (flatView.matches ? 0.68 : 0.3), T + H / 2];
+    case 'r': return [L + W * 0.36, T + H / 2];
   }
   return [L + W / 2, T + H / 2];
 }
@@ -193,14 +197,59 @@ const lift = (z, html) => `<div class="m" style="transform:translateZ(${u(z)})">
 const SMOKE = '<div class="smoke"><i></i><i></i><i></i></div>';
 const house = (w, d, h, r, cls, smoke = false) => `<div class="m house ${cls}">${box(w, d, h, 'walls')}${roof(w, d, h, r)}${smoke ? lift(h + r, SMOKE) : ''}</div>`;
 const shift = (x, y, html) => `<div class="m" style="transform:translate(${u(x)},${u(y)})">${html}</div>`;
-function model(t, lvl) {
+// mái chóp 4 mặt (nhà mái thái / chùa): w cạnh đáy, h độ cao chân mái, r chiều cao mái, o độ vươn mái
+function roof4(w, h, r, o = 0.35) {
+  const W = w + o * 2, L = Math.hypot(W / 2, r), th = ((Math.atan2(r, W / 2) * 180) / Math.PI).toFixed(2);
+  return `<div class="m roof r4" style="transform:translateZ(${u(h)})">
+    <div class="fc p4f" style="left:${u(-W / 2)};top:${u(W / 2 - L)};width:${u(W)};height:${u(L)};transform:rotateX(-${th}deg)"></div>
+    <div class="fc p4b" style="left:${u(-W / 2)};top:${u(-W / 2)};width:${u(W)};height:${u(L)};transform:rotateX(${th}deg)"></div>
+    <div class="fc p4r" style="left:${u(W / 2 - L)};top:${u(-W / 2)};width:${u(L)};height:${u(W)};transform:rotateY(${th}deg)"></div>
+    <div class="fc p4l" style="left:${u(-W / 2)};top:${u(-W / 2)};width:${u(L)};height:${u(W)};transform:rotateY(-${th}deg)"></div>
+  </div>`;
+}
+const hip = (w, h, r, cls = '', smoke = false) => `<div class="m house ${cls}">${box(w, w, h, 'walls')}${roof4(w, h, r)}${smoke ? lift(h + r, SMOKE) : ''}</div>`;
+// nhà ống phố cổ: nóc mái chạy dọc theo chiều sâu
+const tube = (w, d, h, r, smoke = false) => `<div class="m house tube">${box(w, d, h, 'walls')}<div class="m" style="transform:rotateZ(90deg)">${roof(d, w, h, r)}</div>${smoke ? lift(h + r, SMOKE) : ''}</div>`;
+// nhà hiện đại mái bằng: các khối kính xếp lệch
+const deck = (x, y, z, w, d, h, top = 'cap') => lift(z, shift(x, y, box(w, d, h, 'glass') + lift(h, box(w + 0.25, d + 0.25, 0.35, top))));
+const hotelTop = (z) => `${lift(z, '<div class="sign">HOTEL</div>')}${lift(z + 1.6, '<div class="beacon"></div>')}`;
+const STYLE_NAME = ['Mái ngói', 'Mái chùa', 'Hiện đại', 'Phố cổ'];
+// độ cao mô hình theo kiểu + cấp (để đặt bảng lễ hội phía trên)
+const MODEL_H = [[3, 5, 7.2, 9, 14.2], [3, 5.2, 7.2, 9.4, 14.6], [3, 3.2, 5.6, 8, 17.6], [3, 4.6, 6.6, 7, 13]];
+function model(t, lvl, st = 0) {
   if (t.type === 'resort') return house(4, 3.4, 2.2, 2.8, 'hut');
-  switch (lvl) {
-    case 1: return house(4, 3.2, 2.8, 2.1, 'lv1', true);                       // nhà cấp 1: nhà trệt
-    case 2: return house(4.4, 3.6, 4.6, 2.3, 'lv2', true);                     // nhà cấp 2: 2 tầng
-    case 3: return shift(-0.6, 0, house(4.6, 3.8, 6.4, 2.5, 'lv3', true))      // nhà cấp 3: biệt thự 3 tầng + nhà phụ
-      + shift(3.2, 0.6, house(2.4, 2.6, 2.6, 1.6, 'lv1'));
-    case 4: return `<div class="m hotel">${box(5.4, 5.4, 11, 'tower')}${lift(11, box(3.8, 3.8, 1.3, 'cap'))}${lift(12.3, '<div class="sign">HOTEL</div>')}${lift(13.9, '<div class="beacon"></div>')}</div>`;
+  switch (st) {
+    case 1: // mái chùa
+      switch (lvl) {
+        case 1: return hip(4, 2.8, 2.2, 'lv1', true);
+        case 2: return hip(4.4, 4.6, 2.4, 'lv2', true) + roof4(4.4, 2.3, 0.5, 0.75);
+        case 3: return shift(-0.5, 0, hip(4.6, 6.2, 2.6, 'lv3', true) + roof4(4.6, 2.2, 0.5, 0.8) + roof4(4.6, 4.2, 0.5, 0.7))
+          + shift(3.4, 0.8, hip(2.4, 2.2, 1.5, 'lv1'));
+        case 4: return `<div class="m hotel">${box(5.6, 5.6, 4, 'walls')}${roof4(5.6, 4, 1.1, 1)}${lift(4.6, box(4.4, 4.4, 3.4, 'walls'))}${roof4(4.4, 8, 1, 0.9)}${lift(8.6, box(3.2, 3.2, 2.6, 'walls'))}${roof4(3.2, 11.2, 2.6, 0.7)}${hotelTop(12.4)}</div>`;
+      }
+      break;
+    case 2: // hiện đại
+      switch (lvl) {
+        case 1: return deck(0, 0, 0, 4.6, 3.6, 2.6);
+        case 2: return deck(0, 0, 0, 4.8, 3.8, 2.4) + deck(0.6, -0.4, 2.75, 3.6, 3, 2.2, 'garden');
+        case 3: return deck(0, 0, 0, 5, 4, 2.4) + deck(-0.5, 0.3, 2.75, 4.2, 3.4, 2.2) + deck(0.5, -0.3, 5.3, 3.4, 2.8, 2.2, 'garden');
+        case 4: return `<div class="m hotel">${box(4.8, 4.8, 15.4, 'glass tall')}${lift(15.4, box(5.1, 5.1, 0.6, 'cap'))}${hotelTop(16)}</div>`;
+      }
+      break;
+    case 3: // phố cổ: dãy nhà ống tường vàng
+      switch (lvl) {
+        case 1: return tube(2.6, 4, 3, 1.6, true);
+        case 2: return shift(-1.4, 0, tube(2.6, 4, 3, 1.6, true)) + shift(1.4, 0.2, tube(2.6, 4, 4.6, 1.6));
+        case 3: return shift(-2.7, 0.2, tube(2.6, 3.8, 3.4, 1.5)) + shift(0, 0, tube(2.6, 4, 5, 1.6, true)) + shift(2.7, 0.2, tube(2.6, 3.8, 4, 1.5));
+        case 4: return `<div class="m hotel">${tube(4.6, 4.6, 8.2, 2.2)}${hotelTop(10.4)}</div>`;
+      }
+      break;
+  }
+  switch (lvl) { // mái ngói (mặc định)
+    case 1: return house(4, 3.2, 2.8, 2.1, 'lv1', true);
+    case 2: return house(4.4, 3.6, 4.6, 2.3, 'lv2', true);
+    case 3: return shift(-0.6, 0, house(4.6, 3.8, 6.4, 2.5, 'lv3', true)) + shift(3.2, 0.6, house(2.4, 2.6, 2.6, 1.6, 'lv1'));
+    case 4: return `<div class="m hotel">${box(5.4, 5.4, 11, 'tower')}${lift(11, box(3.8, 3.8, 1.3, 'cap'))}${hotelTop(12.3)}</div>`;
   }
   return '';
 }
@@ -210,7 +259,7 @@ function renderBuilding(i, s) {
   if (!o) return;
   let el = bldEls[i];
   if (!el) { el = document.createElement('div'); el.className = 'bld'; bldLayer.appendChild(el); bldEls[i] = el; placeBuilding(i); }
-  const key = o.o < 0 ? '' : `${o.o}|${o.lvl}|${s.festival === i}`;
+  const key = o.o < 0 ? '' : `${o.o}|${o.lvl}|${s.festival === i ? s.festMult || 2 : 0}`;
   const prev = el.dataset.key || '';
   if (prev === key) return;
   el.dataset.key = key;
@@ -218,12 +267,15 @@ function renderBuilding(i, s) {
   el.style.setProperty('--c', s.players[o.o].color);
   const t = BOARD[i];
   const lvl = t.type === 'city' ? o.lvl : 0;
+  const st = o.o % 4;
+  const side = sideOf(i);
+  el.className = `bld st${st} s-${side}`;
   const [po, pl] = prev.split('|');
   const same = po === String(o.o) && pl === String(o.lvl);          // chỉ đổi trạng thái lễ hội -> không dựng lại
   const upgraded = !same && po === String(o.o) && +pl < o.lvl;      // nâng cấp nhà
   const sparks = upgraded ? `<div class="sparks3">${Array.from({ length: 10 }, (_, k) => `<i style="--a:${k * 36}deg;--d:${k * 35}ms"></i>`).join('')}</div><b class="lvl-badge">⬆ ${LVL_BADGE[lvl]}</b>` : '';
-  el.innerHTML = `<div class="gshadow lv${lvl}"></div>${same ? '' : '<div class="dust"></div>'}<div class="grow${same ? ' still' : upgraded ? ' up' : ''}">${model(t, lvl)}</div>
-    <div class="stand">${sparks}${s.festival === i ? `<div class="fw">${ico('🎆', 'fi')}</div>` : ''}${lvl === 0 && t.type === 'city' ? '<div class="flag"></div>' : ''}</div>`;
+  el.innerHTML = `<div class="gshadow lv${lvl}"></div>${same ? '' : '<div class="dust"></div>'}<div class="grow${same ? ' still' : upgraded ? ' up' : ''}">${side === 'l' || side === 'r' ? `<div class="m" style="transform:rotateZ(-90deg)">${model(t, lvl, st)}</div>` : model(t, lvl, st)}</div>
+    <div class="stand">${sparks}${s.festival === i ? `<div class="fest3" style="--fh:${(t.type === 'resort' ? 5.5 : MODEL_H[st][lvl]) + 1}cqw"><div class="bunt">${'<i></i>'.repeat(7)}</div><b>LỄ HỘI ×${s.festMult || 2}</b></div>` : ''}${lvl === 0 && t.type === 'city' ? '<div class="flag"></div>' : ''}</div>`;
 }
 
 function makeTokens() {
@@ -256,8 +308,8 @@ function layoutTokens() {
     const g = groups[pos];
     const k = g.length === 1 ? 0 : g.indexOf(i) + 1;
     const side = sideOf(pos);
-    const fx = side === 'l' ? 0.34 : side === 'r' ? 0.66 : 0.5;
-    const fy = side === 'b' ? 0.74 : side === 't' ? 0.34 : side === 'corner' ? 0.55 : 0.62;
+    const fx = side === 'l' ? 0.5 : side === 'r' ? 0.62 : 0.5;
+    const fy = side === 'b' ? 0.62 : side === 't' ? 0.52 : side === 'corner' ? 0.55 : 0.5;
     const x = t.offsetLeft + t.offsetWidth * fx + SLOTS[k][0] * unit;
     const y = t.offsetTop + t.offsetHeight * fy + SLOTS[k][1] * unit;
     el.style.transform = `translate(${x}px, ${y}px)`;
@@ -304,6 +356,22 @@ function coins([x0, y0], [x1, y1], n = 8) {
   }
 }
 const boardXY = () => mid($('#board .center'));
+
+// ---------- băng rôn thông báo giữa bàn ----------
+async function banner(title, sub, color, dur) {
+  const [x, y] = boardXY();
+  const el = fxNode('banner', `<b>${esc(title)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}`);
+  el.style.setProperty('--bc', color);
+  const at = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+  el.animate([
+    { transform: `${at} scale(.2) rotate(-8deg)`, opacity: 0 },
+    { transform: `${at} scale(1.15) rotate(2deg)`, opacity: 1, offset: 0.14 },
+    { transform: `${at} scale(1) rotate(0deg)`, opacity: 1, offset: 0.24 },
+    { transform: `${at} scale(1) rotate(0deg)`, opacity: 1, offset: 0.85 },
+    { transform: `${at} scale(.85)`, opacity: 0 },
+  ], { duration: dur, easing: 'ease-out', fill: 'both' }).onfinish = () => el.remove();
+  await sleep(dur);
+}
 
 // ---------- đống tiền giữa bàn: xu vàng (ít) -> xấp tiền (vừa) -> thỏi vàng (nhiều) ----------
 const pileLayer = $('#pile');
@@ -371,7 +439,7 @@ function burst([x, y], color, n = 14) {
 }
 
 // ---------- lá bài Cơ Hội lật 3D ----------
-const CARD_TO = { 0: '🏁', 31: '🐢', 18: '🏮', 24: '✈️', 16: '🎆' };
+const CARD_TO = { 0: '🏁', 31: '🐢', 17: '🏮', 24: '✈️', 16: '🎆' };
 function cardLook(e) {
   switch (e.kind) {
     case 'money': return e.amount > 0 ? ['🧧', 'good'] : ['💸', 'bad'];
@@ -549,7 +617,7 @@ function renderActions() {
       break;
     }
     case 'festival':
-      h = '<div class="msg">🎆 Chọn một ô đất của bạn để tổ chức Lễ Hội (tiền thuê ×2)</div><button class="btn" data-a="skip">Bỏ qua</button>';
+      h = `<div class="msg">🎆 Chọn đất để mở Lễ Hội${S.festival >= 0 && S.own[S.festival]?.o === S.cur ? ` · chọn lại ${esc(BOARD[S.festival].name)} để lên ×${Math.min(5, (S.festMult || 2) + 1)}` : ' · tiền thuê ×2'}</div><button class="btn" data-a="skip">Bỏ qua</button>`;
       setPicks(ownedBy(S, S.cur));
       break;
     case 'debt':
@@ -610,14 +678,14 @@ function showTileInfo(i) {
       chance: 'Rút một thẻ Cơ Hội: may hay rủi tuỳ số!',
       tax: 'Nộp thuế 10% tổng giá trị đất và nhà (tối thiểu 50tr).',
       island: `Kẹt tối đa 3 lượt. Thoát bằng cách gieo đôi, trả ${fmt(BAIL)} hoặc dùng thẻ cứu hộ.`,
-      festival: 'Chọn một ô đất của bạn để tổ chức lễ hội: tiền thuê ở đó ×2.',
+      festival: 'Chọn một ô đất của bạn để tổ chức lễ hội: tiền thuê ×2. Tổ chức lại đúng ô đó thì tăng lên ×3, ×4, tối đa ×5.',
       airport: 'Lượt sau được bay tới bất kỳ ô nào trên bàn cờ.',
     };
     h += `<p>${desc[t.type] || ''}</p>`;
   }
   if (o && o.o >= 0 && S) {
     const ow = S.players[o.o];
-    h += `<p>Chủ: <b style="color:${ow.color}">${esc(ow.name)}</b>${S.festival === i ? ' · 🎆 Đang có lễ hội' : ''}<br>Tiền thuê hiện tại: <b>${fmt(rentOf(S, i))}</b><br>Giá trị: ${fmt(tileValue(S, i))}${t.type === 'city' && o.lvl >= 4 ? ' · 🏨 Khách sạn: không thể mua lại' : ` · Giá mua lại: ${fmt(buyoutCost(S, i))}`}</p>`;
+    h += `<p>Chủ: <b style="color:${ow.color}">${esc(ow.name)}</b>${S.festival === i ? ` · 🎆 Lễ hội ×${S.festMult || 2}` : ''}<br>Tiền thuê hiện tại: <b>${fmt(rentOf(S, i))}</b><br>Giá trị: ${fmt(tileValue(S, i))}${t.type === 'city' && o.lvl >= 4 ? ' · 🏨 Khách sạn: không thể mua lại' : ` · Giá mua lại: ${fmt(buyoutCost(S, i))}`}</p>`;
   }
   h += '<button class="btn wide" data-close>Đóng</button>';
   openModal(h);
@@ -720,6 +788,19 @@ async function play(events, fin) {
       case 'buyout':
         if (fast) break;
         await showPile(e.cost, { dur: ANIM.buyout, onMid: () => coins(boardXY(), cardXY(e.from), 10) });
+        break;
+      case 'fest':
+        BOARD.forEach((_, k) => renderTile(k, fin));   // ô lễ hội cũ (nếu có) cũng được gỡ bảng ngay
+        if (fast) break;
+        sfx.upgrade(); burst(tileXY(e.tile), '#ff5fa2', 20);
+        await banner(`🎆 LỄ HỘI ×${e.mult}`, BOARD[e.tile].name, '#e0267a', ANIM.fest);
+        break;
+      case 'mono':
+        e.tiles.forEach((k) => renderTile(k, fin));
+        if (fast) break;
+        sfx.win();
+        e.tiles.forEach((k) => burst(tileXY(k), fin.players[e.pid].color, 12));
+        await banner('👑 ĐỘC QUYỀN', `${GROUPS[e.group].name} · thuê đất trống ×2`, GROUPS[e.group].color, ANIM.mono);
         break;
       case 'money':
         view.money[e.pid] += e.delta; updMoney(e.pid);
@@ -839,7 +920,7 @@ function startLocal(players, timeLimit) {
 }
 function resumeLocal() {
   const s = store.get('ctp_local', null);
-  if (!s || s.v !== 2) return;
+  if (!s || s.v !== 3) return;
   ctl?.stop?.();
   mode = 'local';
   ctl = new LocalCtl(s);
@@ -1055,7 +1136,7 @@ document.querySelectorAll('.theme-btn').forEach((b) => b.addEventListener('click
 // ===== Trang chủ =====
 function refreshHome() {
   const saved = store.get('ctp_local', null);
-  $('#resumeBox').classList.toggle('hidden', !(saved && saved.v === 2 && saved.phase !== 'over'));
+  $('#resumeBox').classList.toggle('hidden', !(saved && saved.v === 3 && saved.phase !== 'over'));
   renderSetup();
 }
 document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
@@ -1084,7 +1165,7 @@ function init() {
   } else {
     // tải lại trang khi đang ở trong phòng online -> nối lại
     const r = store.get('ctp_room', null);
-    const saved = HostNet.saved();
+    const saved = HostNet.saved()?.state?.v === 3 || !HostNet.saved()?.state ? HostNet.saved() : null;
     if (r?.host && saved) hostRoom('', saved);
     else if (r?.code) joinRoom(r.code);
   }

@@ -3,6 +3,7 @@ import {
   BOARD, GROUPS, GROUP_TILES, RESORTS, SIDES, CARDS, SIZE,
   START_MONEY, SALARY, BAIL, ISLAND, FESTIVAL, AIRPORT, SELL_RATE, BUYOUT_RATE,
   RESORT_RENT, TAX_RATE, TAX_MIN, PLAYER_COLORS, PLAYER_TOKENS, levelCost, WIN_LABEL,
+  FEST_MAX,
 } from './data.js';
 
 const rnd = (n) => Math.floor(Math.random() * n);
@@ -20,7 +21,7 @@ export const TIME_OPTS = [15, 30, 45, 60];
 /** players: [{name, bot}] ; opts: {timeLimit} (phút) */
 export function newGame(players, opts = {}) {
   return {
-    v: 2,
+    v: 3,
     players: players.slice(0, 4).map((p, i) => ({
       name: String(p.name || `Người ${i + 1}`).slice(0, 16),
       bot: !!p.bot,
@@ -30,7 +31,7 @@ export function newGame(players, opts = {}) {
     })),
     own: BOARD.map((t) => (t.type === 'city' || t.type === 'resort' ? { o: -1, lvl: 0 } : null)),
     cur: 0, phase: 'roll', dice: [1, 1], doubles: 0, rolledDouble: false,
-    pending: null, festival: -1, round: 1,
+    pending: null, festival: -1, festMult: 2, round: 1,
     timeLimit: TIME_OPTS.includes(opts.timeLimit) ? opts.timeLimit : 60, playMs: 0,
     deck: shuffle(CARDS.map((_, i) => i)),
     winner: -1, winReason: '', log: [], seq: 0,
@@ -59,7 +60,7 @@ export function rentOf(s, i, diceSum = 7) {
     r = t.rent[o.lvl];
     if (o.lvl === 0 && ownsGroup(s, o.o, t.group)) r *= 2;
   }
-  if (s.festival === i) r *= 2;
+  if (s.festival === i) r *= s.festMult || 2;
   return r;
 }
 export const buyoutCost = (s, i) => tileValue(s, i) * BUYOUT_RATE;
@@ -186,6 +187,14 @@ function proceed(s, ev) {
     return;
   }
   nextTurn(s, ev);
+}
+
+// vừa gom đủ một vùng màu -> độc quyền (tiền thuê đất trống ×2)
+function monoCheck(s, ev, pid, i) {
+  const t = BOARD[i];
+  if (t.type !== 'city' || !ownsGroup(s, pid, t.group)) return;
+  ev.push({ t: 'mono', pid, group: t.group, tiles: GROUP_TILES[t.group] });
+  log(s, ev, `👑 ${s.players[pid].name} độc quyền vùng ${GROUPS[t.group].name}!`);
 }
 
 function sellTile(s, ev, pid, i) {
@@ -380,6 +389,7 @@ export function apply(s, pid, a) {
       s.own[i] = { o: pid, lvl };
       ev.push({ t: 'build', tile: i, up: true });
       log(s, ev, `${p.name} mua ${t.name}${lvl ? ` và xây nhà cấp ${lvl}` : ''} (${fmt(cost)}).`);
+      monoCheck(s, ev, pid, i);
       if (checkWin(s, ev, pid)) break;
       proceed(s, ev); break;
     }
@@ -411,6 +421,7 @@ export function apply(s, pid, a) {
       o.o = pid;
       ev.push({ t: 'build', tile: i, up: true });
       log(s, ev, `🤝 ${p.name} mua lại ${BOARD[i].name} từ ${s.players[prev].name} với giá ${fmt(cost)}.`);
+      monoCheck(s, ev, pid, i);
       if (checkWin(s, ev, pid)) break;
       if (BOARD[i].type === 'city' && o.lvl < 4) { s.phase = 'upgrade'; s.pending = { tile: i }; break; }
       proceed(s, ev); break;
@@ -419,9 +430,12 @@ export function apply(s, pid, a) {
     case 'festival': {
       if (s.phase !== 'festival') return err('Không thể tổ chức lúc này');
       if (tile < 0 || !s.own[tile] || s.own[tile].o !== pid) return err('Chọn đất của bạn');
+      // tổ chức lại đúng chỗ đang có lễ hội: hệ số tăng dần; chỗ mới: bắt đầu lại từ ×2
+      s.festMult = s.festival === tile ? Math.min(FEST_MAX, (s.festMult || 2) + 1) : 2;
       s.festival = tile;
+      ev.push({ t: 'fest', pid, tile, mult: s.festMult });
       ev.push({ t: 'build', tile });
-      log(s, ev, `🎆 ${p.name} tổ chức Lễ Hội ở ${BOARD[tile].name}: tiền thuê ×2!`);
+      log(s, ev, `🎆 ${p.name} tổ chức Lễ Hội ở ${BOARD[tile].name}: tiền thuê ×${s.festMult}!`);
       proceed(s, ev); break;
     }
 
@@ -447,7 +461,7 @@ export function apply(s, pid, a) {
 }
 
 // Thời lượng animation (ms) của một loạt sự kiện — client và server dùng chung
-export const ANIM = { dice: 1000, target: 550, step: 210, fly: 750, card: 3000, turn: 450, rent: 2000, buy: 2000, upgrade: 1900, buyout: 2200, tax: 1900, build: 700 };
+export const ANIM = { dice: 1000, target: 550, step: 210, fly: 750, card: 3000, turn: 450, rent: 2000, buy: 2000, upgrade: 1900, buyout: 2200, tax: 1900, build: 700, fest: 1900, mono: 1900 };
 export const BOT_THINK = 800;   // máy "nghĩ" trước mỗi hành động
 export function animTime(events) {
   let t = 0;
@@ -455,7 +469,7 @@ export function animTime(events) {
     if (e.t === 'dice') t += ANIM.dice;
     else if (e.t === 'move') t += e.path.length * ANIM.step + 80 + ANIM.target;
     else if (e.t === 'fly') t += ANIM.fly + ANIM.target;
-    else if (['rent', 'buy', 'buyout', 'tax', 'upgrade'].includes(e.t)) t += ANIM[e.t];
+    else if (['rent', 'buy', 'buyout', 'tax', 'upgrade', 'fest', 'mono'].includes(e.t)) t += ANIM[e.t];
     else if (e.t === 'build' && e.up) t += ANIM.build;
     else if (e.t === 'card') t += ANIM.card;
     else if (e.t === 'turn') t += ANIM.turn;

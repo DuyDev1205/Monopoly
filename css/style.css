@@ -182,7 +182,7 @@ button, input, select { font: inherit; }
 .tile.side-l .txt, .tile.side-r .txt { align-items: flex-start; text-align: left; }
 .tile.corner { flex-direction: column; justify-content: center; align-items: center; text-align: center; font-weight: 800; font-size: 1.9cqw; }
 .tile.corner.start { background: linear-gradient(160deg, #fff7c7, #ffd76a); }
-.tile.corner.island { background: linear-gradient(160deg, #d7fbff, #8fdcea); }
+body[data-theme] .tile.corner.island { background: linear-gradient(160deg, #d7fbff, #8fdcea); }
 .tile.corner.festival { background: linear-gradient(160deg, #ffe0f0, #ff9ccb); }
 .tile.corner.airport { background: linear-gradient(160deg, #e3efff, #9cc2ff); }
 .tile.corner .pr { font-weight: 700; font-size: 1.35cqw; padding: 0 .5cqw; color: #5b4630; }
@@ -192,7 +192,7 @@ button, input, select { font: inherit; }
 .tile.owned { box-shadow: 0 .3cqw 0 color-mix(in srgb, var(--own) 70%, #000), inset 0 0 0 .45cqw var(--own); }
 .tile.owned .body { background: color-mix(in srgb, var(--own) 16%, transparent); }
 .tile.owned .pr { color: color-mix(in srgb, var(--own) 75%, #000); font-weight: 800; }
-.tile.fest { box-shadow: inset 0 0 0 .45cqw var(--gold), 0 0 2cqw var(--gold); }
+.tile.fest { box-shadow: inset 0 0 0 .5cqw #ff5fa2, 0 0 2.2cqw rgba(255,95,162,.9); background: linear-gradient(160deg, #fff0f7, #ffd1e6); }
 .tile.pick { z-index: 3; }
 .tile.pick:hover { transform: translateZ(1cqw); box-shadow: inset 0 0 0 .5cqw var(--gold), 0 0 2cqw var(--gold); }
 @keyframes pick { 50% { transform: translateZ(1cqw); box-shadow: inset 0 0 0 .5cqw var(--gold), 0 0 2.5cqw var(--gold); } }
@@ -683,4 +683,95 @@ svg.chr { display: block; overflow: visible; }
   .pile-num b { font-size: 4.8cqw; }
   .bld .lvl-badge { font-size: 2.6cqw; }
   .tile.owned .pr { font-size: 2.2cqw; }
+}
+
+/* ================= Chữ trên ô: nằm sát mép, không bị nhà che ================= */
+.tile .body { justify-content: flex-end; }
+.tile.resort .body { justify-content: center; }
+/* máy tính (bàn xoay chéo): chữ 2 cạnh trái/phải chạy dọc theo cạnh, đọc từ dưới lên như Business Tour */
+@media (min-width: 901px) and (orientation: landscape) {
+  .tile.side-l .txt, .tile.side-r .txt { writing-mode: vertical-rl; transform: rotate(180deg); align-items: center; text-align: center; }
+  .tile.side-l .body, .tile.side-r .body { padding: .3cqw .5cqw; }
+}
+
+/* ================= Khu nghỉ dưỡng = bãi biển ================= */
+.tile.resort .band { display: none; }
+body[data-theme] .tile.resort { --sea: to bottom; background: linear-gradient(var(--sea), #fde9b8 0 58%, #fffaf0 58% 63%, #8fdcf5 63%, #35a7e3 100%); }
+body[data-theme] .tile.resort.side-t { --sea: to top; } body[data-theme] .tile.resort.side-l { --sea: to left; } body[data-theme] .tile.resort.side-r { --sea: to right; }
+.tile.resort .body { background: none !important; }
+.tile.resort::before { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(var(--sea), transparent 0 1.1cqw, rgba(255,255,255,.55) 1.1cqw 1.3cqw) ;
+  -webkit-mask-image: linear-gradient(var(--sea), transparent 64%, #000 66%); mask-image: linear-gradient(var(--sea), transparent 64%, #000 66%);
+  animation: waves 3s linear infinite; }
+.tile.resort.side-b::before { --wv: 0 2.4cqw; } .tile.resort.side-t::before { --wv: 0 -2.4cqw; }
+.tile.resort.side-l::before { --wv: -2.4cqw 0; } .tile.resort.side-r::before { --wv: 2.4cqw 0; }
+@keyframes waves { to { background-position: var(--wv); } }
+.tile.resort.owned { box-shadow: 0 .3cqw 0 color-mix(in srgb, var(--own) 70%, #000), inset 0 0 0 .45cqw var(--own); }
+.tile.corner.island { background: radial-gradient(circle at 50% 55%, #fde9b8 0 30%, #8fdcf5 34%, #35a7e3 100%); }
+
+/* ================= Độc quyền: dải màu sáng + ngôi sao ================= */
+.tile.mono .band { position: relative; background: linear-gradient(90deg, var(--g) 30%, color-mix(in srgb, var(--g) 45%, #fff) 50%, var(--g) 70%); background-size: 250% 100%; animation: monoShine 2.4s linear infinite; }
+.tile.mono .band::after { content: '★'; position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 1.7cqw; text-shadow: 0 0 .5cqw rgba(0,0,0,.45); }
+.tile.mono { box-shadow: 0 .3cqw 0 color-mix(in srgb, var(--own) 70%, #000), inset 0 0 0 .55cqw var(--own), 0 0 1.6cqw color-mix(in srgb, var(--own) 75%, transparent); }
+@keyframes monoShine { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+
+/* ================= Lễ hội: dây cờ + bảng hệ số ================= */
+.fest3 { position: absolute; left: 50%; bottom: var(--fh); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; animation: festBob 1.6s ease-in-out infinite; }
+@keyframes festBob { 50% { translate: 0 -.6cqw; } }
+.fest3 b { font-size: 1.9cqw; font-weight: 800; color: #fff; padding: .35cqw 1.1cqw; border-radius: 99px; white-space: nowrap; letter-spacing: .05cqw;
+  background: linear-gradient(180deg, #ff6fb0, #e0267a); border: .25cqw solid #fff; box-shadow: 0 0 1.8cqw rgba(255,90,160,.95), 0 .4cqw .6cqw rgba(0,0,0,.3);
+  animation: festGlow 1.2s ease-in-out infinite alternate; }
+@keyframes festGlow { to { box-shadow: 0 0 3cqw rgba(255,200,90,1), 0 .4cqw .6cqw rgba(0,0,0,.3); } }
+.fest3 .bunt { display: flex; gap: .2cqw; margin-bottom: .4cqw; padding: 0 .3cqw; border-top: .18cqw solid #fff; border-radius: 50% 50% 0 0 / 30% 30% 0 0; }
+.fest3 .bunt i { width: 0; height: 0; border-left: .7cqw solid transparent; border-right: .7cqw solid transparent; border-top: 1.3cqw solid var(--f, #ff5f5f);
+  transform-origin: 50% 0; animation: flagSw .9s ease-in-out infinite alternate; }
+.fest3 .bunt i:nth-child(7n+1) { --f: #ff4d6d; } .fest3 .bunt i:nth-child(7n+2) { --f: #ffb703; animation-delay: -.2s; }
+.fest3 .bunt i:nth-child(7n+3) { --f: #3ec46d; animation-delay: -.4s; } .fest3 .bunt i:nth-child(7n+4) { --f: #3a86ff; animation-delay: -.6s; }
+.fest3 .bunt i:nth-child(7n+5) { --f: #b15cff; animation-delay: -.1s; } .fest3 .bunt i:nth-child(7n+6) { --f: #ff8c42; animation-delay: -.3s; }
+.fest3 .bunt i:nth-child(7n+7) { --f: #00c2c7; animation-delay: -.5s; }
+@keyframes flagSw { from { transform: rotate(-12deg); } to { transform: rotate(12deg); } }
+
+/* băng rôn thông báo */
+.banner { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; }
+.banner b { font-size: clamp(30px, 3.6vw, 56px); font-weight: 800; color: #fff; white-space: nowrap; padding: 6px 36px; border-radius: 16px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bc) 75%, #fff), var(--bc)); border: 4px solid #fff;
+  box-shadow: 0 6px 0 color-mix(in srgb, var(--bc) 55%, #000), 0 0 40px color-mix(in srgb, var(--bc) 70%, transparent); text-shadow: 0 3px 0 rgba(0,0,0,.25); }
+.banner small { font-size: clamp(15px, 1.4vw, 22px); font-weight: 800; color: #fff; background: rgba(30,12,60,.8); padding: 4px 16px; border-radius: 99px; white-space: nowrap; }
+
+/* ================= 4 kiểu kiến trúc theo người chơi ================= */
+/* mái chóp 4 mặt */
+.bld .p4f, .bld .p4b, .bld .p4r, .bld .p4l { position: absolute; }
+.bld .p4f { --g: color-mix(in srgb, var(--c) 88%, #fff); transform-origin: 50% 100%;
+  background: linear-gradient(to bottom right, transparent 50%, var(--g) 50%) left / 50.5% 100% no-repeat, linear-gradient(to bottom left, transparent 50%, var(--g) 50%) right / 50.5% 100% no-repeat; }
+.bld .p4b { --g: color-mix(in srgb, var(--c) 60%, #000); transform-origin: 50% 0;
+  background: linear-gradient(to top right, transparent 50%, var(--g) 50%) left / 50.5% 100% no-repeat, linear-gradient(to top left, transparent 50%, var(--g) 50%) right / 50.5% 100% no-repeat; }
+.bld .p4r { --g: color-mix(in srgb, var(--c) 70%, #000); transform-origin: 100% 50%;
+  background: linear-gradient(to bottom right, transparent 50%, var(--g) 50%) top / 100% 50.5% no-repeat, linear-gradient(to top right, transparent 50%, var(--g) 50%) bottom / 100% 50.5% no-repeat; }
+.bld .p4l { --g: color-mix(in srgb, var(--c) 82%, #fff); transform-origin: 0 50%;
+  background: linear-gradient(to bottom left, transparent 50%, var(--g) 50%) top / 100% 50.5% no-repeat, linear-gradient(to top left, transparent 50%, var(--g) 50%) bottom / 100% 50.5% no-repeat; }
+/* kiểu 1 – mái chùa: tường trắng, cửa sổ đỏ son */
+.st1 .walls .fc { --wall: #fffaf2; --win: #c8323a; }
+.st1 .walls .wr, .st1 .walls .wl { --wall: #efe2cf; --win: #a5262d; }
+/* kiểu 2 – hiện đại: khối kính, viền màu người chơi, sân thượng xanh */
+.glass .fc { background: linear-gradient(135deg, #e6f6ff 0 18%, #9fd4f5 30%, #6bb7e8 60%, #bfe5fb 100%); box-shadow: inset 0 0 0 .18cqw color-mix(in srgb, var(--c) 80%, #fff); }
+.glass .wf, .glass .wb { background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--c) 80%, #fff) 0 .2cqw, transparent .2cqw 1.1cqw), linear-gradient(160deg, #e9f7ff, #8ccaef 55%, #5aa6dc); }
+.glass .wr, .glass .wl { background: repeating-linear-gradient(180deg, color-mix(in srgb, var(--c) 70%, #000) 0 .2cqw, transparent .2cqw 1.1cqw), linear-gradient(160deg, #b9def6, #5d9fd0); }
+.glass.tall .wf, .glass.tall .wb { background: repeating-linear-gradient(180deg, transparent 0 1.2cqw, rgba(255,255,255,.7) 1.2cqw 1.35cqw), repeating-linear-gradient(90deg, color-mix(in srgb, var(--c) 80%, #fff) 0 .2cqw, transparent .2cqw 1.2cqw), linear-gradient(160deg, #e9f7ff, #7cbfe9 55%, #4a93cd); }
+.glass .top { background: #dfe8ef; }
+.garden .fc { background: color-mix(in srgb, var(--c) 75%, #000); }
+.garden .top { background: radial-gradient(circle at 30% 40%, #8be27a 0 18%, transparent 19%), radial-gradient(circle at 70% 60%, #6fd46a 0 16%, transparent 17%), #4fae4a; }
+/* kiểu 3 – phố cổ: tường vàng, cửa chớp nâu */
+.st3 .walls .fc { --wall: #ffd862; --win: #7b4a2b; }
+.st3 .walls .wr, .st3 .walls .wl { --wall: #f0c14b; --win: #6a3f23; }
+.st3 .walls .top { background: #f3cf6a; }
+.st3 .gr { --g: #f3c74e; } .st3 .gl { --g: #e8b938; }
+@media (max-width: 900px), (orientation: portrait) {
+  .fest3 b { font-size: 2.6cqw; }
+  .banner b { font-size: 28px; padding: 4px 20px; }
+}
+
+/* điện thoại: cột trái chữ nằm phía ngoài (trái), nhà phía trong; nhà ở 2 cột trái/phải thu nhỏ cho vừa ô */
+@media (max-width: 900px), (orientation: portrait) {
+  .tile.side-l .body { justify-content: flex-start; }
+  .bld.s-l > .grow, .bld.s-r > .grow, .bld.s-l > .gshadow, .bld.s-r > .gshadow { scale: .72; }
 }

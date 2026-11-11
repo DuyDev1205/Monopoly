@@ -10,16 +10,17 @@ export const AIRPORT_FEE = 0;
 export const SELL_RATE = 0.5;     // bán cho ngân hàng được 50% giá trị
 export const BUYOUT_RATE = 2;     // mua lại tài sản đối thủ: gấp 2 giá trị
 export const SIZE = 32;
+export const FEST_MAX = 5;        // lễ hội tổ chức lại cùng chỗ: ×2 → ×3 → … tối đa ×5
 
 export const GROUPS = {
-  brown:  { name: 'Đất Mũi',        color: '#9a6240', house: 50 },
-  sky:    { name: 'Miền Tây',       color: '#4fb3e3', house: 50 },
-  pink:   { name: 'Biển Nam Trung', color: '#d9539e', house: 100 },
-  orange: { name: 'Tây Nguyên',     color: '#f08a24', house: 100 },
-  red:    { name: 'Phố Cổ',         color: '#e03b3b', house: 150 },
-  yellow: { name: 'Miền Trung',     color: '#e8b512', house: 150 },
-  green:  { name: 'Miền Bắc',       color: '#2f9e5b', house: 200 },
-  navy:   { name: 'Đô Thị',         color: '#2741a8', house: 200 },
+  brown:  { name: 'Miền Tây',          color: '#9a6240', house: 50 },
+  sky:    { name: 'Nam Bộ',            color: '#4fb3e3', house: 50 },
+  pink:   { name: 'Biển miền Trung',   color: '#d9539e', house: 100 },
+  orange: { name: 'Tây Nguyên',        color: '#f08a24', house: 100 },
+  red:    { name: 'Di sản',            color: '#e03b3b', house: 150 },
+  yellow: { name: 'Đường thiên lý',    color: '#e8b512', house: 150 },
+  green:  { name: 'Miền Bắc',          color: '#2f9e5b', house: 200 },
+  navy:   { name: 'Đô thị',            color: '#2741a8', house: 200 },
 };
 
 // Hệ số giá thuê theo cấp: [đất trống, 1 nhà, 2 nhà, 3 nhà, công trình]
@@ -34,38 +35,39 @@ const C = (name, group, price, icon) => ({ type: 'city', name, group, price, ren
 const R = (name, icon) => ({ type: 'resort', name, price: 200, icon });
 const chance = () => ({ type: 'chance', name: 'Cơ Hội', icon: '🧧' });
 
+// Bố cục theo kiểu Business Tour: khu nghỉ dưỡng ven biển ở ô 4, 14, 18, 25; Cơ Hội giữa 3 cạnh; Thuế giữa 2 đô thị.
 export const BOARD = [
   { type: 'start', name: 'Xuất Phát', icon: '🏁' },          // 0
   C('Cà Mau', 'brown', 60, '🦀'),
-  C('Bạc Liêu', 'brown', 70, '🎻'),
-  chance(),
-  C('Cần Thơ', 'sky', 100, '🛶'),
-  R('Phú Quốc', '🏝️'),
+  C('Bạc Liêu', 'brown', 60, '🎻'),
+  C('Cần Thơ', 'brown', 80, '🛶'),
+  R('Phú Quốc', '🏝️'),                                        // 4: biển
   C('Vĩnh Long', 'sky', 100, '🍊'),
-  C('Mỹ Tho', 'sky', 120, '🥥'),
+  C('Mỹ Tho', 'sky', 100, '🥥'),
+  C('Vũng Tàu', 'sky', 120, '🏖️'),
   { type: 'island', name: 'Đảo Hoang', icon: '🌴' },         // 8
-  C('Vũng Tàu', 'pink', 140, '🏖️'),
   C('Phan Thiết', 'pink', 140, '🐟'),
-  C('Nha Trang', 'pink', 160, '🌊'),
-  R('Mũi Né', '🏜️'),
-  chance(),
+  C('Nha Trang', 'pink', 140, '🌊'),
+  C('Quy Nhơn', 'pink', 160, '⛱️'),
+  chance(),                                                  // 12
   C('Đà Lạt', 'orange', 180, '🌸'),
+  R('Mũi Né', '🏜️'),                                          // 14: biển
   C('Buôn Ma Thuột', 'orange', 200, '☕'),
   { type: 'festival', name: 'Lễ Hội', icon: '🎆' },          // 16
-  C('Quy Nhơn', 'red', 220, '⛱️'),
-  C('Hội An', 'red', 240, '🏮'),
-  chance(),
-  R('Phong Nha', '🦇'),
-  C('Huế', 'yellow', 260, '🏛️'),
+  C('Hội An', 'red', 220, '🏮'),
+  R('Côn Đảo', '🐢'),                                         // 18: biển
+  C('Huế', 'red', 240, '🏛️'),
+  chance(),                                                  // 20
   C('Đà Nẵng', 'yellow', 260, '🐉'),
-  C('Vinh', 'yellow', 280, '🌾'),
+  C('Vinh', 'yellow', 260, '🌾'),
+  C('Ninh Bình', 'yellow', 280, '⛰️'),
   { type: 'airport', name: 'Sân Bay', icon: '✈️' },          // 24
-  C('Ninh Bình', 'green', 300, '⛰️'),
+  R('Cát Bà', '🐒'),                                          // 25: biển
   C('Sa Pa', 'green', 300, '🏔️'),
   C('Hạ Long', 'green', 320, '🛳️'),
-  R('Cát Bà', '🐒'),
-  { type: 'tax', name: 'Thuế', icon: '💸' },
+  chance(),                                                  // 28
   C('TP. Hồ Chí Minh', 'navy', 360, '🏙️'),
+  { type: 'tax', name: 'Thuế', icon: '💸' },                 // 30
   C('Hà Nội', 'navy', 400, '🐢'),
 ];
 
@@ -95,9 +97,9 @@ export function levelCost(tile, lvl) {
 export const CARDS = [
   { text: 'Về thẳng Xuất Phát, nhận lương 200tr.', kind: 'move', to: 0 },
   { text: 'Bay ra Hà Nội dự hội nghị. Qua Xuất Phát được nhận lương.', kind: 'move', to: 31 },
-  { text: 'Du lịch phố cổ Hội An. Qua Xuất Phát được nhận lương.', kind: 'move', to: 18 },
+  { text: 'Du lịch phố cổ Hội An. Qua Xuất Phát được nhận lương.', kind: 'move', to: 17 },
   { text: 'Ra Sân Bay — lượt sau được bay tới ô bất kỳ.', kind: 'move', to: AIRPORT },
-  { text: 'Tổ chức Lễ Hội ở một thành phố của bạn: tiền thuê ×2.', kind: 'move', to: FESTIVAL },
+  { text: 'Đi dự Lễ Hội: tổ chức lễ hội ở một thành phố của bạn để tăng tiền thuê.', kind: 'move', to: FESTIVAL },
   { text: 'Đi nghỉ ở khu du lịch gần nhất.', kind: 'nearestResort' },
   { text: 'Kẹt xe, lùi lại 3 ô.', kind: 'moveBy', n: -3 },
   { text: 'Lạc đường ra Đảo Hoang! Không qua Xuất Phát.', kind: 'island' },
