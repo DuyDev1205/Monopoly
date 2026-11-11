@@ -775,3 +775,46 @@ body[data-theme] .tile.resort.side-t { --sea: to top; } body[data-theme] .tile.r
   .tile.side-l .body { justify-content: flex-start; }
   .bld.s-l > .grow, .bld.s-r > .grow, .bld.s-l > .gshadow, .bld.s-r > .gshadow { scale: .72; }
 }
+
+/* ================= Ô biển: dải biển hẹp ở mép ngoài, chữ trên bãi cát ================= */
+body[data-theme] .tile.resort { background: linear-gradient(var(--sea), #fde9b8 0 70%, #fffaf0 70% 74%, #8fdcf5 74%, #35a7e3 100%); }
+.tile.resort::before { -webkit-mask-image: linear-gradient(var(--sea), transparent 75%, #000 77%); mask-image: linear-gradient(var(--sea), transparent 75%, #000 77%); }
+.tile.resort.side-b .body { justify-content: flex-end; padding-bottom: 28%; }
+.tile.resort.side-t .body { justify-content: flex-start; padding-top: 28%; }
+.tile.resort.side-l .body { justify-content: flex-start; padding-left: 28%; }
+.tile.resort.side-r .body { justify-content: flex-end; padding-right: 28%; }
+
+/* ================= Lựa chọn: được chọn thì sáng, không được thì tối hẳn ================= */
+.btn:disabled { opacity: .5; filter: grayscale(1) brightness(.8); box-shadow: none; transform: none; }
+.tile.pick { filter: brightness(1.06); box-shadow: inset 0 0 0 .5cqw #ffd000, 0 0 1.8cqw rgba(255,200,0,.85); }
+.tile.dim { filter: brightness(.38) saturate(.4); }
+.bld { transition: filter .2s; }
+.tile.chosen { box-shadow: inset 0 0 0 .6cqw #1f9d55, 0 0 2cqw rgba(31,157,85,.95) !important; }
+.tile.chosen .pr { color: #1f9d55; }
+
+/* ================= Bán đất trả nợ: danh sách tick ================= */
+.sell-box { max-height: calc(var(--u) * 52); }
+.sell-box .o-head { justify-content: center; color: var(--accent); }
+.sell-list { display: flex; flex-direction: column; gap: calc(var(--u) * .6); overflow-y: auto; max-height: calc(var(--u) * 26); padding: 2px; }
+.sell-row { display: flex; align-items: center; gap: calc(var(--u) * 1); border: 2px solid #eadfc4; background: #fff; border-radius: calc(var(--u) * 1); padding: calc(var(--u) * .6) calc(var(--u) * 1); cursor: pointer; font: inherit; text-align: left; transition: background .15s, border-color .15s; }
+.sell-row:hover { border-color: #b8d9c4; }
+.sell-row .ck { width: calc(var(--u) * 2.2); height: calc(var(--u) * 2.2); border-radius: calc(var(--u) * .5); border: 2px solid #b9ab8d; flex: none; display: grid; place-items: center; background: #fff; }
+.sell-row.on { background: #e6f8ec; border-color: #1f9d55; }
+.sell-row.on .ck { background: #1f9d55; border-color: #1f9d55; }
+.sell-row.on .ck::after { content: '✓'; color: #fff; font-weight: 800; font-size: calc(var(--u) * 1.6); line-height: 1; }
+.sell-row .sn { flex: 1; font-weight: 700; display: flex; flex-direction: column; }
+.sell-row .sn small { font-weight: 500; color: var(--muted); font-size: .8em; }
+.sell-row b { font-variant-numeric: tabular-nums; color: #1d7a3e; }
+.sell-sum { display: flex; justify-content: space-between; gap: calc(var(--u) * 1); font-size: .95em; }
+.sell-sum b { font-variant-numeric: tabular-nums; }
+.sell-sum b.neg { color: var(--accent); } .sell-sum b.ok { color: #1f9d55; }
+
+/* ================= Phá nhà / đốt nhà ================= */
+.bld.boom > .grow { animation: boomShake .5s ease-in-out 3; }
+@keyframes boomShake { 25% { translate: -.6cqw 0; } 50% { translate: .5cqw .3cqw; } 75% { translate: -.3cqw -.3cqw; } }
+.bld.on-fire > .grow { filter: brightness(.7) sepia(.6) saturate(2.5) hue-rotate(-20deg); }
+.bld .flames { position: absolute; left: 50%; bottom: 1cqw; transform: translateX(-50%); display: flex; }
+.bld .flames img.fi { width: 3.6cqw; height: 3.6cqw; margin: 0 -.6cqw; transform-origin: 50% 100%; animation: flame .35s ease-in-out infinite alternate; }
+.bld .flames img.fi:nth-child(2) { width: 4.6cqw; height: 4.6cqw; animation-delay: -.15s; }
+@keyframes flame { to { transform: scaleY(1.2) scaleX(.9); } }
+.card3d.fire { --cc: #e8590c; }

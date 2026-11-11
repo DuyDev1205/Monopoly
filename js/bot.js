@@ -1,5 +1,5 @@
 // Máy chơi đơn giản nhưng biết tính toán.
-import { BOARD, GROUP_TILES, RESORTS, BAIL, AIRPORT, FESTIVAL } from './data.js';
+import { BOARD, GROUP_TILES, RESORTS, BAIL, AIRPORT, FESTIVAL, AIRPORT_FEE } from './data.js';
 import { ownedBy, tileValue, buyoutCost, buildCost, maxBuildLevel, rentOf, ownsGroup } from './engine.js';
 
 // Đất này giúp hoàn thành nhóm / gần hoàn thành?
@@ -32,6 +32,7 @@ export function botAction(s, pid) {
       return { type: 'roll' };
 
     case 'travel': {
+      if (p.money < AIRPORT_FEE + res * 0.5) return { type: 'skip' };   // tiếc tiền vé
       let best = 0, bestScore = -1;
       BOARD.forEach((t, i) => {
         if (i === AIRPORT) return;
@@ -78,6 +79,11 @@ export function botAction(s, pid) {
       const mine = ownedBy(s, pid);
       const best = mine.sort((a, b) => rentOf(s, b) - rentOf(s, a))[0];
       return best != null ? { type: 'festival', tile: best } : { type: 'skip' };
+    }
+
+    case 'target': {   // phá / đốt nhà đắt nhất của đối thủ
+      const best = [...pd.tiles].sort((a, b) => tileValue(s, b) - tileValue(s, a))[0];
+      return best != null ? { type: 'target', tile: best } : { type: 'skip' };
     }
 
     case 'debt': {

@@ -6,7 +6,7 @@ export const BAIL = 100;          // phí rời Đảo Hoang
 export const ISLAND = 8;          // ô Đảo Hoang
 export const FESTIVAL = 16;       // ô Lễ Hội
 export const AIRPORT = 24;        // ô Sân Bay
-export const AIRPORT_FEE = 0;
+export const AIRPORT_FEE = 50;   // vé máy bay khi bay từ Sân Bay
 export const SELL_RATE = 0.5;     // bán cho ngân hàng được 50% giá trị
 export const BUYOUT_RATE = 2;     // mua lại tài sản đối thủ: gấp 2 giá trị
 export const SIZE = 32;
@@ -99,7 +99,10 @@ export const CARDS = [
   { text: 'Bay ra Hà Nội dự hội nghị. Qua Xuất Phát được nhận lương.', kind: 'move', to: 31 },
   { text: 'Du lịch phố cổ Hội An. Qua Xuất Phát được nhận lương.', kind: 'move', to: 17 },
   { text: 'Ra Sân Bay — lượt sau được bay tới ô bất kỳ.', kind: 'move', to: AIRPORT },
-  { text: 'Đi dự Lễ Hội: tổ chức lễ hội ở một thành phố của bạn để tăng tiền thuê.', kind: 'move', to: FESTIVAL },
+  { text: 'Đi tới Lễ Hội. Qua Xuất Phát được nhận lương.', kind: 'move', to: FESTIVAL },
+  { text: 'Tổ chức Lễ Hội ngay tại một thành phố của bạn.', kind: 'hostFest' },
+  { text: 'Phá nhà! Chọn một nhà của đối thủ để phá bỏ (không áp dụng với khách sạn).', kind: 'demolish' },
+  { text: 'Đốt nhà! Chọn một nhà của đối thủ, nhà bị giảm 1 cấp (không áp dụng với khách sạn).', kind: 'burn' },
   { text: 'Đi nghỉ ở khu du lịch gần nhất.', kind: 'nearestResort' },
   { text: 'Kẹt xe, lùi lại 3 ô.', kind: 'moveBy', n: -3 },
   { text: 'Lạc đường ra Đảo Hoang! Không qua Xuất Phát.', kind: 'island' },
@@ -134,5 +137,5 @@ export const ICONS = {
   '☕': 'coffee', '🎆': 'fireworks', '⛱️': 'umbrella', '🏮': 'lantern', '🦇': 'bat', '🏛️': 'classical', '🐉': 'dragon',
   '🌾': 'rice', '✈️': 'airplane', '⛰️': 'mountain', '🏔️': 'snowmountain', '🛳️': 'ship', '🐒': 'monkey', '💸': 'money',
   '🏙️': 'city', '🐢': 'turtle', '🛵': 'scooter', '🐃': 'buffalo', '🚤': 'speedboat', '🐓': 'rooster', '🛟': 'buoy',
-  '🏆': 'trophy', '🎲': 'die',
+  '🏆': 'trophy', '🎲': 'die', '💥': 'boom', '🔥': 'fire',
 };

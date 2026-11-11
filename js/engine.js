@@ -4,6 +4,7 @@ import {
   START_MONEY, SALARY, BAIL, ISLAND, FESTIVAL, AIRPORT, SELL_RATE, BUYOUT_RATE,
   RESORT_RENT, TAX_RATE, TAX_MIN, PLAYER_COLORS, PLAYER_TOKENS, levelCost, WIN_LABEL,
   FEST_MAX,
+  AIRPORT_FEE,
 } from './data.js';
 
 const rnd = (n) => Math.floor(Math.random() * n);
@@ -146,6 +147,7 @@ function nextTurn(s, ev) {
   }
   s.cur = i;
   const p = s.players[i];
+  if (p.travel && p.money < AIRPORT_FEE) { p.travel = false; log(s, ev, `${p.name} không đủ ${fmt(AIRPORT_FEE)} mua vé máy bay.`); }
   s.phase = p.travel ? 'travel' : 'roll';
   ev.push({ t: 'turn', pid: i });
 }
@@ -260,16 +262,28 @@ function land(s, ev, pid, diceSum) {
     case 'island': toIsland(s, ev, pid); return proceed(s, ev);
     case 'airport':
       p.travel = true; s.rolledDouble = false;
-      log(s, ev, `${p.name} tới Sân Bay — lượt sau được bay tới ô bất kỳ ✈️`);
+      log(s, ev, `${p.name} tới Sân Bay — lượt sau được bay tới ô bất kỳ (vé ${fmt(AIRPORT_FEE)}) ✈️`);
       return proceed(s, ev);
-    case 'festival': {
-      const mine = ownedBy(s, pid).filter((k) => BOARD[k].type === 'city' || BOARD[k].type === 'resort');
-      if (!mine.length) { log(s, ev, `${p.name} dự Lễ Hội nhưng chưa có đất để tổ chức.`); return proceed(s, ev); }
-      s.phase = 'festival'; s.pending = { tile: i };
-      return;
-    }
+    case 'festival': return startFestival(s, ev, pid);
     default: return proceed(s, ev);
   }
+}
+
+function startFestival(s, ev, pid) {
+  const mine = ownedBy(s, pid);
+  if (!mine.length) { log(s, ev, `${s.players[pid].name} chưa có đất để tổ chức Lễ Hội.`); return proceed(s, ev); }
+  s.phase = 'festival'; s.pending = { tile: s.players[pid].pos };
+}
+
+// Nhà của đối thủ có thể bị phá / đốt (khách sạn được miễn)
+export function attackTargets(s, pid, kind) {
+  return s.own.map((o, i) => {
+    if (!o || o.o < 0 || o.o === pid || s.players[o.o].out) return -1;
+    const city = BOARD[i].type === 'city';
+    if (city && o.lvl >= 4) return -1;
+    if (kind === 'burn') return city && o.lvl >= 1 ? i : -1;
+    return i;
+  }).filter((i) => i >= 0);
 }
 
 function drawCard(s, ev, pid, diceSum) {
@@ -289,6 +303,13 @@ function drawCard(s, ev, pid, diceSum) {
       return land(s, ev, pid, diceSum);
     }
     case 'island': toIsland(s, ev, pid); return proceed(s, ev);
+    case 'hostFest': return startFestival(s, ev, pid);
+    case 'demolish': case 'burn': {
+      const tiles = attackTargets(s, pid, c.kind);
+      if (!tiles.length) { log(s, ev, `Không có nhà nào của đối thủ để ${c.kind === 'burn' ? 'đốt' : 'phá'}.`); return proceed(s, ev); }
+      s.phase = 'target'; s.pending = { kind: c.kind, tiles };
+      return;
+    }
     case 'freeCard': p.freeCards++; return proceed(s, ev);
     case 'repairs': {
       let cost = 0;
@@ -371,7 +392,10 @@ export function apply(s, pid, a) {
     case 'travel': {
       if (s.phase !== 'travel') return err('Không thể bay lúc này');
       if (tile < 0 || tile === AIRPORT) return err('Chọn ô khác');
+      if (p.money < AIRPORT_FEE) return err(`Cần ${fmt(AIRPORT_FEE)} để mua vé`);
       p.travel = false;
+      ev.push({ t: 'fee', pid, amount: AIRPORT_FEE });
+      money(s, ev, pid, -AIRPORT_FEE);
       log(s, ev, `✈️ ${p.name} bay tới ${BOARD[tile].name}.`);
       goTo(s, ev, pid, tile);
       s.rolledDouble = false;
@@ -440,8 +464,38 @@ export function apply(s, pid, a) {
     }
 
     case 'skip':
-      if (!['buy', 'upgrade', 'buyout', 'festival'].includes(s.phase)) return err('Không thể bỏ qua');
+      if (s.phase === 'travel') {   // không bay: gieo xúc xắc như bình thường
+        p.travel = false; s.phase = 'roll';
+        log(s, ev, `${p.name} không bay, gieo xúc xắc.`);
+        break;
+      }
+      if (!['buy', 'upgrade', 'buyout', 'festival', 'target'].includes(s.phase)) return err('Không thể bỏ qua');
       proceed(s, ev); break;
+
+    case 'target': {
+      if (s.phase !== 'target' || !pd || !pd.tiles.includes(tile)) return err('Chọn một nhà được đánh dấu');
+      const o = s.own[tile], from = o.o, name = BOARD[tile].name;
+      if (pd.kind === 'burn') {
+        o.lvl -= 1;
+        ev.push({ t: 'burn', pid, tile, from, lvl: o.lvl });
+        log(s, ev, `🔥 ${p.name} đốt nhà của ${s.players[from].name} ở ${name}: còn ${o.lvl ? `nhà cấp ${o.lvl}` : 'đất trống'}.`);
+      } else {
+        s.own[tile] = { o: -1, lvl: 0 };
+        if (s.festival === tile) s.festival = -1;
+        ev.push({ t: 'demolish', pid, tile, from });
+        log(s, ev, `💥 ${p.name} phá nhà của ${s.players[from].name} ở ${name}!`);
+      }
+      ev.push({ t: 'build', tile });
+      proceed(s, ev); break;
+    }
+
+    case 'sellMany': {   // bán một lúc nhiều ô đã chọn
+      if (s.phase !== 'debt') return err('Chỉ bán khi đang nợ');
+      const list = Array.isArray(a.tiles) ? [...new Set(a.tiles)].filter((k) => Number.isInteger(k) && s.own[k] && s.own[k].o === pid) : [];
+      if (!list.length) return err('Chưa chọn ô nào để bán');
+      list.forEach((k) => sellTile(s, ev, pid, k));
+      proceed(s, ev); break;
+    }
 
     case 'sell':
       if (s.phase !== 'debt') return err('Chỉ bán khi đang nợ');
@@ -461,7 +515,7 @@ export function apply(s, pid, a) {
 }
 
 // Thời lượng animation (ms) của một loạt sự kiện — client và server dùng chung
-export const ANIM = { dice: 1000, target: 550, step: 210, fly: 750, card: 3000, turn: 450, rent: 2000, buy: 2000, upgrade: 1900, buyout: 2200, tax: 1900, build: 700, fest: 1900, mono: 1900 };
+export const ANIM = { dice: 1000, target: 550, step: 210, fly: 750, card: 3000, turn: 450, rent: 2000, buy: 2000, upgrade: 1900, buyout: 2200, tax: 1900, build: 700, fest: 1900, mono: 1900, fee: 1500, demolish: 2000, burn: 2000 };
 export const BOT_THINK = 800;   // máy "nghĩ" trước mỗi hành động
 export function animTime(events) {
   let t = 0;
@@ -469,7 +523,7 @@ export function animTime(events) {
     if (e.t === 'dice') t += ANIM.dice;
     else if (e.t === 'move') t += e.path.length * ANIM.step + 80 + ANIM.target;
     else if (e.t === 'fly') t += ANIM.fly + ANIM.target;
-    else if (['rent', 'buy', 'buyout', 'tax', 'upgrade', 'fest', 'mono'].includes(e.t)) t += ANIM[e.t];
+    else if (['rent', 'buy', 'buyout', 'tax', 'upgrade', 'fest', 'mono', 'fee', 'demolish', 'burn'].includes(e.t)) t += ANIM[e.t];
     else if (e.t === 'build' && e.up) t += ANIM.build;
     else if (e.t === 'card') t += ANIM.card;
     else if (e.t === 'turn') t += ANIM.turn;

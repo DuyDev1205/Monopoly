@@ -1,5 +1,5 @@
 // Giao diện Cờ Tỷ Phú Việt Nam
-import { BOARD, GROUPS, SIZE, AIRPORT, BAIL, SALARY, RESORT_RENT, PLAYER_COLORS, WIN_LABEL, levelCost, SELL_RATE, BUYOUT_RATE, ICONS } from './data.js';
+import { BOARD, GROUPS, SIZE, AIRPORT, AIRPORT_FEE, BAIL, SALARY, RESORT_RENT, PLAYER_COLORS, WIN_LABEL, levelCost, SELL_RATE, BUYOUT_RATE, ICONS } from './data.js';
 import { newGame, apply, tick, timeLeft, BOT_THINK, ownsGroup, fmt, fmtFull, rentOf, tileValue, buyoutCost, buildCost, maxBuildLevel, ownedBy, netWorth, animTime, ANIM } from './engine.js';
 import { botAction } from './bot.js';
 import { HostNet, GuestNet } from './net.js';
@@ -108,7 +108,7 @@ function tileSub(t) {
     case 'start': return `Nhận ${fmt(SALARY)}`;
     case 'island': return 'Kẹt 3 lượt';
     case 'festival': return 'Thuê ×2 → ×5';
-    case 'airport': return 'Bay tự do';
+    case 'airport': return `Bay · ${fmt(AIRPORT_FEE)}`;
   }
   return '';
 }
@@ -155,6 +155,14 @@ flatView.addEventListener?.('change', () => bldEls.forEach((_, i) => placeBuildi
 function bldAnchor(i) {
   const t = tileEls[i];
   const L = t.offsetLeft, T = t.offsetTop, W = t.offsetWidth, H = t.offsetHeight;
+  if (BOARD[i].type === 'resort') {   // biển ở mép ngoài, chữ trên bãi cát, chòi ở phía trong
+    switch (sideOf(i)) {
+      case 'b': return [L + W / 2, T + H * 0.24];
+      case 't': return [L + W / 2, T + H * 0.76];
+      case 'l': return [L + W * 0.76, T + H / 2];
+      case 'r': return [L + W * 0.24, T + H / 2];
+    }
+  }
   switch (sideOf(i)) {
     case 'b': return [L + W / 2, T + H * 0.36];
     case 't': return [L + W / 2, T + H * 0.3];
@@ -446,6 +454,9 @@ function cardLook(e) {
     case 'collectEach': return ['🧧', 'good'];
     case 'freeCard': return ['🛟', 'good'];
     case 'payEach': case 'repairs': return ['💸', 'bad'];
+    case 'demolish': return ['💥', 'fire'];
+    case 'burn': return ['🔥', 'fire'];
+    case 'hostFest': return ['🎆', 'good'];
     case 'island': return ['🌴', 'bad'];
     case 'moveBy': return ['🛵', 'bad'];
     case 'nearestResort': return ['⛱️', 'move'];
@@ -547,6 +558,9 @@ function addChat(name, text) {
 
 // ---------- vùng thao tác ở giữa bàn ----------
 let picks = new Set();
+const sellSel = new Set();   // các ô đang tick để bán khi nợ
+const sellValue = (k) => Math.floor(tileValue(S, k) * SELL_RATE);
+function toggleSell(k) { if (sellSel.has(k)) sellSel.delete(k); else sellSel.add(k); renderActions(); }
 function setPicks(list) {
   picks = new Set(list);
   tileEls.forEach((el, i) => { el.classList.toggle('pick', picks.has(i)); el.classList.toggle('dim', picks.size > 0 && !picks.has(i)); });
@@ -565,6 +579,8 @@ function renderActions() {
   lbl.style.setProperty('--pc', p.color);
   lbl.innerHTML = S.phase === 'over' ? '' : `<span class="tk" style="--c:${p.color}">${charSVG(S.cur, true)}</span>${isMineRaw() ? (mode === 'local' && S.players.filter((q) => !q.bot).length > 1 ? `Lượt của ${esc(p.name)}` : 'Lượt của bạn') : `Lượt của ${esc(p.name)}`}`;
   setPicks([]);
+  tileEls.forEach((el) => el.classList.remove('chosen'));
+  if (S.phase !== 'debt') sellSel.clear();
   if (busy || S.phase === 'over') { box.innerHTML = ''; return; }
   if (!isMine()) { box.innerHTML = ''; return; }
   const pd = S.pending;
@@ -582,8 +598,12 @@ function renderActions() {
       }
       break;
     case 'travel':
-      h = '<div class="msg">✈️ Chọn một ô bất kỳ trên bàn cờ để bay tới</div>';
+      h = `<div class="msg">✈️ Chọn ô để bay tới · vé <b>${fmtFull(AIRPORT_FEE)}</b></div><button class="btn" data-a="skip">Không bay, gieo xúc xắc</button>`;
       setPicks(BOARD.map((_, i) => i).filter((i) => i !== AIRPORT));
+      break;
+    case 'target':
+      h = `<div class="msg">${pd.kind === 'burn' ? '🔥 Chọn nhà của đối thủ để <b>đốt</b> (giảm 1 cấp)' : '💥 Chọn nhà của đối thủ để <b>phá</b>'}</div><button class="btn" data-a="skip">Bỏ qua</button>`;
+      setPicks(pd.tiles);
       break;
     case 'buy': {
       const i = pd.tile, t = BOARD[i];
@@ -620,20 +640,38 @@ function renderActions() {
       h = `<div class="msg">🎆 Chọn đất để mở Lễ Hội${S.festival >= 0 && S.own[S.festival]?.o === S.cur ? ` · chọn lại ${esc(BOARD[S.festival].name)} để lên ×${Math.min(5, (S.festMult || 2) + 1)}` : ' · tiền thuê ×2'}</div><button class="btn" data-a="skip">Bỏ qua</button>`;
       setPicks(ownedBy(S, S.cur));
       break;
-    case 'debt':
-      h = `<div class="msg" style="color:var(--accent)">💸 Bạn đang thiếu ${fmt(-p.money)}!</div><div class="sub">Bấm vào đất của bạn để bán cho ngân hàng (nhận ${SELL_RATE * 100}% giá trị)</div>
-        <button class="btn" data-a="bankrupt">💥 Tuyên bố phá sản</button>`;
-      setPicks(ownedBy(S, S.cur));
+    case 'debt': {
+      const mine = ownedBy(S, S.cur);
+      [...sellSel].forEach((k) => { if (!mine.includes(k)) sellSel.delete(k); });
+      const need = -p.money, got = [...sellSel].reduce((a, k) => a + sellValue(k), 0);
+      const rows = mine.sort((a, b) => sellValue(a) - sellValue(b)).map((k) => {
+        const o = S.own[k], t = BOARD[k];
+        const lv = t.type === 'resort' ? 'Khu du lịch' : o.lvl ? LVL_NAME[o.lvl] : 'Đất trống';
+        return `<button class="sell-row${sellSel.has(k) ? ' on' : ''}" data-sell="${k}"><i class="ck"></i><span class="sn">${esc(t.name)}<small>${lv}</small></span><b>${fmtFull(sellValue(k))}</b></button>`;
+      }).join('');
+      h = `<div class="offer sell-box">
+        <div class="o-head">💸 Bán đất trả nợ</div>
+        <div class="sub">Tick các ô muốn bán (ngân hàng trả ${SELL_RATE * 100}% giá trị), rồi bấm Bán</div>
+        <div class="sell-list">${rows}</div>
+        <div class="sell-sum"><span>Đang thiếu <b class="neg">${fmtFull(need)}</b></span><span>Đã chọn <b class="${got >= need ? 'ok' : ''}">${fmtFull(got)}</b></span></div>
+        <div class="row"><button class="btn primary" data-a="sellMany" ${sellSel.size ? '' : 'disabled'}>Bán ${sellSel.size || ''} ô</button><button class="btn" data-a="bankrupt">Phá sản</button></div>
+      </div>`;
+      setPicks(mine);
+      tileEls.forEach((el, k) => el.classList.toggle('chosen', sellSel.has(k)));
       break;
+    }
   }
   box.innerHTML = h;
 }
 const isMineRaw = () => S && (mode === 'local' ? !S.players[S.cur].bot : S.cur === mySeat);
 
 $('#actions').addEventListener('click', (e) => {
+  const row = e.target.closest('[data-sell]');
+  if (row && isMine() && S.phase === 'debt') return toggleSell(+row.dataset.sell);
   const b = e.target.closest('button[data-a]');
   if (!b || b.disabled || !isMine()) return;
   const a = { type: b.dataset.a };
+  if (a.type === 'sellMany') { a.tiles = [...sellSel]; sellSel.clear(); }
   if (b.dataset.lvl != null) a.lvl = +b.dataset.lvl;
   if (a.type === 'bankrupt' && !confirm('Bạn chắc chắn muốn tuyên bố phá sản?')) return;
   act(a);
@@ -651,7 +689,8 @@ function act(a) {
 
 function onTileClick(i) {
   if (picks.has(i) && isMine()) {
-    const type = S.phase === 'travel' ? 'travel' : S.phase === 'festival' ? 'festival' : S.phase === 'debt' ? 'sell' : null;
+    if (S.phase === 'debt') return toggleSell(i);
+    const type = S.phase === 'travel' ? 'travel' : S.phase === 'festival' ? 'festival' : S.phase === 'target' ? 'target' : null;
     if (type) return act({ type, tile: i });
   }
   showTileInfo(i);
@@ -679,7 +718,7 @@ function showTileInfo(i) {
       tax: 'Nộp thuế 10% tổng giá trị đất và nhà (tối thiểu 50tr).',
       island: `Kẹt tối đa 3 lượt. Thoát bằng cách gieo đôi, trả ${fmt(BAIL)} hoặc dùng thẻ cứu hộ.`,
       festival: 'Chọn một ô đất của bạn để tổ chức lễ hội: tiền thuê ×2. Tổ chức lại đúng ô đó thì tăng lên ×3, ×4, tối đa ×5.',
-      airport: 'Lượt sau được bay tới bất kỳ ô nào trên bàn cờ.',
+      airport: `Lượt sau được bay tới bất kỳ ô nào trên bàn cờ, vé ${fmtFull(AIRPORT_FEE)}. Không muốn bay thì gieo xúc xắc như thường.`,
     };
     h += `<p>${desc[t.type] || ''}</p>`;
   }
@@ -795,6 +834,22 @@ async function play(events, fin) {
         sfx.upgrade(); burst(tileXY(e.tile), '#ff5fa2', 20);
         await banner(`🎆 LỄ HỘI ×${e.mult}`, BOARD[e.tile].name, '#e0267a', ANIM.fest);
         break;
+      case 'fee':
+        if (fast) break;
+        sfx.pay();
+        await showPile(e.amount, { minus: true, dur: ANIM.fee });
+        break;
+      case 'demolish': case 'burn': {
+        if (fast) break;
+        const el = bldEls[e.tile], xy = tileXY(e.tile), burn = e.t === 'burn';
+        el?.classList.add(burn ? 'on-fire' : 'boom');
+        if (el && burn) el.querySelector('.stand')?.insertAdjacentHTML('afterbegin', `<div class="flames">${ico('🔥', 'fi')}${ico('🔥', 'fi')}${ico('🔥', 'fi')}</div>`);
+        burst(xy, burn ? '#ff7a1a' : '#8a7a70', 22); sfx.pay();
+        const lv = burn ? (e.lvl ? `còn nhà cấp ${e.lvl}` : 'còn đất trống') : `${fin.players[e.from].name} mất nhà`;
+        await banner(burn ? '🔥 ĐỐT NHÀ' : '💥 PHÁ NHÀ', `${BOARD[e.tile].name} · ${lv}`, burn ? '#e8590c' : '#5b4b45', ANIM[e.t] - 200);
+        el?.classList.remove('on-fire', 'boom');
+        break;
+      }
       case 'mono':
         e.tiles.forEach((k) => renderTile(k, fin));
         if (fast) break;
