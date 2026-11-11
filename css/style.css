@@ -891,3 +891,8 @@ body[data-theme] .tile.resort { background: linear-gradient(var(--sea), #fde9b8 
 @keyframes rfGlow { from { box-shadow: 0 0 .6cqw rgba(255,183,3,.5); } to { box-shadow: 0 0 2.4cqw rgba(255,160,0,1); } }
 .tile.rfest.dim { animation: none; }
 @media (max-width: 900px), (orientation: portrait) { .rf-badge { font-size: 1.7cqw; } }
+
+/* phố cổ: mái ngói nâu đỏ (pha màu người chơi) để tách khỏi tường vàng */
+.st3 .roof .rf { background-color: color-mix(in srgb, var(--c) 30%, #b5532c); }
+.st3 .roof .rb { background-color: color-mix(in srgb, var(--c) 25%, #7a3518); }
+.st3 .bld .ridge, .st3 .ridge { background: #5a2410; }

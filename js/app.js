@@ -220,7 +220,7 @@ function roof4(w, h, r, o = 0.35) {
 }
 const hip = (w, h, r, cls = '', smoke = false) => `<div class="m house ${cls}">${box(w, w, h, 'walls')}${roof4(w, h, r)}${smoke ? lift(h + r, SMOKE) : ''}</div>`;
 // nhà ống phố cổ: nóc mái chạy dọc theo chiều sâu
-const tube = (w, d, h, r, smoke = false) => `<div class="m house tube">${box(w, d, h, 'walls')}<div class="m" style="transform:rotateZ(90deg)">${roof(d, w, h, r)}</div>${smoke ? lift(h + r, SMOKE) : ''}</div>`;
+const tube = (w, d, h, r, smoke = false) => `<div class="m house tube">${box(w, d, h, 'walls')}<div class="m" style="transform:rotateZ(90deg)">${roof(d, w, h, r, 0.12)}</div>${smoke ? lift(h + r, SMOKE) : ''}</div>`;
 // nhà hiện đại mái bằng: các khối kính xếp lệch
 const deck = (x, y, z, w, d, h, top = 'cap') => lift(z, shift(x, y, box(w, d, h, 'glass') + lift(h, box(w + 0.25, d + 0.25, 0.35, top))));
 const hotelTop = (z) => `${lift(z, '<div class="sign">HOTEL</div>')}${lift(z + 1.6, '<div class="beacon"></div>')}`;
@@ -234,8 +234,7 @@ function model(t, lvl, st = 0) {
       switch (lvl) {
         case 1: return hip(4, 2.8, 2.2, 'lv1', true);
         case 2: return hip(4.4, 4.6, 2.4, 'lv2', true) + roof4(4.4, 2.3, 0.5, 0.75);
-        case 3: return shift(-0.5, 0, hip(4.6, 6.2, 2.6, 'lv3', true) + roof4(4.6, 2.2, 0.5, 0.8) + roof4(4.6, 4.2, 0.5, 0.7))
-          + shift(3.4, 0.8, hip(2.4, 2.2, 1.5, 'lv1'));
+        case 3: return hip(4.8, 6.4, 2.6, 'lv3', true) + roof4(4.8, 2.2, 0.5, 0.75) + roof4(4.8, 4.3, 0.5, 0.65);
         case 4: return `<div class="m hotel">${box(5.6, 5.6, 4, 'walls')}${roof4(5.6, 4, 1.1, 1)}${lift(4.6, box(4.4, 4.4, 3.4, 'walls'))}${roof4(4.4, 8, 1, 0.9)}${lift(8.6, box(3.2, 3.2, 2.6, 'walls'))}${roof4(3.2, 11.2, 2.6, 0.7)}${hotelTop(12.4)}</div>`;
       }
       break;
@@ -250,8 +249,8 @@ function model(t, lvl, st = 0) {
     case 3: // phố cổ: dãy nhà ống tường vàng
       switch (lvl) {
         case 1: return tube(2.6, 4, 3, 1.6, true);
-        case 2: return shift(-1.4, 0, tube(2.6, 4, 3, 1.6, true)) + shift(1.4, 0.2, tube(2.6, 4, 4.6, 1.6));
-        case 3: return shift(-2.7, 0.2, tube(2.6, 3.8, 3.4, 1.5)) + shift(0, 0, tube(2.6, 4, 5, 1.6, true)) + shift(2.7, 0.2, tube(2.6, 3.8, 4, 1.5));
+        case 2: return shift(-1.5, 0, tube(2.6, 4, 3, 1.6, true)) + shift(1.5, 0.2, tube(2.6, 4, 4.6, 1.6));
+        case 3: return shift(-2.85, 0.2, tube(2.4, 3.8, 3.4, 1.4)) + shift(0, 0, tube(2.4, 4, 5, 1.5, true)) + shift(2.85, 0.2, tube(2.4, 3.8, 4.2, 1.4));
         case 4: return `<div class="m hotel">${tube(4.6, 4.6, 8.2, 2.2)}${hotelTop(10.4)}</div>`;
       }
       break;
