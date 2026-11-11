@@ -1,6 +1,6 @@
 // Giao diện Cờ Tỷ Phú Việt Nam
 import { BOARD, GROUPS, SIZE, AIRPORT, AIRPORT_FEE, BAIL, SALARY, RESORT_RENT, PLAYER_COLORS, WIN_LABEL, levelCost, SELL_RATE, BUYOUT_RATE, ICONS } from './data.js';
-import { newGame, apply, tick, timeLeft, BOT_THINK, ownsGroup, fmt, fmtFull, rentOf, tileValue, buyoutCost, buildCost, maxBuildLevel, ownedBy, netWorth, animTime, ANIM } from './engine.js';
+import { newGame, apply, tick, timeLeft, BOT_THINK, ownsGroup, RAND_FEST_MULT, fmt, fmtFull, rentOf, tileValue, buyoutCost, buildCost, maxBuildLevel, ownedBy, netWorth, animTime, ANIM } from './engine.js';
 import { botAction } from './bot.js';
 import { HostNet, GuestNet } from './net.js';
 import { charSVG } from './characters.js';
@@ -126,7 +126,7 @@ function buildBoard() {
       el.className = `tile side-${side} ${t.type}`;
       const g = t.group ? GROUPS[t.group].color : t.type === 'resort' ? '#18a0b5' : 'transparent';
       const icon = t.type === 'city' || t.type === 'resort' ? '' : ico(t.icon);
-      el.innerHTML = `<div class="band" style="--g:${g}"></div><div class="body">${icon}<div class="txt"><div class="nm">${esc(t.name)}</div><div class="pr">${tileSub(t)}</div></div></div>`;
+      el.innerHTML = `<div class="band" style="--g:${g}"></div><div class="body">${icon}<div class="txt"><div class="nm">${esc(t.name)}</div><div class="pr">${tileSub(t)}</div></div></div><i class="rf-badge">🎊 ×${RAND_FEST_MULT}</i>`;
     }
     el.addEventListener('click', () => onTileClick(i));
     boardEl.insertBefore(el, boardEl.querySelector('.center'));
@@ -142,6 +142,7 @@ function renderTile(i, s = S) {
   el.classList.toggle('owned', owned);
   el.classList.toggle('fest', s.festival === i);
   el.classList.toggle('mono', owned && t.type === 'city' && ownsGroup(s, o.o, t.group));
+  el.classList.toggle('rfest', s.randFest === i);
   if (owned) el.style.setProperty('--own', s.players[o.o].color); else el.style.removeProperty('--own');
   renderBuilding(i, s);
   el.querySelector('.pr').textContent = owned ? fmt(rentOf(s, i)) : fmt(t.price);
@@ -706,6 +707,7 @@ function onTileClick(i) {
 }
 
 function showTileInfo(i) {
+  if (S) return openModal(`<div class="tip-modal">${tileTip(i)}</div><button class="btn wide" data-close>Đóng</button>`);
   const t = BOARD[i], o = S?.own[i];
   let h = `<h3>${ico(t.icon)} ${esc(t.name)}</h3>`;
   if (t.type === 'city') {
@@ -738,6 +740,97 @@ function showTileInfo(i) {
   h += '<button class="btn wide" data-close>Đóng</button>';
   openModal(h);
 }
+
+// ---------- bảng thông tin khi rê chuột (ô đất, nhà, người chơi) ----------
+const tipEl = $('#tip');
+const lvlText = (k) => {
+  const t = BOARD[k], o = S.own[k];
+  if (t.type === 'resort') return 'Khu du lịch';
+  return o.lvl ? LVL_NAME[o.lvl] : 'Đất trống';
+};
+function tileTip(i) {
+  const t = BOARD[i], o = S?.own[i];
+  const g = t.group ? GROUPS[t.group] : null;
+  let h = `<div class="tp-head"><span class="tp-bar" style="background:${g ? g.color : t.type === 'resort' ? '#18a0b5' : '#c9b68f'}"></span><b>${esc(t.name)}</b>${g ? `<small>${esc(g.name)}</small>` : t.type === 'resort' ? '<small>Khu du lịch</small>' : ''}</div>`;
+  if (o) {
+    if (o.o < 0) h += `<div class="tp-row"><span>Giá mua</span><b>${fmtFull(t.price)}</b></div><div class="tp-row muted"><span>Chưa có chủ</span></div>${S.randFest === i ? `<div class="tp-tags"><span style="background:#f08c00">🎊 Lễ hội địa phương: thuê ×${RAND_FEST_MULT} vòng này</span></div>` : ''}`;
+    else {
+      const ow = S.players[o.o];
+      h += `<div class="tp-row"><span>Chủ</span><b style="color:${ow.color}">${esc(ow.name)}</b></div>`;
+      h += `<div class="tp-row"><span>Hiện có</span><b>${lvlText(i)}</b></div>`;
+      h += `<div class="tp-row big"><span>Tiền thuê</span><b>${fmtFull(rentOf(S, i))}</b></div>`;
+      const tags = [];
+      if (S.festival === i) tags.push(`🎆 Lễ hội ×${S.festMult || 2}`);
+      if (S.randFest === i) tags.push(`🎊 Lễ hội địa phương ×${RAND_FEST_MULT}`);
+      if (t.type === 'city' && ownsGroup(S, o.o, t.group)) tags.push('👑 Độc quyền');
+      if (tags.length) h += `<div class="tp-tags">${tags.map((x) => `<span>${x}</span>`).join('')}</div>`;
+      h += `<div class="tp-row"><span>Giá trị</span><b>${fmtFull(tileValue(S, i))}</b></div>`;
+      h += t.type === 'city' && o.lvl >= 4 ? '<div class="tp-row muted"><span>🏨 Khách sạn: không thể mua lại</span></div>'
+        : `<div class="tp-row"><span>Giá mua lại</span><b>${fmtFull(buyoutCost(S, i))}</b></div>`;
+    }
+    if (t.type === 'city') h += `<div class="tp-rents">${LVL_NAME.map((n, l) => `<span class="${o.o >= 0 && o.lvl === l ? 'now' : ''}"><small>${l ? n.replace('Nhà ', '') : 'Đất'}</small>${fmt(t.rent[l])}</span>`).join('')}</div>`;
+  } else {
+    const desc = {
+      start: `Đi qua nhận ${fmtFull(SALARY)}. Dừng đúng ô: thêm 1 phần thưởng ngẫu nhiên.`,
+      chance: 'Rút thẻ Cơ Hội: may hoặc rủi!', tax: 'Nộp 10% giá trị đất và nhà.',
+      island: `Kẹt tối đa 3 lượt. Thoát: gieo đôi, trả ${fmt(BAIL)} hoặc thẻ cứu hộ.`,
+      festival: `Mở lễ hội trên đất của bạn: thuê ×2, mở lại cùng chỗ tăng tới ×5.${S && S.festival >= 0 ? ` Đang ở ${BOARD[S.festival].name} ×${S.festMult || 2}.` : ''}`,
+      airport: `Lượt sau bay tới ô bất kỳ, vé ${fmtFull(AIRPORT_FEE)}.`,
+    };
+    h += `<div class="tp-desc">${desc[t.type] || ''}</div>`;
+  }
+  return h;
+}
+function playerTip(pid) {
+  const p = S.players[pid];
+  const mine = ownedBy(S, pid).sort((a, b) => a - b);
+  const st = [p.island ? `🌴 Kẹt đảo ${p.island} lượt` : '', p.travel ? `✈️ Lượt sau được bay${p.freeFly ? ' (miễn phí)' : ''}` : '', p.freeCards ? `🛟 ${p.freeCards} thẻ cứu hộ` : '', p.out ? '💥 Đã phá sản' : ''].filter(Boolean);
+  const groups = Object.keys(GROUPS).filter((g) => mine.some((k) => BOARD[k].group === g) && ownsGroup(S, pid, g));
+  let h = `<div class="tp-head"><span class="tp-av" style="--c:${p.color}">${charSVG(pid, true)}</span><b>${esc(p.name)}</b>${p.bot ? '<small>máy</small>' : ''}</div>`;
+  h += `<div class="tp-row big"><span>Tiền mặt</span><b class="${p.money < 0 ? 'neg' : 'pos'}">${fmtFull(p.money)}</b></div>`;
+  h += `<div class="tp-row"><span>Tổng tài sản</span><b>${fmtFull(netWorth(S, pid))}</b></div>`;
+  if (groups.length) h += `<div class="tp-tags">${groups.map((g) => `<span style="background:${GROUPS[g].color}">👑 ${esc(GROUPS[g].name)}</span>`).join('')}</div>`;
+  if (st.length) h += `<div class="tp-desc">${st.join('<br>')}</div>`;
+  h += mine.length
+    ? `<div class="tp-list">${mine.map((k) => `<div><i style="background:${BOARD[k].group ? GROUPS[BOARD[k].group].color : '#18a0b5'}"></i><span>${esc(BOARD[k].name)}</span><small>${lvlText(k)}</small><b>${fmt(rentOf(S, k))}</b></div>`).join('')}</div>`
+    : '<div class="tp-desc">Chưa có đất</div>';
+  return h;
+}
+function placeTip(x, y) {
+  const w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+  let left = x + 18, top = y + 18;
+  if (left + w > innerWidth - 8) left = x - w - 18;
+  if (top + h > innerHeight - 8) top = Math.max(8, innerHeight - h - 8);
+  tipEl.style.transform = `translate(${Math.max(8, left)}px, ${top}px)`;
+}
+let tipKey = '';
+function tipTarget(el) {
+  if (!S || !el || $('#game').classList.contains('hidden')) return null;
+  const pc = el.closest('.pc');
+  if (pc) return ['p', +pc.dataset.pid];
+  const tile = el.closest('.tile');
+  if (tile) return ['t', +tile.dataset.i];
+  return null;
+}
+document.addEventListener('pointermove', (e) => {
+  if (e.pointerType !== 'mouse') return;
+  const tg = tipTarget(e.target);
+  if (!tg) { if (tipKey) { tipKey = ''; tipEl.classList.add('hidden'); } return; }
+  const key = tg.join(':') + ':' + (S.seq || 0) + ':' + busy;
+  if (key !== tipKey) {
+    tipKey = key;
+    tipEl.innerHTML = tg[0] === 'p' ? playerTip(tg[1]) : tileTip(tg[1]);
+    tipEl.classList.remove('hidden');
+  }
+  placeTip(e.clientX, e.clientY);
+}, { passive: true });
+document.addEventListener('pointerdown', () => { tipKey = ''; tipEl.classList.add('hidden'); });
+// điện thoại: chạm vào ảnh người chơi để xem thông tin
+$('#players').addEventListener('click', (e) => {
+  const pc = e.target.closest('.pc');
+  if (!pc || !S) return;
+  openModal(`<div class="tip-modal">${playerTip(+pc.dataset.pid)}</div><button class="btn wide" data-close>Đóng</button>`);
+});
 
 // ---------- modal ----------
 function openModal(html) {
@@ -859,6 +952,12 @@ async function play(events, fin) {
         el?.classList.remove('on-fire', 'boom');
         break;
       }
+      case 'rfest':
+        BOARD.forEach((_, k) => renderTile(k, fin));
+        if (fast) break;
+        sfx.card(); burst(tileXY(e.tile), '#ffb703', 18);
+        await banner(`🎊 LỄ HỘI ĐỊA PHƯƠNG`, `${BOARD[e.tile].name} · thuê ×${RAND_FEST_MULT} vòng này`, '#f08c00', ANIM.rfest);
+        break;
       case 'bonus': {
         if (fast) break;
         const what = {

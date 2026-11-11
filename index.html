@@ -6,7 +6,15 @@
 <meta name="theme-color" content="#2a1747">
 <meta name="description" content="Cờ Tỷ Phú Việt Nam — mua đất, xây nhà, mở lễ hội khắp 3 miền. Chơi với máy hoặc online cùng bạn bè.">
 <title>Cờ Tỷ Phú Việt Nam</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏮</text></svg>">
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="assets/favicon-64.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cờ Tỷ Phú">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="application-name" content="Cờ Tỷ Phú">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;800&display=swap" rel="stylesheet">
@@ -67,8 +75,9 @@
 <section id="home" class="screen">
   <div class="home-card">
     <div class="brand">
-      <img class="brand-ic" src="assets/icons/lantern.webp" alt="">
+      <img class="brand-logo" src="assets/logo.svg" alt="Logo Cờ Tỷ Phú · Thanh Duy">
       <h1>Cờ Tỷ Phú <span>Việt Nam</span></h1>
+      <p class="brand-by">by <b>Thanh Duy</b></p>
       <p>Mua đất, xây nhà, mở lễ hội khắp ba miền</p>
     </div>
 
@@ -117,6 +126,7 @@
         <li>Đến đất người khác: trả tiền thuê, rồi có thể <b>mua lại</b> với giá gấp đôi (trừ đất đã có Khách sạn).</li>
         <li>🎆 <b>Lễ Hội</b>: chọn 1 ô đất của bạn, tiền thuê ở đó ×2. ✈️ <b>Sân Bay</b>: lượt sau bay tới ô bất kỳ (vé 50 triệu).</li>
         <li>🌴 <b>Đảo Hoang</b>: kẹt tối đa 3 lượt. Thoát bằng cách gieo đôi, trả 100tr hoặc dùng thẻ cứu hộ.</li>
+        <li>🎊 <b>Lễ hội địa phương</b>: mỗi vòng một ô ngẫu nhiên được tiền thuê ×2 trong vòng đó.</li>
         <li>🏁 Dừng đúng ô <b>Xuất Phát</b>: ngoài lương còn được 1 phần thưởng ngẫu nhiên (nâng cấp miễn phí 1 nhà, thêm tiền, thẻ cứu hộ, vé bay miễn phí).</li>
         <li>🧧 <b>Cơ Hội</b> có thể là: phá nhà hoặc đốt nhà (giảm 1 cấp) của đối thủ (khách sạn được miễn), đi tới Lễ Hội, tổ chức Lễ Hội…</li>
         <li>Hết tiền thì phải bán đất cho ngân hàng (50% giá trị). Không còn gì để bán thì phá sản.</li>
@@ -200,6 +210,7 @@
 
 <div id="modal" class="modal hidden"><div class="modal-box" id="modalBox"></div></div>
 <div id="toasts"></div>
+<div id="tip" class="tip hidden" role="tooltip"></div>
 
 <script type="module" src="js/app.js"></script>
 </body>

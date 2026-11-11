@@ -17,6 +17,7 @@ Chơi với máy ngay trên trình duyệt, hoặc chơi online cùng bạn bè 
 | 🎆 Lễ Hội | Chọn 1 đất của mình, tiền thuê ở đó ×2 |
 | ✈️ Sân Bay | Lượt sau bay tới ô bất kỳ |
 | 💸 Thuế | Nộp 10% giá trị đất và nhà |
+| 🎊 Lễ hội địa phương | Mỗi vòng một ô ngẫu nhiên được tiền thuê ×2 trong vòng đó |
 
 - Đến đất người khác: trả tiền thuê, sau đó được **mua lại** với giá gấp đôi giá trị (trừ đất đã có Khách sạn).
 - Gieo đôi được đi tiếp. Gieo đôi 3 lần liền thì bị dạt ra Đảo Hoang.
@@ -55,6 +56,7 @@ css/style.css     giao diện + 3D
 assets/icons/     icon 3D (webp)
 js/data.js        bàn cờ, thẻ Cơ Hội, bảng giá
 js/engine.js      luật chơi
+assets/logo.svg   logo (TD · Thanh Duy); icon PNG cho iPhone/Android trong assets/
 js/characters.js  nhân vật hình người (SVG) — thêm nhân vật mới ở đây
 js/music.js       nhạc nền tổng hợp bằng WebAudio (không dùng file nhạc)
 js/bot.js         máy chơi

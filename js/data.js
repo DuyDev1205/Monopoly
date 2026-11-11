@@ -43,7 +43,7 @@ export const BOARD = [
   C('Cần Thơ', 'brown', 80, '🛶'),
   R('Phú Quốc', '🏝️'),                                        // 4: biển
   C('Vĩnh Long', 'sky', 100, '🍊'),
-  C('Mỹ Tho', 'sky', 100, '🥥'),
+  C('Bình Phước', 'sky', 100, '🌳'),
   C('Vũng Tàu', 'sky', 120, '🏖️'),
   { type: 'island', name: 'Đảo Hoang', icon: '🌴' },         // 8
   C('Phan Thiết', 'pink', 140, '🐟'),
@@ -137,5 +137,5 @@ export const ICONS = {
   '☕': 'coffee', '🎆': 'fireworks', '⛱️': 'umbrella', '🏮': 'lantern', '🦇': 'bat', '🏛️': 'classical', '🐉': 'dragon',
   '🌾': 'rice', '✈️': 'airplane', '⛰️': 'mountain', '🏔️': 'snowmountain', '🛳️': 'ship', '🐒': 'monkey', '💸': 'money',
   '🏙️': 'city', '🐢': 'turtle', '🛵': 'scooter', '🐃': 'buffalo', '🚤': 'speedboat', '🐓': 'rooster', '🛟': 'buoy',
-  '🏆': 'trophy', '🎲': 'die', '💥': 'boom', '🔥': 'fire',
+  '🌳': 'tree', '🏆': 'trophy', '🎲': 'die', '💥': 'boom', '🔥': 'fire',
 };
