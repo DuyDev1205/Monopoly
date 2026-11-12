@@ -5,6 +5,20 @@ Chơi với máy ngay trên trình duyệt, hoặc chơi online cùng bạn bè 
 
 👉 **Chơi:** https://duydev1205.github.io/Monopoly/
 
+## Bản cài đặt (Windows / macOS)
+
+👉 **Tải:** https://github.com/DuyDev1205/Monopoly/releases/latest — `.exe` cho Windows, `.dmg` cho macOS (chip M và Intel).
+
+Bản app có đồ hoạ riêng, luật chơi và chơi online giống hệt bản web (chơi chung phòng với người dùng web được):
+
+- Giao diện phong cách TDCaro, 4 bảng màu: Midnight Neon, Gỗ Cổ Điển, Đại Dương, Hoa Anh Đào.
+- Bàn cờ 3D thật (Three.js): nhà, khách sạn, cây cối và nhân vật là mô hình [Kenney](https://kenney.nl) (CC0); nhân vật đi bộ, nhảy, ăn mừng, lắc đầu theo diễn biến ván.
+- Chạy offline (trừ chơi online); tự báo khi có bản mới.
+
+Mã nguồn bản app nằm trong [`app/`](app/): `app/skin/` (giao diện + 3D), `app/src-tauri/` (vỏ [Tauri](https://tauri.app)).
+Phát hành: tăng `version` trong `app/package.json`, rồi đẩy tag `vX.Y.Z` — workflow [`release-app.yml`](.github/workflows/release-app.yml) tự build và đăng lên Releases.
+Chạy thử trên máy: `cd app && npm i && npm run dev` (cần [Rust](https://rustup.rs)).
+
 ## Luật chơi
 
 | Ô | Tác dụng |
