@@ -1180,3 +1180,14 @@ body[data-theme="halong"] .home-card { box-shadow: 0 10px 0 #9fcde3, 0 12px 0 #5
   .copyright { position: static; display: block; width: max-content; margin: 0 auto 14px; }
 }
 @media (max-width: 900px), (orientation: portrait) { .hl-boat { width: 46px; height: 42px; } .hl-boat.b3 { width: 60px; height: 54px; } .hl-boat.b2 { width: 34px; height: 30px; } .hl-basket { width: 32px; height: 16px; } }
+
+/* topbar điện thoại hẹp: không tràn nút âm thanh */
+@media (max-width: 480px) {
+  .topbar { gap: 6px; padding: 8px 8px; }
+  .tb-title { font-size: 13px !important; padding: 3px 10px !important; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .tb-right { gap: 5px; flex-shrink: 0; }
+  .pill.clock { font-size: 14px; padding: 4px 8px; }
+  .topbar .icon-btn { width: 34px; height: 34px; border-radius: 10px; }
+  #netInfo { font-size: 12px; padding: 4px 8px; white-space: nowrap; }
+  .topbar:has(#netInfo:not(.hidden)) .tb-title { display: none; }
+}
