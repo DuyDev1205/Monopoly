@@ -1183,11 +1183,7 @@ body[data-theme="halong"] .home-card { box-shadow: 0 10px 0 #9fcde3, 0 12px 0 #5
 
 /* ================= Đồ hoạ 3D (WebGL) ================= */
 #gl { position: fixed; left: 0; top: 0; z-index: 0; display: block; }
-/* chế độ 3D: theme có cảnh 3D thì ẩn nền 2D */
-body.gl:not(.gl-bg2d) .bg-deco { background: none; }
-body.gl:not(.gl-bg2d) .bg-deco > * { display: none !important; }
-/* theme Anh đào ở chế độ 3D: tranh phong cảnh 2D làm nền, canvas trong suốt nằm trên nó */
-body.gl-bg2d #gl { z-index: 1; }
+body.gl .bg-deco, body.gl .petals-front { display: none; }
 body.gl #board { display: none; }
 body.gl #game, body.gl .board-wrap { background: none; }
 .pile-num3 { position: absolute; left: 0; top: 0; pointer-events: none; transition: opacity .25s, transform .25s; }
