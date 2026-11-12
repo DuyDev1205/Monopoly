@@ -604,6 +604,58 @@ function burst([x, y], color, n = 14) {
   }
 }
 
+// ---------- hiệu ứng ĐỘC QUYỀN: các ô sáng lần lượt, sóng vàng, dải sáng nối cụm, vương miện rơi ----------
+function monoFx(tiles, pcolor) {
+  const pts = tiles.map((k) => tileXY(k));
+  // làm tối phần còn lại của màn hình, rọi sáng vào cụm
+  const gx = pts.reduce((a, p) => a + p[0], 0) / pts.length, gy = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+  const spread = Math.max(140, ...pts.map((p) => Math.hypot(p[0] - gx, p[1] - gy) + 110));
+  const dim = fxNode('mono-dim');
+  dim.style.background = `radial-gradient(circle ${spread}px at ${gx}px ${gy}px, transparent 55%, rgba(20,10,40,.5) 100%)`;
+  dim.animate([{ opacity: 0 }, { opacity: 1, offset: 0.15 }, { opacity: 1, offset: 0.75 }, { opacity: 0 }], { duration: 2400, fill: 'both' }).onfinish = () => dim.remove();
+  tiles.forEach((k, j) => setTimeout(() => {
+    const el = tileEls[k];
+    el.classList.remove('mono-pop'); void el.offsetWidth; el.classList.add('mono-pop');
+    setTimeout(() => el.classList.remove('mono-pop'), 1300);
+    const [x, y] = pts[j];
+    const ring = fxNode('mono-ring');
+    ring.animate([
+      { transform: `translate(${x}px, ${y}px) translate(-50%, -50%) scale(.2)`, opacity: 1 },
+      { transform: `translate(${x}px, ${y}px) translate(-50%, -50%) scale(2.6)`, opacity: 0 },
+    ], { duration: 900, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'both' }).onfinish = () => ring.remove();
+    const beam = fxNode('mono-beam');
+    beam.animate([
+      { transform: `translate(${x}px, ${y}px) translate(-50%, -100%) scaleY(0)`, opacity: 0 },
+      { transform: `translate(${x}px, ${y}px) translate(-50%, -100%) scaleY(1)`, opacity: 1, offset: 0.25 },
+      { transform: `translate(${x}px, ${y}px) translate(-50%, -100%) scaleY(1.1)`, opacity: 0 },
+    ], { duration: 1500, easing: 'ease-out', fill: 'both' }).onfinish = () => beam.remove();
+    burst([x, y], '#ffd34d', 18); burst([x, y], pcolor, 10);
+    beep(784 + j * 196, 0.18, 'triangle', 0.06);
+  }, j * 260));
+  // dải sáng vàng chạy nối các ô
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('class', 'mono-chain'); svg.setAttribute('width', innerWidth); svg.setAttribute('height', innerHeight);
+  const pl = document.createElementNS(svgNS, 'polyline');
+  pl.setAttribute('points', pts.map((p) => p.join(',')).join(' '));
+  svg.appendChild(pl); fxEl.appendChild(svg);
+  const len = pts.reduce((a, p, j) => a + (j ? Math.hypot(p[0] - pts[j - 1][0], p[1] - pts[j - 1][1]) : 0), 0) || 1;
+  pl.style.strokeDasharray = len; pl.style.strokeDashoffset = len;
+  pl.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 260 * Math.max(1, tiles.length - 1), easing: 'linear', fill: 'forwards' });
+  svg.animate([{ opacity: 1 }, { opacity: 1, offset: 0.7 }, { opacity: 0 }], { duration: 2300, fill: 'forwards' }).onfinish = () => svg.remove();
+  // vương miện rơi xuống giữa cụm
+  const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cy = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+  const crown = fxNode('mono-crown', '👑');
+  crown.style.setProperty('--pc', pcolor);
+  crown.animate([
+    { transform: `translate(${cx}px, ${cy - 160}px) translate(-50%, -50%) scale(.4) rotate(-20deg)`, opacity: 0 },
+    { transform: `translate(${cx}px, ${cy - 30}px) translate(-50%, -50%) scale(1.25) rotate(6deg)`, opacity: 1, offset: 0.3 },
+    { transform: `translate(${cx}px, ${cy - 46}px) translate(-50%, -50%) scale(1) rotate(0deg)`, opacity: 1, offset: 0.45 },
+    { transform: `translate(${cx}px, ${cy - 46}px) translate(-50%, -50%) scale(1.05)`, opacity: 1, offset: 0.8 },
+    { transform: `translate(${cx}px, ${cy - 90}px) translate(-50%, -50%) scale(.8)`, opacity: 0 },
+  ], { duration: 2400, easing: 'cubic-bezier(.3,.8,.3,1)', fill: 'both', delay: 200 }).onfinish = () => crown.remove();
+}
+
 // ---------- lá bài Cơ Hội lật 3D ----------
 const CARD_TO = { 0: '🏁', 31: '🐢', 17: '🏮', 24: '✈️', 16: '🎆' };
 function cardLook(e) {
@@ -1170,7 +1222,7 @@ async function play(events, fin) {
         e.tiles.forEach((k) => renderTile(k, fin));
         if (fast) break;
         sfx.win();
-        e.tiles.forEach((k) => burst(tileXY(k), fin.players[e.pid].color, 12));
+        monoFx(e.tiles, fin.players[e.pid].color);
         await banner('👑 ĐỘC QUYỀN', `${GROUPS[e.group].name} · tiền thuê cả vùng +50%`, GROUPS[e.group].color, ANIM.mono);
         break;
       case 'money':

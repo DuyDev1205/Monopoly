@@ -13,7 +13,7 @@ export const SIZE = 32;
 export const FEST_MAX = 5;        // lễ hội tổ chức lại cùng chỗ: ×2 → ×3 → … tối đa ×5
 
 export const GROUPS = {
-  brown:  { name: 'Miền Tây',          color: '#9a6240', house: 50 },
+  brown:  { name: 'Miền Tây',          color: '#8457d6', house: 50 },
   sky:    { name: 'Nam Bộ',            color: '#4fb3e3', house: 50 },
   pink:   { name: 'Biển miền Trung',   color: '#d9539e', house: 100 },
   orange: { name: 'Tây Nguyên',        color: '#f08a24', house: 100 },

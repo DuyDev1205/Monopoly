@@ -573,7 +573,7 @@ export function apply(s, pid, a) {
 }
 
 // Thời lượng animation (ms) của một loạt sự kiện — client và server dùng chung
-export const ANIM = { dice: 1000, target: 550, step: 210, fly: 750, card: 3000, turn: 450, rent: 2000, buy: 2000, upgrade: 1900, buyout: 2200, tax: 1900, build: 700, fest: 1900, mono: 1900, fee: 1500, demolish: 2000, burn: 2000, bonus: 2000, rfest: 2000, sell: 1100 };
+export const ANIM = { dice: 1000, target: 550, step: 210, fly: 750, card: 3000, turn: 450, rent: 2000, buy: 2000, upgrade: 1900, buyout: 2200, tax: 1900, build: 700, fest: 1900, mono: 2600, fee: 1500, demolish: 2000, burn: 2000, bonus: 2000, rfest: 2000, sell: 1100 };
 export const BOT_THINK = 800;   // máy "nghĩ" trước mỗi hành động
 export function animTime(events) {
   let t = 0;
