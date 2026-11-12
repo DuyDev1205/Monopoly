@@ -1,0 +1,15 @@
+{
+  "name": "co-ty-phu-app",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build:web": "node build.mjs",
+    "tauri": "tauri",
+    "dev": "node build.mjs && tauri dev",
+    "build": "node build.mjs && tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

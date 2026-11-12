@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "CoTyPhu",
+  "version": "../package.json",
+  "identifier": "com.duydev1205.cotyphu",
+  "build": {
+    "frontendDist": "../dist",
+    "beforeBuildCommand": "node build.mjs",
+    "beforeDevCommand": "node build.mjs"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Cờ Tỷ Phú Việt Nam",
+        "width": 1360,
+        "height": 860,
+        "minWidth": 1100,
+        "minHeight": 720,
+        "center": true,
+        "resizable": true
+      }
+    ],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "app"],
+    "publisher": "Trần Thanh Duy",
+    "copyright": "© Trần Thanh Duy",
+    "category": "BoardGame",
+    "shortDescription": "Cờ Tỷ Phú Việt Nam",
+    "longDescription": "Cờ Tỷ Phú Việt Nam — mua đất, xây nhà, mở lễ hội khắp 3 miền. Chơi với máy hoặc online cùng bạn bè.",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "windows": { "nsis": { "installMode": "currentUser" } },
+    "macOS": { "signingIdentity": "-", "minimumSystemVersion": "10.15" }
+  }
+}

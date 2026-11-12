@@ -1,0 +1,67 @@
+# Build bản app (Tauri) cho Windows (.exe) và macOS (.dmg universal) rồi đăng lên GitHub Releases.
+# Chạy khi đẩy tag dạng v1.2.3 (version phải trùng app/package.json), hoặc bấm tay trong tab Actions.
+name: Release app
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: ''
+          - platform: macos-latest
+            args: '--target universal-apple-darwin'
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri -> target
+
+      - name: Cài Tauri CLI
+        working-directory: app
+        run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: app
+          tauriScript: npx tauri
+          tagName: v__VERSION__
+          releaseName: 'Cờ Tỷ Phú v__VERSION__'
+          releaseBody: |
+            ## Cờ Tỷ Phú Việt Nam — bản cài đặt
+
+            | Hệ điều hành | Tệp |
+            |---|---|
+            | Windows 10/11 | `CoTyPhu_x.y.z_x64-setup.exe` — chạy để cài. Nếu SmartScreen cảnh báo: *More info → Run anyway* |
+            | macOS (M1/M2/M3… và Intel) | `CoTyPhu_x.y.z_universal.dmg` — mở .dmg, kéo **CoTyPhu** vào Applications |
+
+            > macOS: ứng dụng chưa được Apple ký, lần đầu mở hãy **chuột phải → Open**.
+            > Nếu báo "app is damaged", chạy: `xattr -cr "/Applications/CoTyPhu.app"`
+
+            Chơi online được với cả người dùng bản web: https://duydev1205.github.io/Monopoly/
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}

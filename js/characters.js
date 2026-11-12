@@ -118,6 +118,9 @@ function suitTokenSVG(c) {
 export function charSVG(k, bust = false, emo = 'idle') {
   const idx = ((k % CHARACTERS.length) + CHARACTERS.length) % CHARACTERS.length;
   const c = CHARACTERS[idx];
+  // bản app: 4 nhân vật đầu là ảnh dựng từ mô hình 3D (app/skin/chars)
+  const img = globalThis.__charImg?.[idx];
+  if (img) return `<img class="chr chr3d${bust ? ' bust' : ''}" src="${img}" alt="" draggable="false">`;
   if (c.kind === 'suit') return bust ? portraitHTML(c, emo) : suitTokenSVG(c);
   return chibiSVG(c, bust);
 }

@@ -1,2 +1,6 @@
 node_modules/
 *.log
+
+# bản app
+app/dist/
+app/src-tauri/target/
