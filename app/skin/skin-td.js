@@ -81,6 +81,13 @@ function buildGame() {
   // nút toàn màn hình cạnh nút nhạc / âm thanh
   const fs = el('button', 'icon-btn td-fs', FS_ICON); fs.type = 'button'; fs.title = 'Toàn màn hình (F11)';
   fs.addEventListener('click', toggleFullscreen);
+  // nút bật / tắt camera bám theo nhân vật
+  const cb = el('button', 'icon-btn td-cam', '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M9 4 7.2 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3.2L15 4H9zm3 4.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/></svg>');
+  cb.type = 'button';
+  const paintCam = () => { let on = true; try { on = JSON.parse(localStorage.getItem('ctp_follow') ?? 'true'); } catch {} cb.classList.toggle('off', !on); cb.title = on ? 'Camera đang bám theo nhân vật (bấm để tắt)' : 'Camera cố định (bấm để bám theo nhân vật)'; };
+  cb.addEventListener('click', () => { let on = true; try { on = JSON.parse(localStorage.getItem('ctp_follow') ?? 'true'); } catch {} window.__td3d?.setFollow?.(!on); if (!window.__td3d) { try { localStorage.setItem('ctp_follow', JSON.stringify(!on)); } catch {} } paintCam(); });
+  paintCam();
+  $('.tb-right', game)?.appendChild(cb);
   $('.tb-right', game)?.appendChild(fs);
 }
 // ---------- toàn màn hình: mở app là toàn màn hình; F11 / nút để bật tắt; Esc để thoát ----------
