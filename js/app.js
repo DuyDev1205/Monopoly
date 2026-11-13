@@ -473,7 +473,7 @@ async function collapse(i, color, dur = 700) {
 }
 
 function makeTokens() {
-  if (G) G.setTokens(S.players.map((p, i) => ({ img: tokenImg(p, i), color: p.color, char: charOf(p, i) }))).then(() => layoutTokens());
+  if (G) G.setTokens(S.players.map((p, i) => ({ img: tokenImg(p, i), color: p.color, char: charOf(p, i), bot: !!p.bot, mine: mode === 'online' ? i === mySeat : !p.bot }))).then(() => layoutTokens());
   tokensEl.innerHTML = '';
   tokensEl.appendChild(markerEl);
   tokenEls = S.players.map((p, i) => {
@@ -1243,7 +1243,7 @@ async function play(events, fin) {
       case 'fest':
         BOARD.forEach((_, k) => renderTile(k, fin));   // ô lễ hội cũ (nếu có) cũng được gỡ bảng ngay
         if (fast) break;
-        sfx.upgrade(); burst(tileXY(e.tile), '#ff5fa2', 20);
+        sfx.upgrade(); burst(tileXY(e.tile), '#ff5fa2', 20); G?.fireworks?.(e.tile);
         await banner(`🎆 LỄ HỘI ×${e.mult}`, BOARD[e.tile].name, '#e0267a', ANIM.fest);
         break;
       case 'fee':
@@ -1271,7 +1271,7 @@ async function play(events, fin) {
         renderFlags(fin, !fast);
         if (fast) break;
         sfx.card();
-        e.tiles.forEach((k) => burst(tileXY(k), '#ffd60a', 14));
+        e.tiles.forEach((k) => { burst(tileXY(k), '#ffd60a', 14); G?.fireworks?.(k); });
         await banner('🎊 FESTIVAL', `${e.tiles.map((k) => BOARD[k].name).join(' · ')} — thuê +50%`, '#1f9d55', ANIM.rfest);
         break;
       case 'sell': {
@@ -1303,7 +1303,7 @@ async function play(events, fin) {
         e.tiles.forEach((k) => renderTile(k, fin));
         if (fast) break;
         sfx.win();
-        monoFx(e.tiles, fin.players[e.pid].color);
+        monoFx(e.tiles, fin.players[e.pid].color); G?.celebrate?.(e.tiles);
         await banner('👑 ĐỘC QUYỀN', `${GROUPS[e.group].name} · tiền thuê cả vùng +50%`, GROUPS[e.group].color, ANIM.mono);
         break;
       case 'money':

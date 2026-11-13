@@ -7,4 +7,4 @@ Ví dụ: Farmer by Polyfork (https://polyfork.dev/asset/farmer-base), CC BY 4.0
 
 Ảnh 2D trong app/skin/sprites/ và chân dung app/skin/chars/ được dựng từ các mô hình trên bằng app/tools/bake.py.
 Cổng Festival, cờ chủ đất, biển HOTEL và xúc xắc vẽ bằng code (app/skin/scene3d.js).
-PixiJS (MIT) — app/skin/vendor/pixi/LICENSE · three.js (MIT) — app/skin/vendor/three/LICENSE
+PixiJS (MIT) — app/skin/vendor/pixi/LICENSE · pixi-filters (MIT) — app/skin/vendor/pixi/LICENSE-filters · three.js (MIT) — app/skin/vendor/three/LICENSE

@@ -35,6 +35,25 @@ const swatches = () => {
   return box;
 };
 
+// ---------- chọn bộ xúc xắc ----------
+const DICE = [['classic', 'Cổ điển'], ['gold', 'Vàng ròng'], ['jade', 'Ngọc bích'], ['ruby', 'Hồng ngọc'], ['wood', 'Gỗ'], ['neon', 'Neon'], ['crystal', 'Pha lê'], ['sakura', 'Anh đào']];
+function dicePicker() {
+  const box = el('div', 'td-themes td-dice', '<div class="td-label">Xúc xắc của bạn</div><div class="td-dsw"></div>');
+  const row = $('.td-dsw', box);
+  let cur = 'classic'; try { cur = JSON.parse(localStorage.getItem('ctp_dice')) || 'classic'; } catch {}
+  DICE.forEach(([k, n]) => {
+    const b = el('button', 'td-die' + (k === cur ? ' on' : ''), `<img src="skin/dice/${k}.webp" alt="" draggable="false"><small>${n}</small>`);
+    b.type = 'button'; b.title = n;
+    b.addEventListener('click', () => {
+      try { localStorage.setItem('ctp_dice', JSON.stringify(k)); } catch {}
+      window.__td3d?.setDiceSkin?.(k);
+      row.querySelectorAll('.td-die').forEach((x) => x.classList.toggle('on', x === b));
+    });
+    row.appendChild(b);
+  });
+  return box;
+}
+
 // ---------- trang chủ: 2 cột ----------
 function buildHome() {
   const card = $('#home .home-card');
@@ -47,7 +66,7 @@ function buildHome() {
     <p class="td-desc">Đi khắp 3 miền, mua đất, xây nhà, mở lễ hội và trở thành tỷ phú giàu nhất bàn cờ.</p>`;
   const left = el('div', 'td-left'), panel = el('div', 'td-panel');
   left.append(brand, modes, $('.foot-btns', foot));
-  panel.append($('#tab-local', card), $('#tab-online', card), swatches());
+  panel.append($('#tab-local', card), $('#tab-online', card), swatches(), dicePicker());
   foot.classList.add('hidden');            // nút theme cũ vẫn giữ trong DOM cho app.js
   card.prepend(left, panel);
   card.appendChild(foot);

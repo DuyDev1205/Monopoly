@@ -286,3 +286,12 @@ html[data-skin] body .cp-name, html[data-skin] body .cp-side small { color: var(
 .td-update.busy { cursor: default; }
 .td-update .td-bar { display: block; width: 100%; height: 6px; margin-top: 6px; border-radius: 99px; background: rgba(255,255,255,.3); overflow: hidden; }
 .td-update .td-bar em { display: block; height: 100%; background: #fff; border-radius: 99px; transition: width .2s; }
+
+/* chọn bộ xúc xắc */
+.td-dsw { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.td-die { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px 5px; border-radius: 12px; cursor: pointer;
+  background: var(--panel2); border: 1.5px solid var(--border); color: var(--dim); font-family: var(--font); transition: transform .12s; }
+.td-die:hover { transform: translateY(-2px); }
+.td-die img { width: 100%; height: 40px; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(0,0,0,.25)); }
+.td-die small { font-size: 10.5px; font-weight: 600; white-space: nowrap; }
+.td-die.on { border: 2px solid var(--accent); color: var(--text); box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 22%, transparent); }

@@ -16,7 +16,7 @@ const DIR = new THREE.Vector3(Math.cos(E) * C, Math.sin(E), Math.cos(E) * C);
 const R = new THREE.Vector3(C, 0, -C);                                  // trục ngang màn hình
 const U = new THREE.Vector3(-C * Math.sin(E), Math.cos(E), -C * Math.sin(E));   // trục dọc màn hình (lên)
 const LIGHT = new THREE.Vector3(-4, 9, 5).normalize();                  // hướng tới mặt trời
-const OUTLINE = 2.6;            // độ dày viền (px)
+const OUTLINE = 1.7;            // độ dày viền (px)
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1);
@@ -27,10 +27,13 @@ renderer.toneMappingExposure = 1.08;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
+const { RoomEnvironment } = await import('three/addons/environments/RoomEnvironment.js');
+const ENV = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
 
 function makeScene(obj, shadow) {
   const scene = new THREE.Scene();
-  scene.add(new THREE.HemisphereLight('#ffffff', '#8a7f99', 1.35));
+  scene.environment = ENV; scene.environmentIntensity = 0.5;
+  scene.add(new THREE.HemisphereLight('#ffffff', '#8a7f99', 1.05));
   const sun = new THREE.DirectionalLight('#fff1dc', 2.3);
   sun.position.copy(LIGHT).multiplyScalar(20); sun.castShadow = shadow;
   sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.02;
@@ -103,7 +106,7 @@ function shoot(obj, bd, { shadow = true, outline = OUTLINE } = {}) {
   if (shadow) g.drawImage(col, P, P);              // bóng đổ (lớp dưới)
   if (outline > 0) {
     const tint = document.createElement('canvas'); tint.width = w; tint.height = h;
-    const tg = tint.getContext('2d'); tg.drawImage(sil, 0, 0); tg.globalCompositeOperation = 'source-in'; tg.fillStyle = 'rgba(38,24,52,0.92)'; tg.fillRect(0, 0, w, h);
+    const tg = tint.getContext('2d'); tg.drawImage(sil, 0, 0); tg.globalCompositeOperation = 'source-in'; tg.fillStyle = 'rgba(46,30,64,0.72)'; tg.fillRect(0, 0, w, h);
     for (let a = 0; a < 16; a++) { const r = (a / 16) * Math.PI * 2; g.drawImage(tint, P + Math.cos(r) * outline, P + Math.sin(r) * outline); }
   }
   g.drawImage(sil, P, P);                          // vật thể (không lẫn bóng)
@@ -355,16 +358,61 @@ for (const [key, P] of Object.entries(SCENES)) {
   if (P.boat) items.push({ name: 'boat', ...bakeStatic(await pfModel(P.boat, { fit: 2.2 }), { shadow: false }) });
   emit(`nat_${key}`, items);
 }
-// ================= 4) xúc xắc: 6 mặt cuối + khung lăn =================
+// ================= 4) xúc xắc: 8 bộ, mỗi bộ 6 mặt cuối + 16 khung lăn =================
+const DICE_SKINS = {
+  classic: { bg: ['#ffffff', '#ece4d6'], pip: ['#5a5a5a', '#0d0d0d'], red: ['#ff6b6b', '#b3121b'], mat: { roughness: 0.3, clearcoat: 0.6 } },
+  gold: { bg: ['#fff1b8', '#d39a12'], pip: ['#6b3d00', '#2e1a00'], red: ['#c0182a', '#5a0008'], mat: { roughness: 0.2, metalness: 0.8, clearcoat: 0.8 }, ring: '#b07a08' },
+  jade: { bg: ['#a8f5cf', '#24905f'], pip: ['#fff6c8', '#d9a21b'], red: ['#fff6c8', '#d9a21b'], mat: { roughness: 0.15, clearcoat: 1 }, marble: '#ffffff' },
+  ruby: { bg: ['#ff7a90', '#9c0f2a'], pip: ['#ffffff', '#f1dde3'], red: ['#ffe14d', '#d9a21b'], mat: { roughness: 0.15, clearcoat: 1 } },
+  wood: { bg: ['#e0ac72', '#94592a'], pip: ['#3a2210', '#140802'], red: ['#7a1f10', '#2a0802'], mat: { roughness: 0.75 }, grain: true },
+  neon: { bg: ['#232850', '#090b1d'], pip: ['#c8fbff', '#35d5ff'], red: ['#ffc4e2', '#ff4f8b'], mat: { roughness: 0.3, clearcoat: 0.9 }, glow: true },
+  crystal: { bg: ['#f4fcff', '#9fd2ee'], pip: ['#3d74b0', '#16365e'], red: ['#3d74b0', '#16365e'], mat: { roughness: 0.04, clearcoat: 1 }, facets: true },
+  sakura: { bg: ['#fff3f8', '#f5b5cf'], pip: ['#e0598d', '#93204c'], red: ['#e0598d', '#93204c'], mat: { roughness: 0.3, clearcoat: 0.7 }, flower: true },
+};
+const PIPS = { 1: [[0.5, 0.5]], 2: [[0.27, 0.27], [0.73, 0.73]], 3: [[0.27, 0.27], [0.5, 0.5], [0.73, 0.73]], 4: [[0.27, 0.27], [0.73, 0.27], [0.27, 0.73], [0.73, 0.73]],
+  5: [[0.27, 0.27], [0.73, 0.27], [0.5, 0.5], [0.27, 0.73], [0.73, 0.73]], 6: [[0.27, 0.25], [0.73, 0.25], [0.27, 0.5], [0.73, 0.5], [0.27, 0.75], [0.73, 0.75]] };
+function skinFace(n, S) {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+  const bg = g.createRadialGradient(80, 70, 10, 128, 128, 200); bg.addColorStop(0, S.bg[0]); bg.addColorStop(1, S.bg[1]);
+  g.fillStyle = bg; g.fillRect(0, 0, 256, 256);
+  if (S.grain) { for (let k = 0; k < 26; k++) { g.strokeStyle = `rgba(80,40,10,${0.12 + (k % 3) * 0.06})`; g.lineWidth = 2 + (k % 4); g.beginPath(); const y = k * 10 + 3; g.moveTo(0, y); for (let x = 0; x <= 256; x += 16) g.lineTo(x, y + Math.sin(x / 30 + k) * 5); g.stroke(); } }
+  if (S.marble) { g.globalAlpha = 0.28; g.strokeStyle = S.marble; for (let k = 0; k < 7; k++) { g.lineWidth = 1 + (k % 3); g.beginPath(); let x = (k * 41) % 256, y = 0; g.moveTo(x, y); while (y < 256) { x += Math.sin(y / 23 + k) * 14; y += 12; g.lineTo(x, y); } g.stroke(); } g.globalAlpha = 1; }
+  if (S.facets) { g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 3; [[0, 0, 256, 256], [256, 0, 0, 256], [128, 0, 128, 256], [0, 128, 256, 128]].forEach(([a, b, x, y]) => { g.beginPath(); g.moveTo(a, b); g.lineTo(x, y); g.stroke(); }); }
+  if (S.ring) { g.strokeStyle = S.ring; g.lineWidth = 10; g.strokeRect(12, 12, 232, 232); }
+  if (S.flower && n === 1) {
+    g.save(); g.translate(128, 128);
+    for (let k = 0; k < 5; k++) { g.rotate((Math.PI * 2) / 5); const gr = g.createLinearGradient(0, 0, 0, -78); gr.addColorStop(0, S.pip[1]); gr.addColorStop(1, S.pip[0]); g.fillStyle = gr; g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(-46, -24, -42, -78, -10, -80); g.lineTo(0, -66); g.lineTo(10, -80); g.bezierCurveTo(42, -78, 46, -24, 0, 0); g.fill(); }
+    g.fillStyle = '#ffd36b'; g.beginPath(); g.arc(0, 0, 13, 0, 7); g.fill(); g.restore();
+    return c;
+  }
+  PIPS[n].forEach(([x, y]) => {
+    const col = n === 1 || n === 4 ? S.red : S.pip, R = n === 1 ? 34 : 23;
+    if (S.glow) { g.shadowColor = col[1]; g.shadowBlur = 26; }
+    const r = g.createRadialGradient(x * 256 - 7, y * 256 - 7, 2, x * 256, y * 256, R); r.addColorStop(0, col[0]); r.addColorStop(1, col[1]);
+    g.fillStyle = r; g.beginPath(); g.arc(x * 256, y * 256, R, 0, Math.PI * 2); g.fill();
+    g.shadowBlur = 0;
+  });
+  return c;
+}
+const DICEPREV = {};
 {
-  const mats = B.FACE_N.map((n) => new THREE.MeshStandardMaterial({ map: B.pipTex(n), roughness: 0.35 }));
-  const geo = new B.RoundedBoxGeometry(0.62, 0.62, 0.62, 4, 0.1);
+  const geo = new B.RoundedBoxGeometry(0.62, 0.62, 0.62, 5, 0.1);
   const items = [];
-  const mk = (q) => { const m = new THREE.Mesh(geo, mats); m.quaternion.copy(q); m.position.y = 0.31; return m; };
-  for (let n = 1; n <= 6; n++) items.push({ name: `d${n}`, ...bakeStatic(mk(B.quatFor(n, Math.PI / 4)), { margin: 0.06 }) });
-  for (let k = 0; k < 16; k++) {
-    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(k * 1.7 + 0.3, k * 2.3 + 0.9, k * 0.9 + 0.2));
-    items.push({ name: `dr${k}`, ...bakeStatic(mk(q), { margin: 0.06, shadow: false }) });
+  for (const [key, S] of Object.entries(DICE_SKINS)) {
+    const mats = B.FACE_N.map((n) => {
+      const t = new THREE.CanvasTexture(skinFace(n, S)); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+      return new THREE.MeshPhysicalMaterial({ map: t, ...S.mat, emissive: S.glow ? '#ffffff' : '#000000', emissiveMap: S.glow ? t : null, emissiveIntensity: S.glow ? 0.85 : 0 });
+    });
+    const mk = (q) => { const m = new THREE.Mesh(geo, mats); m.quaternion.copy(q); m.position.y = 0.31; return m; };
+    for (let n = 1; n <= 6; n++) {
+      const r = bakeStatic(mk(B.quatFor(n, Math.PI / 4)), { margin: 0.06 });
+      items.push({ name: `${key}_d${n}`, ...r });
+      if (n === 5) DICEPREV[key] = r.canvas.toDataURL('image/webp', 0.92);
+    }
+    for (let k = 0; k < 16; k++) {
+      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(k * 1.7 + 0.3, k * 2.3 + 0.9, k * 0.9 + 0.2));
+      items.push({ name: `${key}_r${k}`, ...bakeStatic(mk(q), { margin: 0.06, shadow: false }) });
+    }
   }
   emit('dice', items);
 }
@@ -378,7 +426,7 @@ emit('money', [
 const CHARS = ['audience-gentleman-base', 'opera-soprano-base', 'farmer-base', 'kite-kid-base', 'schoolkid-da94c1', 'elderly-audience-member-base', 'delivery-courier-327e30', 'strategist-base'];
 const FACE = { cam: Math.PI / 4, front: 0, back: -Math.PI / 2 };
 const ANIMS = [   // [tên, clip, số khung, hướng]
-  ['idle', 'Idle', 10, 'cam'], ['walkF', 'Walk', 8, 'front'], ['walkB', 'Walk', 8, 'back'], ['jump', 'Run', 10, 'cam'],
+  ['idle', 'Idle', 16, 'cam'], ['walkF', 'Walk', 12, 'front'], ['walkB', 'Walk', 12, 'back'], ['jump', 'Run', 10, 'cam'],
   ['yes', 'Idle', 10, 'cam'], ['no', 'Idle', 10, 'cam'], ['die', 'Idle', 10, 'cam'],
 ];
 const ADULT = 1.75;           // người lớn cao 1.75m -> 1 đơn vị; trẻ em thấp hơn tự nhiên
@@ -398,12 +446,13 @@ for (let k = 0; k < CHARS.length; k++) {
     new THREE.Vector3(-0.6, 0, -0.6), new THREE.Vector3(0.6, 0, 0.6), new THREE.Vector3(0.6, 0, -0.6), new THREE.Vector3(-0.6, 0, 0.6),
     new THREE.Vector3(-0.6, 1.2, -0.6), new THREE.Vector3(0.6, 1.2, 0.6), new THREE.Vector3(0.6, 1.2, -0.6), new THREE.Vector3(-0.6, 1.2, 0.6),
   ]), 0.02);
-  const items = [];
+  const items = [], fps = {}, nf = {};
   for (const [an, clipName, n, face] of ANIMS) {
     holder.rotation.y = FACE[face];
     mixer.stopAllAction();
     const clip = clips[clipName] || clips.Idle;
     const act = mixer.clipAction(clip); act.reset(); act.setLoop(THREE.LoopRepeat, Infinity); act.play();
+    nf[an] = n; fps[an] = an === 'idle' || an.startsWith('walk') || an === 'jump' ? +(n / clip.duration).toFixed(3) : 12;
     for (let f = 0; f < n; f++) {
       const p = f / n;
       mixer.setTime(an === 'idle' || an.startsWith('walk') || an === 'jump' ? clip.duration * p : clip.duration * 0.3);
@@ -425,7 +474,8 @@ for (let k = 0; k < CHARS.length; k++) {
       items.push({ name: `${an}_${f}`, ...shoot(holder, bd, { shadow: false }) });
     }
   }
-  OUT[`chr${k}`] = pack(items);
+  OUT[`chr${k}`] = { ...pack(items), fps, nf };
+  console.log('fps', k, JSON.stringify(fps));
   // chân dung (đầu + vai), nhìn thẳng
   {
     holder.rotation.set(0, 0.32, 0); pivot.position.set(0, 0, 0); pivot.rotation.set(0, 0, 0);
@@ -442,6 +492,7 @@ for (let k = 0; k < CHARS.length; k++) {
   console.log('baked chr', k, items.length);
 }
 window.__POR = POR;
+window.__DICEPREV = DICEPREV;
 window.__OUT = OUT;
 window.__META = { E, K };
 window.done = true;

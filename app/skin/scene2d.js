@@ -2,6 +2,7 @@
 // (app/tools/bake.html -> app/skin/sprites). Bàn cờ, ô đất, hiệu ứng vẽ bằng PixiJS.
 // Xuất ra đúng các hàm app.js đang gọi (giống scene3d.js) nên luật chơi / chơi online không đổi.
 import { Application, Assets, BlurFilter, CanvasSource, Container, FillGradient, Graphics, Matrix, Rectangle, Sprite, Text, Texture } from './vendor/pixi/pixi.min.mjs';
+import { AdjustmentFilter, AdvancedBloomFilter } from './vendor/pixi/pixi-filters.mjs';
 
 export function webglOK() {
   try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; }
@@ -92,7 +93,7 @@ const radialTex = (() => {
 })();
 
 // ======================= ảnh dựng sẵn =======================
-const SPR = {};          // tên sheet -> { tên khung -> { tex, ax, ay } }
+const SPR = {}, META = {};          // tên sheet -> { tên khung -> { tex, ax, ay } }
 async function loadSprites() {
   const base = 'skin/sprites/';
   const idx = await (await fetch(base + 'sprites.json')).json();
@@ -104,7 +105,7 @@ async function loadSprites() {
     for (const [fn, [x, y, w, h, ax, ay]] of Object.entries(sh.frames)) {
       frames[fn] = { tex: new Texture({ source: tex.source, frame: new Rectangle(x, y, w, h) }), ax: ax / w, ay: ay / h };
     }
-    SPR[name] = frames;
+    SPR[name] = frames; META[name] = sh;
   }));
 }
 function spr(sheet, name) {
@@ -115,7 +116,7 @@ function setFrame(s, sheet, name) { const f = SPR[sheet]?.[name]; if (!f) return
 
 // ======================= biến toàn cục =======================
 let app, host, stageEl;
-let world, sceneryLayer, boardLayer, tileLayer, objLayer, fxLayer, overLayer;
+let world, sceneryLayer, boardLayer, tileLayer, objLayer, cloudLayer, fxLayer, glowLayer, overLayer;
 const tiles = [];
 const buildings = [];
 const gates = new Map();
@@ -138,9 +139,13 @@ export async function init({ stage }) {
   world = new Container();
   sceneryLayer = new Container(); boardLayer = new Container(); tileLayer = new Container();
   objLayer = new Container(); objLayer.sortableChildren = true;
-  fxLayer = new Container(); overLayer = new Container();
-  world.addChild(sceneryLayer, boardLayer, tileLayer, objLayer, fxLayer, overLayer);
+  fxLayer = new Container(); overLayer = new Container(); glowLayer = new Container(); cloudLayer = new Container();
+  world.addChild(sceneryLayer, boardLayer, tileLayer, objLayer, cloudLayer, fxLayer, glowLayer, overLayer);
   app.stage.addChild(world);
+  // hậu kỳ: hiệu ứng phát sáng cho lớp ánh sáng, màu tươi hơn, viền tối quanh màn hình
+  glowLayer.filters = [new AdvancedBloomFilter({ threshold: 0.15, bloomScale: 1.15, brightness: 1.05, blur: 6, quality: 6 })];
+  world.filters = [new AdjustmentFilter({ saturation: 1.12, contrast: 1.05, brightness: 1.02 })];
+  vignette = new Sprite(Texture.WHITE); vignette.eventMode = 'none'; app.stage.addChild(vignette);
   buildBoardBase();
   buildDice();
   buildMarker();
@@ -150,6 +155,10 @@ export async function init({ stage }) {
   document.body.classList.add('gl');
   return true;
 }
+// ======================= camera điện ảnh: bám theo quân đang đi, xong thì lùi về toàn cảnh =======================
+let S0 = 80, OX0 = 0, OY0 = 0, VC = { x: 0, y: 0 }, CU = { x: 0, y: 0 }, EXT = { x0: -6, x1: 6, y0: -4, y1: 4 };
+const cam = { z: 1, fx: 0, fy: 0, follow: -1, until: 0, punch: 0, shake: 0 };
+let pickActive = false, readyAt = 0;
 function fit() {
   if (!app) return;
   const Wv = innerWidth, Hv = innerHeight;
@@ -159,10 +168,139 @@ function fit() {
   [-1, 1].forEach((a) => [-1, 1].forEach((b) => [-0.5, 0.5].forEach((y) => pts.push(px(a * ext, y, b * ext)))));
   const x0 = Math.min(...pts.map((p) => p[0])), x1 = Math.max(...pts.map((p) => p[0]));
   const y0 = Math.min(...pts.map((p) => p[1])), y1 = Math.max(...pts.map((p) => p[1]));
-  S = Math.min(rect.w / (x1 - x0), rect.h / (y1 - y0)) * 0.97;
-  OX = rect.x + rect.w / 2 - ((x0 + x1) / 2) * S;
-  OY = rect.y + rect.h / 2 - ((y0 + y1) / 2) * S;
+  S0 = Math.min(rect.w / (x1 - x0), rect.h / (y1 - y0)) * 0.97;
+  OX0 = rect.x + rect.w / 2 - ((x0 + x1) / 2) * S0;
+  OY0 = rect.y + rect.h / 2 - ((y0 + y1) / 2) * S0;
+  VC = { x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 };
+  CU = { x: (VC.x - OX0) / S0, y: (VC.y - OY0) / S0 };
+  EXT = { x0, x1, y0, y1 };
+  if (!cam.init) { cam.fx = CU.x; cam.fy = CU.y; cam.init = true; }
+  if (vignette) drawVignette();
+  applyCam();
+}
+function applyCam() {
+  S = S0 * cam.z;
+  let sx = 0, sy = 0;
+  if (cam.shake > 0) { sx = (Math.random() - 0.5) * cam.shake * 10; sy = (Math.random() - 0.5) * cam.shake * 10; }
+  OX = VC.x - cam.fx * S + sx; OY = VC.y - cam.fy * S + sy;
   world.position.set(OX, OY); world.scale.set(S);
+}
+function updateCamera(dt, now) {
+  let tz = 1, tfx = CU.x, tfy = CU.y;
+  const mover = tokens.findIndex((tk) => tk.from);
+  if (mover >= 0) { cam.follow = mover; cam.until = now + 900; }
+  if (!pickActive && cam.follow >= 0 && now < cam.until && tokens[cam.follow]) {
+    const p = tokens[cam.follow].pos, [ux, uy] = px(p.x, 0.45, p.z);
+    tz = 1.3;
+    // giữ bàn cờ vẫn nằm phần lớn trong khung
+    const mx = (EXT.x1 - EXT.x0) * 0.24, my = (EXT.y1 - EXT.y0) * 0.24;
+    tfx = Math.max(EXT.x0 + mx, Math.min(EXT.x1 - mx, ux)); tfy = Math.max(EXT.y0 + my, Math.min(EXT.y1 - my, uy));
+  } else cam.follow = -1;
+  tz += cam.punch;
+  const k = 1 - Math.exp(-dt * 3), kz = 1 - Math.exp(-dt * 2.4);
+  cam.z += (tz - cam.z) * kz; cam.fx += (tfx - cam.fx) * k; cam.fy += (tfy - cam.fy) * k;
+  cam.punch = Math.max(0, cam.punch - dt * 0.35); cam.shake = Math.max(0, cam.shake - dt * 1.6);
+  applyCam();
+}
+
+// ======================= hiệu ứng: bụi, lấp lánh, cột sáng, pháo hoa, mây =======================
+const sparkTex = () => radialTex([[0, 'rgba(255,255,255,1)'], [0.25, 'rgba(255,255,255,.85)'], [1, 'rgba(255,255,255,0)']], 64);
+function dust(x, y, size = 0.8, color = 0xf3ead8) {
+  const g = new Sprite(radialTex([[0, 'rgba(255,255,255,0)'], [0.55, 'rgba(255,255,255,.0)'], [0.75, 'rgba(255,255,255,.75)'], [1, 'rgba(255,255,255,0)']])); g.anchor.set(0.5); g.tint = color;
+  g.position.set(x, y); fxLayer.addChild(g);
+  const born = performance.now();
+  anims.add(() => { const a = (performance.now() - born) / 600; const s = size * (0.4 + a * 1.4); g.width = s; g.height = s * SIN; g.alpha = Math.max(0, 0.8 - a * 0.8); if (a >= 1) { g.destroy(); return false; } return true; });
+}
+function sparkle(x, y, color = '#fff2b0', n = 14, spread = 1, up = 1.6) {
+  for (let k = 0; k < n; k++) {
+    const s = new Sprite(sparkTex()); s.anchor.set(0.5); s.tint = color; s.blendMode = 'add';
+    const sz = rnd(0.08, 0.18); s.width = s.height = sz; s.position.set(x + rnd(-0.15, 0.15) * spread, y); glowLayer.addChild(s);
+    const v = { x: rnd(-0.9, 0.9) * spread, y: -rnd(0.8, up * 1.4) }, born = performance.now(), life = rnd(0.7, 1.2);
+    anims.add((t, dt) => { const a = (performance.now() - born) / 1000; v.y += 2.6 * dt; s.x += v.x * dt; s.y += v.y * dt; s.alpha = Math.max(0, 1 - a / life); s.rotation += dt * 3; if (a > life) { s.destroy(); return false; } return true; });
+  }
+}
+function beam(x, y, color = '#ffd76a', h = 3.2, life = 1.6) {
+  const [c, g] = canvas(64, 256);
+  const gr = g.createLinearGradient(0, 256, 0, 0); gr.addColorStop(0, 'rgba(255,255,255,.95)'); gr.addColorStop(0.35, 'rgba(255,255,255,.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 256);
+  const hg = g.createLinearGradient(0, 0, 64, 0); hg.addColorStop(0, 'rgba(0,0,0,1)'); hg.addColorStop(0.5, 'rgba(0,0,0,0)'); hg.addColorStop(1, 'rgba(0,0,0,1)');
+  g.globalCompositeOperation = 'destination-out'; g.fillStyle = hg; g.fillRect(0, 0, 64, 256);
+  const s = new Sprite(Texture.from(c)); s.anchor.set(0.5, 1); s.tint = color; s.blendMode = 'add';
+  s.position.set(x, y); s.width = 0.7; s.height = h; glowLayer.addChild(s);
+  const born = performance.now();
+  anims.add(() => { const a = (performance.now() - born) / 1000 / life; s.alpha = a < 0.15 ? a / 0.15 : Math.max(0, 1 - (a - 0.15) / 0.85); s.width = 0.7 * (1 + Math.sin(a * Math.PI) * 0.3); if (a >= 1) { s.destroy(); return false; } return true; });
+}
+const FW_COLORS = ['#ff4d6d', '#ffd60a', '#3a86ff', '#06d6a0', '#ff9f1c', '#b15cff', '#ffffff'];
+function firework(x, y, delay = 0, color) {
+  const col = color || FW_COLORS[(Math.random() * FW_COLORS.length) | 0];
+  const born = performance.now() + delay, top = y - rnd(2.2, 3.2);
+  const rocket = new Sprite(sparkTex()); rocket.anchor.set(0.5); rocket.blendMode = 'add'; rocket.width = rocket.height = 0.16; rocket.tint = '#fff4c2'; rocket.visible = false;
+  rocket.position.set(x, y); glowLayer.addChild(rocket);
+  let burst = false;
+  anims.add((t, dt) => {
+    const a = (performance.now() - born) / 1000;
+    if (a < 0) return true;
+    if (!burst) {
+      rocket.visible = true; const k = Math.min(1, a / 0.55); rocket.y = y + (top - y) * ease.outCubic(k); rocket.x = x + Math.sin(a * 9) * 0.03;
+      if (Math.random() < 0.6) sparkle(rocket.x, rocket.y, '#ffe9a8', 1, 0.15, 0.2);
+      if (k >= 1) {
+        burst = true; rocket.destroy();
+        const n = 34;
+        for (let i = 0; i < n; i++) {
+          const s = new Sprite(sparkTex()); s.anchor.set(0.5); s.blendMode = 'add'; s.tint = i % 5 === 0 ? '#ffffff' : col; s.width = s.height = rnd(0.12, 0.2);
+          s.position.set(x, top); glowLayer.addChild(s);
+          const ang = (i / n) * Math.PI * 2 + rnd(-0.1, 0.1), sp = rnd(1.4, 2.2), v = { x: Math.cos(ang) * sp, y: Math.sin(ang) * sp * 0.85 }, b0 = performance.now(), life = rnd(1, 1.5);
+          anims.add((t2, dt2) => { const q = (performance.now() - b0) / 1000; v.x *= 1 - dt2 * 1.8; v.y = v.y * (1 - dt2 * 1.8) + 1.2 * dt2; s.x += v.x * dt2; s.y += v.y * dt2; s.alpha = Math.max(0, 1 - q / life) * (0.7 + 0.3 * Math.sin(q * 40)); if (q > life) { s.destroy(); return false; } return true; });
+        }
+        const flash = new Sprite(radialTex([[0, 'rgba(255,255,255,.9)'], [1, 'rgba(255,255,255,0)']])); flash.anchor.set(0.5); flash.blendMode = 'add'; flash.tint = col; flash.position.set(x, top); flash.width = flash.height = 1.6; glowLayer.addChild(flash);
+        const fb = performance.now(); anims.add(() => { const q = (performance.now() - fb) / 350; flash.alpha = Math.max(0, 1 - q); if (q >= 1) { flash.destroy(); return false; } return true; });
+        return false;
+      }
+    }
+    return true;
+  });
+}
+/** pháo hoa trên một ô (lễ hội, festival) */
+export function fireworks(i) {
+  const p = tp(i, 0, 0.5, TH), [x, y] = px(p.x, p.y, p.z);
+  for (let k = 0; k < 3; k++) firework(x + rnd(-0.4, 0.4), y, k * 260);
+  cam.punch = Math.max(cam.punch, 0.05);
+}
+/** mừng độc quyền: pháo hoa + cột sáng trên cả nhóm ô */
+export function celebrate(list) {
+  (list || []).forEach((i, k) => {
+    const p = tp(i, 0, 0.4, TH), [x, y] = px(p.x, p.y, p.z);
+    setTimeout(() => { beam(x, y, '#ffd76a', 3, 1.4); sparkle(x, y, '#ffe27a', 16); }, k * 220);
+    firework(x, y, 300 + k * 260, ['#ffd60a', '#ff4d6d', '#06d6a0'][k % 3]);
+  });
+  cam.punch = Math.max(cam.punch, 0.08); cam.shake = Math.max(cam.shake, 0.25);
+}
+function buildFx(p, lvl) {
+  const [x, y] = px(p.x, p.y, p.z);
+  dust(x, y, 1.2); sparkle(x, y - 0.3, '#fff2b0', lvl >= 4 ? 26 : 12);
+  if (lvl >= 4) { beam(x, y, '#ffd76a', 3.6, 1.7); firework(x, y, 450, '#ffd60a'); cam.punch = Math.max(cam.punch, 0.07); cam.shake = Math.max(cam.shake, 0.35); }
+}
+// mây trôi: bóng mây mềm lướt qua đảo
+let clouds = [];
+function buildClouds() {
+  clouds.forEach((c) => c.destroy()); clouds = [];
+  if (theme === 'midnight') return;
+  for (let k = 0; k < 4; k++) {
+    const s = new Sprite(radialTex([[0, 'rgba(30,20,50,.55)'], [0.5, 'rgba(30,20,50,.25)'], [1, 'rgba(30,20,50,0)']]));
+    s.anchor.set(0.5); s.width = rnd(5, 8); s.height = s.width * SIN * 0.8; s.alpha = 0.16;
+    s.position.set(rnd(-14, 14), rnd(-6, 8)); s.sp = rnd(0.12, 0.22);
+    cloudLayer.addChild(s); clouds.push(s);
+  }
+}
+function updateClouds(dt) { clouds.forEach((s) => { s.x += s.sp * dt; s.y += s.sp * dt * 0.3; if (s.x > 16) { s.x = -16; s.y = rnd(-6, 8); } }); }
+// viền tối quanh màn hình (vignette) cho chiều sâu
+let vignette = null;
+function drawVignette() {
+  const Wv = innerWidth, Hv = innerHeight;
+  const [c, g] = canvas(512, 512);
+  const r = g.createRadialGradient(256, 256, 150, 256, 256, 365); r.addColorStop(0, 'rgba(10,6,24,0)'); r.addColorStop(1, 'rgba(10,6,24,.38)');
+  g.fillStyle = r; g.fillRect(0, 0, 512, 512);
+  vignette.texture = Texture.from(c); vignette.width = Wv; vignette.height = Hv;
 }
 export function setMode(m) { mode = m; if (host) host.style.visibility = m === 'home' ? 'hidden' : ''; fit(); }
 
@@ -210,6 +348,15 @@ function buildBoardBase() {
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { cg.fillStyle = (x + y) % 2 ? st.court[1] : st.court[0]; cg.fillRect(x * s, y * s, s, s); }
   const rg = cg.createRadialGradient(512, 512, 60, 512, 512, 720); rg.addColorStop(0, 'rgba(255,255,255,.22)'); rg.addColorStop(1, 'rgba(0,0,0,.14)'); cg.fillStyle = rg; cg.fillRect(0, 0, 1024, 1024);
   cg.strokeStyle = st.court[2]; cg.globalAlpha = 0.4; cg.lineWidth = 8; rr(cg, 14, 14, 996, 996, 40); cg.stroke();
+  // biểu tượng giữa sân: vòng tròn + chữ chạy quanh
+  cg.save(); cg.translate(512, 512); cg.strokeStyle = st.trim; cg.fillStyle = st.trim;
+  cg.globalAlpha = 0.55; cg.lineWidth = 12; cg.beginPath(); cg.arc(0, 0, 330, 0, 7); cg.stroke();
+  cg.lineWidth = 4; cg.beginPath(); cg.arc(0, 0, 300, 0, 7); cg.stroke(); cg.beginPath(); cg.arc(0, 0, 226, 0, 7); cg.stroke();
+  const ring = [...'CỜ TỶ PHÚ • VIỆT NAM • MUA ĐẤT • XÂY NHÀ • '], step = (Math.PI * 2) / ring.length;
+  cg.font = `900 38px ${FONT}`; cg.textAlign = 'center'; cg.textBaseline = 'middle'; cg.globalAlpha = 0.65;
+  ring.forEach((ch, k) => { cg.save(); cg.rotate(k * step); cg.translate(0, -263); cg.fillText(ch, 0, 0); cg.restore(); });
+  for (let k = 0; k < 4; k++) { cg.save(); cg.rotate(Math.PI / 4 + (k * Math.PI) / 2); cg.translate(0, -400); cg.beginPath(); cg.moveTo(0, -26); cg.lineTo(9, 0); cg.lineTo(0, 26); cg.lineTo(-9, 0); cg.closePath(); cg.globalAlpha = 0.55; cg.fill(); cg.restore(); }
+  cg.restore(); cg.globalAlpha = 1;
   const court = new Sprite(texOf(c)); court.anchor.set(0.5); court.width = inner; court.height = inner;
   const cw = new Container(); cw.setFromMatrix(planeMatrix(0.01)); cw.addChild(court); base.addChild(cw);
 }
@@ -301,6 +448,7 @@ export function updateTile(i, u) {
 export function setPicks(list) {
   const set = list ? new Set(list) : null;
   tiles.forEach((T, i) => { T.st.pick = !!set && set.has(i); T.st.dim = !!set && set.size > 0 && !set.has(i); });
+  pickActive = !!set && set.size > 0;
 }
 export function setChosen(list) { const s = new Set(list || []); tiles.forEach((T, i) => { T.st.chosen = s.has(i); }); }
 export function stepFlash(i) { if (tiles[i]) tiles[i].st.step = 1; }
@@ -365,6 +513,7 @@ export function setBuilding(i, info) {
   const b = { node, s, key, p, t0: performance.now(), anim: po === String(info.owner) && +pl < info.lvl ? 'up' : 'grow', fest: null, shakeUntil: 0, flames: null };
   buildings[i] = b;
   setFestLabel(b, info.festMult);
+  if (performance.now() - readyAt > 1500) buildFx(p, info.type === 'resort' ? 1 : info.lvl);
   return { prev: prevKey, upgraded: b.anim === 'up' };
 }
 function setFestLabel(b, mult) {
@@ -454,17 +603,26 @@ const NF = { idle: 10, walkF: 8, walkB: 8, jump: 10, yes: 10, no: 10, die: 10 };
 const SCALE_CH = 1.25;
 export async function setTokens(players) {
   tokens.forEach((tk) => tk.node.destroy({ children: true }));
+  readyAt = performance.now();
   tokens = players.map((p, pid) => {
     const k = ((p.char ?? pid) % 8 + 8) % 8, sheet = `chr${k}`;
     const node = new Container();
-    const shadow = new Graphics().ellipse(0, 0, 0.2, 0.2 * SIN).fill({ color: 0x1a1030, alpha: 0.3 });
-    const ring = new Graphics().ellipse(0, 0, 0.28, 0.28 * SIN).stroke({ width: 0.045, color: p.color || '#ffd23f' });
+    const shadow = new Sprite(radialTex([[0, 'rgba(26,16,48,.45)'], [0.7, 'rgba(26,16,48,.18)'], [1, 'rgba(26,16,48,0)']])); shadow.anchor.set(0.5); shadow.width = 0.62; shadow.height = 0.62 * SIN;
+    // đế quân cờ theo màu người chơi (như quân cờ thật)
+    const col = p.color || '#ffd23f', r = 0.19, h = 0.06 * COS;
+    const base = new Graphics()
+      .ellipse(0, 0, r, r * SIN).fill(mixHex(col, '#000000', 0.45))
+      .rect(-r, -h, r * 2, h).fill(mixHex(col, '#000000', 0.3))
+      .ellipse(0, -h, r, r * SIN).fill(col)
+      .ellipse(-r * 0.25, -h - r * SIN * 0.25, r * 0.5, r * SIN * 0.38).fill({ color: '#ffffff', alpha: 0.35 });
+    const ring = new Graphics().ellipse(0, 0, 0.3, 0.3 * SIN).stroke({ width: 0.04, color: col });
     ring.alpha = 0;
-    const body = spr(sheet, 'idle_0') || new Sprite();
-    body.scale.set(SCALE_CH / K);
-    node.addChild(shadow, ring, body);
+    const body = spr(sheet, 'idle_0') || new Sprite(), body2 = spr(sheet, 'idle_1') || new Sprite();
+    body.scale.set(SCALE_CH / K); body2.scale.set(SCALE_CH / K); body2.alpha = 0;
+    const fig = new Container(); fig.addChild(body, body2); fig.y = -h;
+    node.addChild(shadow, ring, base, fig);
     objLayer.addChild(node);
-    return { node, body, ring, shadow, sheet, anim: 'idle', once: false, ft: Math.random(), flip: false, pos: { x: 0, y: TH, z: 0 }, from: null, to: null, t0: 0, dur: 0, arc: 0, cur: false, out: false, dead: false, walkEnd: 0 };
+    return { node, body, body2, fig, base, ring, shadow, sheet, mine: p.mine ?? !p.bot, anim: 'idle', once: false, ft: Math.random() * 4, flip: false, pos: { x: 0, y: TH, z: 0 }, from: null, to: null, t0: 0, dur: 0, arc: 0, cur: false, out: false, dead: false, walkEnd: 0, h };
   });
 }
 function playAnim(tk, name, once = false) { if (tk.anim === name && !once) return; tk.anim = name; tk.once = once; tk.ft = 0; }
@@ -486,7 +644,7 @@ export function placeToken(pid, place, opt = {}) {
   else if (Math.abs(dz) >= Math.abs(dx)) { playAnim(tk, dz > 0 ? 'walkF' : 'walkB'); tk.flip = dz < 0; }
   else { playAnim(tk, dx > 0 ? 'walkF' : 'walkB'); tk.flip = dx > 0; }
 }
-export function setCurrent(pid) { tokens.forEach((tk, i) => { tk.cur = i === pid; }); }
+export function setCurrent(pid) { curPid = pid; tokens.forEach((tk, i) => { tk.cur = i === pid; }); }
 function updateTokens(t, now, dt) {
   tokens.forEach((tk) => {
     let hop = 0;
@@ -496,29 +654,52 @@ function updateTokens(t, now, dt) {
       hop = Math.sin(k * Math.PI) * tk.arc;
       if (k >= 1) { tk.from = null; tk.walkEnd = now; }
     } else if (tk.walkEnd && now - tk.walkEnd > 140) { tk.walkEnd = 0; tk.flip = false; if (!tk.dead) playAnim(tk, 'idle'); }
-    // khung hình
-    tk.ft += dt * (FPS[tk.anim] || 10);
-    const n = NF[tk.anim] || 10;
-    let f = Math.floor(tk.ft);
-    if (tk.once && f >= n) { if (tk.anim === 'die') f = n - 1; else { playAnim(tk, 'idle'); f = 0; } }
-    setFrame(tk.body, tk.sheet, `${tk.anim}_${((f % n) + n) % n}`);
-    tk.body.scale.set((tk.flip ? -1 : 1) * SCALE_CH / K, SCALE_CH / K);
+    // khung hình: nhịp lấy từ thời lượng gốc của động tác (sprites.json), chuyển khung mượt khi nhịp chậm
+    const meta = META[tk.sheet];
+    const fps = meta?.fps?.[tk.anim] || FPS[tk.anim] || 10, n = meta?.nf?.[tk.anim] || NF[tk.anim] || 10;
+    tk.ft += dt * fps;
+    let f = Math.floor(tk.ft), frac = tk.ft - f;
+    if (tk.once && f >= n) { if (tk.anim === 'die') { f = n - 1; frac = 0; } else { playAnim(tk, 'idle'); f = 0; frac = 0; } }
+    const fa = ((f % n) + n) % n, fb = tk.once ? Math.min(n - 1, fa + 1) : (fa + 1) % n;
+    setFrame(tk.body, tk.sheet, `${tk.anim}_${fa}`);
+    const smooth = fps < 7;
+    tk.body2.visible = smooth;
+    if (smooth) { setFrame(tk.body2, tk.sheet, `${tk.anim}_${fb}`); tk.body2.alpha = frac; }
+    const sx = (tk.flip ? -1 : 1) * SCALE_CH / K;
+    tk.body.scale.set(sx, SCALE_CH / K); tk.body2.scale.set(sx, SCALE_CH / K);
     const [x, y] = px(tk.pos.x, tk.pos.y, tk.pos.z);
     tk.node.position.set(x, y); tk.node.zIndex = depth(tk.pos.x, tk.pos.z) + 5;
     const bob = tk.cur && !tk.from ? Math.abs(Math.sin(t * 3.2)) * 0.05 : 0;
-    tk.body.y = -(hop + bob) * COS;
-    tk.shadow.scale.set(1 - hop * 0.6); tk.shadow.alpha = 1 - hop;
+    tk.fig.y = -tk.h - (hop + bob) * COS;
+    tk.base.y = -hop * COS * 0.35;
+    tk.shadow.scale.set((1 - hop * 0.5) * 0.62 / 128, (1 - hop * 0.5) * 0.62 * SIN / 128); tk.shadow.alpha = 1 - hop * 0.8;
     tk.ring.alpha = tk.cur ? 0.6 + 0.35 * Math.sin(t * 5) : 0;
     tk.ring.scale.set(tk.cur ? 1 + 0.1 * Math.sin(t * 5) : 1);
   });
 }
 
 // ======================= xúc xắc =======================
+// mỗi người chơi một bộ xúc xắc: người chơi trên máy này dùng bộ đã chọn, người khác / máy dùng bộ khác
+export const DICE_KEYS = ['classic', 'gold', 'jade', 'ruby', 'wood', 'neon', 'crystal', 'sakura'];
+let mySkin = (() => { try { const k = JSON.parse(localStorage.getItem('ctp_dice')); return DICE_KEYS.includes(k) ? k : 'classic'; } catch { return 'classic'; } })();
+let curPid = 0, lastDice = [5, 6];
+function skinOf(pid) {
+  const tk = tokens[pid];
+  if (!tk || tk.mine) return mySkin;
+  const others = DICE_KEYS.filter((k) => k !== mySkin);
+  return others[(pid * 3 + 1) % others.length];
+}
+export function setDiceSkin(k) {
+  if (!DICE_KEYS.includes(k)) return;
+  mySkin = k; try { localStorage.setItem('ctp_dice', JSON.stringify(k)); } catch {}
+  if (dice.length) showDice(lastDice);
+}
+export const getDiceSkin = () => mySkin;
 function buildDice() {
   dice = [-0.42, 0.42].map((x) => {
     const node = new Container();
-    const sh = new Graphics().ellipse(0, 0, 0.36, 0.36 * SIN).fill({ color: 0x1a1030, alpha: 0.28 });
-    const s = spr('dice', 'd5') || new Sprite();
+    const sh = new Sprite(radialTex([[0, 'rgba(26,16,48,.4)'], [0.7, 'rgba(26,16,48,.15)'], [1, 'rgba(26,16,48,0)']])); sh.anchor.set(0.5); sh.width = 0.8; sh.height = 0.8 * SIN;
+    const s = spr('dice', `${mySkin}_d5`) || new Sprite();
     node.addChild(sh, s);
     const [sx, sy] = px(x, 0.01, 0); node.position.set(sx, sy); node.zIndex = depth(x, 0);
     objLayer.addChild(node);
@@ -526,11 +707,15 @@ function buildDice() {
   });
   showDice([5, 6]);
 }
-export function showDice(d) { dice.forEach((m, k) => { setFrame(m.s, 'dice', `d${d[k]}`); const [x, y] = px(m.home.x, 0.01, m.home.z); m.node.position.set(x, y); m.s.y = 0; m.s.rotation = 0; }); }
+export function showDice(d) {
+  lastDice = d; const skin = skinOf(curPid);
+  dice.forEach((m, k) => { setFrame(m.s, 'dice', `${skin}_d${d[k]}`); const [x, y] = px(m.home.x, 0.01, m.home.z); m.node.position.set(x, y); m.s.y = 0; m.s.rotation = 0; });
+}
 export function rollDice(d, dur = 1000) {
+  const skin = skinOf(curPid);
   return new Promise((res) => {
     const start = performance.now();
-    const parts = dice.map((m, k) => ({ m, k, from: { x: m.home.x + rnd(-0.6, 0.6), z: m.home.z + rnd(0.9, 1.5) }, off: Math.floor(rnd(0, 16)), spin: rnd(-8, 8) }));
+    const parts = dice.map((m, k) => ({ m, k, from: { x: m.home.x + rnd(-0.6, 0.6), z: m.home.z + rnd(0.9, 1.5) }, off: Math.floor(rnd(0, 16)), spin: rnd(-8, 8), landed: false }));
     anims.add(() => {
       const k = Math.min(1, (performance.now() - start) / dur), e = ease.outCubic(k);
       parts.forEach((p) => {
@@ -538,11 +723,12 @@ export function rollDice(d, dur = 1000) {
         const b = k < 0.55 ? Math.sin((k / 0.55) * Math.PI) * 1.5 : k < 0.82 ? Math.sin(((k - 0.55) / 0.27) * Math.PI) * 0.35 : Math.sin(((k - 0.82) / 0.18) * Math.PI) * 0.08;
         const [sx, sy] = px(x, 0.01, z); p.m.node.position.set(sx, sy); p.m.node.zIndex = depth(x, z);
         p.m.s.y = -b * COS;
-        p.m.sh.scale.set(1 - b * 0.35); p.m.sh.alpha = 1 - b * 0.4;
-        if (k < 0.88) { setFrame(p.m.s, 'dice', `dr${(p.off + Math.floor(k * 30)) % 16}`); p.m.s.rotation = (1 - e) * p.spin; }
-        else { setFrame(p.m.s, 'dice', `d${d[p.k]}`); p.m.s.rotation = 0; }
+        p.m.sh.scale.set((1 - b * 0.35) * 0.8 / 128, (1 - b * 0.35) * 0.8 * SIN / 128); p.m.sh.alpha = 1 - b * 0.4;
+        if (k < 0.88) { setFrame(p.m.s, 'dice', `${skin}_r${(p.off + Math.floor(k * 30)) % 16}`); p.m.s.rotation = (1 - e) * p.spin; }
+        else { setFrame(p.m.s, 'dice', `${skin}_d${d[p.k]}`); p.m.s.rotation = 0; }
+        if (!p.landed && k > 0.55 && b < 0.05) { p.landed = true; dust(sx, sy, 0.45); }
       });
-      if (k >= 1) { showDice(d); res(); return false; }
+      if (k >= 1) { showDice(d); sparkle(...px(0, 0.3, 0), skin === 'neon' ? '#7df3ff' : '#fff2b0', 10); res(); return false; }
       return true;
     });
   });
@@ -678,6 +864,7 @@ function buildScenery() {
   });
   // hạt bay: cánh hoa / đom đóm / lá thu / lấp lánh
   for (let k = 0; k < 70; k++) particles.push(makeParticle(P.fx, true));
+  buildClouds();
 }
 function makeParticle(kind, init) {
   let tex, tint = 0xffffff, size = 0.12;
@@ -729,6 +916,8 @@ function loop() {
   const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (mode === 'home') return;
   const t = nowS();
+  updateCamera(dt, now);
+  updateClouds(dt);
   updateScenery(t, dt);
   updateTiles(t, dt);
   updateBuildings(t, dt, now);

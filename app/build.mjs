@@ -33,7 +33,7 @@ html = html
   .replace(/<link href="https:\/\/fonts\.googleapis\.com[^>]*>\n?/, '')
   .replace('<link rel="stylesheet" href="css/style.css">', `<link rel="stylesheet" href="css/style.css">\n<link rel="stylesheet" href="skin/skin-td.css">\n${theme}`)
   .replace('<script type="module" src="js/app.js"></script>',
-    (BAKE ? '<script type="importmap">{"imports":{"three":"./skin/vendor/three/three.module.js","three/addons/":"./skin/vendor/three/addons/"}}</script>\n' : '') +
+    `<script type="importmap">${JSON.stringify({ imports: { 'pixi.js': './skin/vendor/pixi/pixi.min.mjs', ...(BAKE ? { three: './skin/vendor/three/three.module.js', 'three/addons/': './skin/vendor/three/addons/' } : {}) } })}</script>\n` +
     '<script type="module" src="skin/skin-td.js"></script>\n<script type="module" src="js/app.js"></script>');
 writeFileSync(join(dist, 'index.html'), html);
 console.log(`app/dist sẵn sàng (v${pkg.version})`);

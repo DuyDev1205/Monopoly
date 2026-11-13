@@ -32,13 +32,14 @@ def main():
         with sync_playwright() as p:
             b = p.chromium.launch(args=['--use-angle=d3d11', '--ignore-gpu-blocklist'])
             pg = b.new_page()
-            pg.on('console', lambda m: print('  ', m.text) if m.text.startswith('baked') or m.type == 'error' else None)
+            pg.on('console', lambda m: print('  ', m.text) if m.text.startswith(('baked', 'fps')) or m.type == 'error' else None)
             pg.on('pageerror', lambda e: print('LỖI', e))
             pg.goto(url)
             pg.wait_for_function('window.done === true', timeout=600000, polling=1000)
             out = pg.evaluate('window.__OUT')
             meta = pg.evaluate('window.__META')
             por = pg.evaluate('window.__POR || {}')
+            dprev = pg.evaluate('window.__DICEPREV || {}')
             b.close()
     finally:
         srv.shutdown()
@@ -52,11 +53,15 @@ def main():
         raw = base64.b64decode(sh['data'].split(',', 1)[1])
         (OUT / f'{name}.webp').write_bytes(raw)
         total += len(raw)
-        index['sheets'][name] = {'file': f'{name}.webp', 'w': sh['w'], 'h': sh['h'], 'frames': sh['frames']}
+        index['sheets'][name] = {'file': f'{name}.webp', 'w': sh['w'], 'h': sh['h'], 'frames': sh['frames'], **({'fps': sh['fps'], 'nf': sh['nf']} if sh.get('fps') else {})}
     chars = APP / 'skin' / 'chars'
     chars.mkdir(exist_ok=True)
     for k, url in por.items():
         (chars / f'c{k}.webp').write_bytes(base64.b64decode(url.split(',', 1)[1]))
+    dd = APP / 'skin' / 'dice'
+    dd.mkdir(exist_ok=True)
+    for k, url in dprev.items():
+        (dd / f'{k}.webp').write_bytes(base64.b64decode(url.split(',', 1)[1]))
     (OUT / 'sprites.json').write_text(json.dumps(index, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
     print(f'xong: {len(out)} ảnh, {total / 1048576:.1f} MB -> {OUT}')
 
