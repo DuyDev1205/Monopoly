@@ -1,0 +1,12 @@
+Mô hình 3D dùng trong bản app
+
+- Nhà, cây, đồ trang trí (sub/, com/, nat/): Kenney — www.kenney.nl — CC0 1.0
+- Nhân vật (chr2/): Quaternius — quaternius.com (tải qua poly.pizza)
+    c0 Character Animated (Rogue)   — CC0
+    c1 Anne                          — CC0
+    c2 Animated Wizard               — CC-BY 3.0 (Quaternius) — https://poly.pizza/m/kttbFvCl2C
+    c3 Lis                           — CC0
+    c4 Pirate Captain                — CC0
+    c5 Characters Sam                — CC0
+    c6 Henry                         — CC0
+    c7 Characters Matt               — CC0

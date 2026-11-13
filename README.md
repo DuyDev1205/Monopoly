@@ -12,7 +12,7 @@ Chơi với máy ngay trên trình duyệt, hoặc chơi online cùng bạn bè 
 Bản app có đồ hoạ riêng, luật chơi và chơi online giống hệt bản web (chơi chung phòng với người dùng web được):
 
 - Giao diện phong cách TDCaro, 4 bảng màu: Midnight Neon, Gỗ Cổ Điển, Đại Dương, Hoa Anh Đào.
-- Bàn cờ 3D thật (Three.js): nhà, khách sạn, cây cối và nhân vật là mô hình [Kenney](https://kenney.nl) (CC0); nhân vật đi bộ, nhảy, ăn mừng, lắc đầu theo diễn biến ván.
+- Bàn cờ 3D thật (Three.js): nhà, khách sạn, cây cối là mô hình [Kenney](https://kenney.nl) (CC0), nhân vật chibi của [Quaternius](https://quaternius.com) (CC0 / CC-BY, xem `app/skin/models/CREDITS.txt`); nhân vật đi bộ, nhảy, ăn mừng, lắc đầu theo diễn biến ván.
 - Chạy offline (trừ chơi online); tự báo khi có bản mới.
 
 Mã nguồn bản app nằm trong [`app/`](app/): `app/skin/` (giao diện + 3D), `app/src-tauri/` (vỏ [Tauri](https://tauri.app)).

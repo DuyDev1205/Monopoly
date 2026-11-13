@@ -1,5 +1,8 @@
 // ảnh chân dung 3D cho 4 nhân vật đầu (characters.js đọc biến này)
-globalThis.__charImg = ['skin/chars/c0.webp', 'skin/chars/c1.webp', 'skin/chars/c2.webp', 'skin/chars/c3.webp'];
+globalThis.__charImg = [0, 1, 2, 3, 4, 5, 6, 7].map((k) => `skin/chars/c${k}.webp`);
+import { CHARACTERS } from '../js/characters.js';
+// tên theo mô hình 3D của bản app (bản web giữ tên cũ)
+['Tí', 'Mai', 'Bác Ba', 'Na', 'Thuyền Trưởng', 'Chị Sáu', 'Thiếu Gia', 'Đại Ca'].forEach((n, k) => { if (CHARACTERS[k]) { CHARACTERS[k].name = n; CHARACTERS[k].kind = 'chibi'; } });
 // Giao diện bản app (phong cách TDCaro): chỉ sắp xếp lại DOM + thêm vài chi tiết trang trí.
 // Không đụng vào luật chơi: app.js vẫn tìm phần tử theo id nên di chuyển chúng là an toàn.
 const $ = (s, r = document) => r.querySelector(s);

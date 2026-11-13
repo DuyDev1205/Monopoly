@@ -576,34 +576,27 @@ const SLOTS = [[0], [-0.2, 0.2], [-0.27, 0, 0.27], [-0.33, -0.11, 0.11, 0.33]];
 let _shadowTex;
 function shadowTex() { if (_shadowTex) return _shadowTex; const [c, g] = canvas(64, 64); const r = g.createRadialGradient(32, 32, 2, 32, 32, 30); r.addColorStop(0, 'rgba(30,0,40,.55)'); r.addColorStop(1, 'rgba(30,0,40,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); return (_shadowTex = texOf(c)); }
 /** players: [{ img: url ảnh nhân vật toàn thân, color }] */
-const TOKEN_H = 0.86;
+const TOKEN_H = 1.0;
 const FACE_CAM = Math.PI / 4;                 // camera nhìn từ góc +x+z
 function charToken(k) {
-  const name = `chr/${CHAR3D[((k % CHAR3D.length) + CHAR3D.length) % CHAR3D.length]}`;
+  const idx = ((k % CHAR3D.length) + CHAR3D.length) % CHAR3D.length;
+  const name = `chr2/${CHAR3D[idx]}`;
   const src = KIT.tpl[name];
   if (!src || !KIT.skClone) return null;
   const o = KIT.skClone(src);
+  o.traverse((c) => { if (c !== o && HIDE_PROPS.test(c.name || '')) c.visible = false; });
   o.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(o), H = box.max.y - box.min.y;
-  if (k % CHAR3D.length === 2) {               // Bác Ba: đội nón lá
-    const head = o.getObjectByName('head');
-    if (head) {
-      const hp = head.getWorldPosition(new THREE.Vector3()), w = box.max.x - box.min.x;
-      const non = new THREE.Mesh(new THREE.ConeGeometry(w * 0.5, w * 0.3, 28, 1, true), new THREE.MeshStandardMaterial({ color: '#e9cf8a', roughness: 0.85, side: THREE.DoubleSide }));
-      non.position.set(0, (box.max.y - hp.y) * 0.96 + w * 0.1, 0); non.castShadow = true;
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(w * 0.49, w * 0.022, 6, 28), new THREE.MeshStandardMaterial({ color: '#c9a95a', roughness: 0.9 }));
-      rim.rotation.x = Math.PI / 2; rim.position.y = -w * 0.145; non.add(rim);
-      head.add(non);
-    }
-  }
+  const box = visibleBox(o), H = box.max.y - box.min.y;
+  if (idx === 2) addNonLa(o, box);               // Bác Ba: đội nón lá
   o.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.frustumCulled = false; (Array.isArray(c.material) ? c.material : [c.material]).forEach((m) => { m.metalness = 0; }); } });
   const s = TOKEN_H / H;
   o.scale.setScalar(s); o.position.y = -box.min.y * s;
   const wrap = new THREE.Group(); wrap.add(o); wrap.rotation.y = FACE_CAM;
   const mixer = new THREE.AnimationMixer(o), acts = {};
-  (KIT.anim[name] || []).forEach((clip) => { acts[clip.name] = mixer.clipAction(clip); });
+  (KIT.anim[name] || []).forEach((clip) => { const key = clipKey(clip.name); if (key && !acts[key]) acts[key] = mixer.clipAction(clip); });
+  const pick = (n) => (ANIM_ALIAS[n] || [n]).map((x) => acts[x]).find(Boolean);
   const play = (n, { once = false, fade = 0.2 } = {}) => {
-    const a = acts[n]; if (!a) return;
+    const a = pick(n); if (!a) return;
     if (wrap.userData.cur === a && !once) return;
     a.reset(); a.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, once ? 1 : Infinity); a.clampWhenFinished = once;
     if (wrap.userData.cur && wrap.userData.cur !== a) wrap.userData.cur.crossFadeTo(a, fade, false);
@@ -612,6 +605,45 @@ function charToken(k) {
   mixer.addEventListener('finished', () => { if (!wrap.userData.dead) play('idle'); });
   play('idle');
   return { wrap, mixer, play };
+}
+// vũ khí / đạo cụ cầm tay trong mô hình gốc: ẩn đi
+const HIDE_PROPS = /weapon|axe|sword|knife|pistol|gun|staff|lute|cutlass|dagger/i;
+// tên hoạt ảnh Quaternius rất dài, lấy phần có nghĩa (Idle, Walk, Yes, No, Death…)
+const CLIP_KEYS = ['idle', 'walk', 'run', 'jump', 'yes', 'no', 'wave', 'death', 'hitreact', 'recievehit', 'pickup', 'roll', 'spell1', 'punch'];
+function clipKey(n) {
+  const parts = n.split('|').map((p) => p.trim().toLowerCase());
+  return parts.find((p) => CLIP_KEYS.includes(p)) || null;
+}
+const ANIM_ALIAS = {
+  idle: ['idle'], walk: ['walk', 'run'], jump: ['jump', 'roll', 'run'],
+  'emote-yes': ['yes', 'wave', 'pickup', 'spell1', 'jump'], 'emote-no': ['no', 'hitreact', 'recievehit'], die: ['death'],
+};
+function visibleBox(o) {
+  const box = new THREE.Box3(), b = new THREE.Box3();
+  o.traverse((c) => {
+    if (!c.isMesh) return;
+    for (let p = c; p; p = p.parent) if (!p.visible) return;
+    b.setFromObject(c); box.union(b);
+  });
+  return box.isEmpty() ? new THREE.Box3().setFromObject(o) : box;
+}
+function addNonLa(o, box) {
+  let head = null;
+  o.traverse((c) => { if (!head && c.isBone && /head/i.test(c.name)) head = c; });
+  const w = (box.max.x - box.min.x) * 0.95, top = new THREE.Vector3((box.min.x + box.max.x) / 2, box.max.y - w * 0.06, (box.min.z + box.max.z) / 2);
+  const non = new THREE.Group();
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(w * 0.55, w * 0.32, 32, 1, true), new THREE.MeshStandardMaterial({ color: '#e9cf8a', roughness: 0.85, side: THREE.DoubleSide }));
+  cone.position.y = w * 0.16; cone.castShadow = true; non.add(cone);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(w * 0.54, w * 0.022, 6, 32), new THREE.MeshStandardMaterial({ color: '#c9a95a', roughness: 0.9 }));
+  rim.rotation.x = Math.PI / 2; non.add(rim);
+  if (head) {
+    head.updateMatrixWorld(true);
+    const ws = head.getWorldScale(new THREE.Vector3()).x || 1;
+    non.position.copy(head.worldToLocal(top.clone()));
+    non.scale.setScalar(1 / ws);
+    const q = head.getWorldQuaternion(new THREE.Quaternion()).invert(); non.quaternion.copy(q);
+    head.add(non);
+  } else { non.position.copy(top); o.add(non); }
 }
 export async function setTokens(players) {
   tokens.forEach((tk) => tokenGroup.remove(tk.grp));
@@ -818,9 +850,9 @@ const KIT_FILES = {
     'plant_bush', 'plant_bushLarge', 'plant_bushSmall', 'flower_purpleA', 'flower_redA', 'flower_yellowA', 'flower_purpleB', 'flower_redB',
     'rock_largeA', 'rock_largeC', 'rock_smallA', 'rock_smallC', 'rock_smallFlatA', 'grass', 'grass_large', 'mushroom_redGroup', 'stump_round', 'log_stack'],
 };
-// nhân vật 3D (Kenney Mini Characters) theo thứ tự CHARACTERS trong characters.js
-const CHAR3D = ['character-male-f', 'character-female-f', 'character-male-b', 'character-female-b', 'character-male-d', 'character-female-d', 'character-male-e', 'character-female-e'];
-KIT_FILES.chr = CHAR3D;
+// nhân vật chibi Quaternius (models/chr2/c0..c7), thứ tự trùng CHARACTERS trong characters.js
+const CHAR3D = ['c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'];
+KIT_FILES.chr2 = CHAR3D;
 const KIT = { ready: false, tpl: {}, anim: {}, skClone: null };
 async function loadKit() {
   const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');

@@ -347,3 +347,10 @@ body.gl #game, body.gl .board-wrap { background: none; }
 img.chr3d { display: block; width: 100% !important; height: 100% !important; object-fit: cover; object-position: 50% 15%; }
 html[data-skin] body .pc-av > img.chr3d, html[data-skin] body .cp-preview > img.chr3d { position: absolute; inset: 0; }
 html[data-skin] body .pc-av, html[data-skin] body .pc .tk, html[data-skin] body .turn-label .tk { background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--c, var(--accent)) 30%, var(--panel)), var(--panel2)); }
+/* bảng chọn nhân vật */
+html[data-skin] body .cp-preview { position: relative; background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--c, var(--accent)) 30%, var(--panel)), var(--panel2)); }
+html[data-skin] body .cp-card { background: var(--panel2); border-color: var(--border); color: var(--text); }
+html[data-skin] body .cp-card.on { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+html[data-skin] body .cp-card.taken::after { color: var(--dim); }
+html[data-skin] body .cp-card > img.chr3d { width: 84px !important; height: 84px !important; flex: none; border-radius: 16px; background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--accent) 22%, var(--panel)), var(--panel)); }
+html[data-skin] body .cp-name, html[data-skin] body .cp-side small { color: var(--text); }
