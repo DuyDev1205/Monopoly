@@ -192,124 +192,50 @@ html[data-skin] body .copyright { left: 18px; right: auto; bottom: 12px; color: 
 body:has(#game:not(.hidden)) .copyright { display: none; }
 
 /* ==========================================================================
-   VÁN CHƠI — bàn cờ trái, bảng điều khiển phải
+   VÁN CHƠI — bàn cờ 3D ở giữa (nhìn chéo), 4 người chơi ở 4 góc như bản web
    ========================================================================== */
 html[data-skin] body #game { height: 100dvh; overflow: hidden; }
-html[data-skin] body .td-topbar { display: none; }
-html[data-skin] body .board-wrap {
-  position: absolute; left: 0; top: 0; bottom: 0; right: 410px; width: auto; height: auto; padding: 0;
-  --bw: min(calc(100dvh - 56px), calc(100vw - 410px - 56px)); --u: calc(var(--bw) / 100);
-  display: block;
+html[data-skin] body .board-wrap { position: relative; height: 100dvh; width: 100%; padding: 0; display: block; --bw: min(calc(100dvh - 40px), calc(100vw * .6)); --u: calc(var(--bw) / 100); }
+html[data-skin] body .stage { position: absolute; inset: 0; width: auto; height: auto; }
+/* thanh trên: menu + tiêu đề trái, đồng hồ + nút phải */
+html[data-skin] body .topbar { position: absolute; top: 0; left: 0; right: 0; z-index: 20; padding: 14px 18px; gap: 10px; color: var(--text); }
+html[data-skin] body .tb-title { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 800; color: var(--text) !important; text-shadow: none !important; background: none !important; padding: 0 !important; }
+html[data-skin] body .tb-title > span:last-child { color: var(--accent) !important; }
+html[data-skin] body .topbar .icon-btn, html[data-skin] body .topbar .pill {
+  background: var(--panel); color: var(--text); border: 1.5px solid var(--border); box-shadow: 0 8px 20px color-mix(in srgb, var(--shadow) 60%, transparent);
 }
-html[data-skin] body .stage { position: absolute; inset: 0; height: auto; width: auto; perspective: 2400px; perspective-origin: 50% 30%; }
-html[data-skin] body .board {
-  transform: rotateX(var(--tilt)) translateY(-1%);
-  background: var(--board); border-radius: 2.6cqw; padding: 1cqw; gap: .5cqw;
-  box-shadow: 0 .7cqw 0 var(--edge), 0 4cqw 7cqw var(--shadow);
-  outline: 1px solid color-mix(in srgb, var(--edge) 40%, transparent);
+html[data-skin] body .topbar .icon-btn { width: 44px; height: 44px; border-radius: 13px; }
+html[data-skin] body .topbar .icon-btn:hover { border-color: var(--accent); }
+html[data-skin] body .pill.clock { font-size: 18px; padding: 8px 14px; border-radius: 13px; }
+html[data-skin] body .pill.warn { background: #e0335a; color: #fff; border-color: transparent; }
+/* lượt + diễn biến: giữa phía trên */
+html[data-skin] body .statusbar { top: 14px; max-width: 44vw; }
+html[data-skin] body .turn-label { color: var(--text); text-shadow: none; background: var(--panel); border: 1.5px solid color-mix(in srgb, var(--pc, var(--accent)) 70%, var(--border));
+  padding: 8px 18px 8px 10px; border-radius: 99px; box-shadow: 0 10px 26px color-mix(in srgb, var(--pc, var(--accent)) 28%, transparent); }
+html[data-skin] body .ticker { background: color-mix(in srgb, var(--panel) 88%, transparent); color: var(--text); border: 1px solid var(--border); box-shadow: 0 8px 20px color-mix(in srgb, var(--shadow) 50%, transparent); }
+/* 4 người chơi ở 4 góc */
+html[data-skin] body .players { position: absolute; inset: 76px 18px 18px; pointer-events: none; z-index: 8; display: block; }
+html[data-skin] body .pc {
+  position: absolute; width: 300px; padding: 12px 16px 12px 12px; border-radius: 20px; gap: 0 12px;
+  background: var(--panel); color: var(--text); border: 1.5px solid var(--border); box-shadow: 0 16px 36px var(--shadow);
 }
-/* ô đất */
-html[data-skin] body .tile {
-  background: var(--cell); color: var(--text); border-radius: 1cqw;
-  box-shadow: 0 .28cqw 0 color-mix(in srgb, var(--edge) 55%, transparent), inset 0 .15cqw 0 var(--tile-hi);
+html[data-skin] body .pc:nth-child(1) { left: 0; bottom: 0; top: auto; right: auto; }
+html[data-skin] body .pc:nth-child(2) { left: 0; top: 0; bottom: auto; right: auto; }
+html[data-skin] body .pc:nth-child(3) { right: 0; top: 0; left: auto; bottom: auto; }
+html[data-skin] body .pc:nth-child(4) { right: 0; bottom: 0; left: auto; top: auto; }
+html[data-skin] body .pc .tk { width: 62px; height: 62px; box-shadow: 0 0 0 3px var(--c); border-width: 3px; }
+html[data-skin] body .pc .nm { font-size: 17px; }
+html[data-skin] body .pc .mn { font-size: 22px; color: var(--money); }
+html[data-skin] body .pc .mn.neg { color: #ff5470; }
+html[data-skin] body .pc .st { color: var(--dim); }
+html[data-skin] body .pc.cur { transform: scale(1.04); border-color: var(--c); box-shadow: 0 0 0 2px var(--c), 0 0 30px color-mix(in srgb, var(--c) 45%, transparent), 0 16px 36px var(--shadow); }
+html[data-skin] body .pc.cur::before {
+  content: 'ĐẾN LƯỢT'; position: absolute; right: 14px; top: -10px; padding: 2px 10px; border-radius: 99px;
+  background: var(--c); color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 2px; white-space: nowrap;
 }
-html[data-skin] body .tile .pr { color: var(--dim); }
-html[data-skin] body .tile .nm { color: var(--text); }
-html[data-skin] body .tile.chance { background: color-mix(in srgb, var(--cell) 80%, var(--a1)); }
-html[data-skin] body .tile.tax { background: color-mix(in srgb, var(--cell) 84%, var(--dim)); }
-html[data-skin] body .tile.resort { background: color-mix(in srgb, var(--cell) 86%, var(--a2)); }
-html[data-skin] body .tile.resort .body { background: none; }
-html[data-skin] body .tile.resort .nm, html[data-skin] body .tile.resort .pr { color: var(--text); }
-html[data-skin] body .tile.corner { background: color-mix(in srgb, var(--cell) 78%, var(--accent)); }
-html[data-skin] body .tile.corner.start { background: color-mix(in srgb, var(--cell) 62%, var(--gold)); }
-html[data-skin] body .tile.corner.island { background: color-mix(in srgb, var(--cell) 70%, var(--a2)); }
-html[data-skin] body .tile.corner.festival { background: color-mix(in srgb, var(--cell) 70%, var(--a1)); }
-html[data-skin] body .tile.corner.airport { background: color-mix(in srgb, var(--cell) 72%, #4f8cff); }
-html[data-skin] body .tile.corner .pr { color: var(--dim); }
-html[data-skin] body .tile.owned { box-shadow: 0 .28cqw 0 color-mix(in srgb, var(--own) 60%, #000), inset 0 0 0 .42cqw var(--own); }
-html[data-skin] body .tile.owned .body { background: color-mix(in srgb, var(--own) 18%, transparent); }
-html[data-skin] body .tile.owned .pr { color: color-mix(in srgb, var(--own) 80%, var(--text)); }
-html[data-skin] body .tile.fest { box-shadow: inset 0 0 0 .5cqw #ff5fa2, 0 0 2.2cqw rgba(255,95,162,.8); background: color-mix(in srgb, var(--cell) 80%, #ff5fa2); }
-html[data-skin] body .tile:hover { transform: none; filter: brightness(1.04); }
-/* sân giữa: lưới ô xen kẽ như bàn TDCaro */
-html[data-skin] body .center {
-  background:
-    radial-gradient(circle at 50% 46%, color-mix(in srgb, var(--panel) 55%, transparent), transparent 62%),
-    repeating-conic-gradient(var(--cell) 0 25%, var(--cell2) 0 50%) 0 0 / 12.5% 12.5%;
-  border-radius: 1.8cqw; box-shadow: inset 0 0 0 .2cqw color-mix(in srgb, var(--grid) 40%, transparent), inset 0 0 4cqw color-mix(in srgb, var(--shadow) 45%, transparent);
-}
-html[data-td="wood"] body .center { background:
-    radial-gradient(circle at 50% 46%, rgba(255,248,230,.5), transparent 62%),
-    repeating-linear-gradient(0deg, color-mix(in srgb, var(--grid) 45%, transparent) 0 1.5px, transparent 1.5px 12.5%),
-    repeating-linear-gradient(90deg, color-mix(in srgb, var(--grid) 45%, transparent) 0 1.5px, transparent 1.5px 12.5%),
-    linear-gradient(135deg, #EDCD98, #E3BC82); }
-/* mỗi ô hơi “nổi” khi chọn */
-html[data-skin] body .tile.pick:hover { transform: translateZ(.6cqw); }
-
-/* thao tác giữa bàn */
-html[data-skin] body .hud { top: 58%; }
-html[data-skin] body .hud:has(.offer) { top: 50%; }
-html[data-skin] body .offer { background: var(--panel); color: var(--text); border: 1px solid var(--border); box-shadow: 0 20px 44px var(--shadow); }
-html[data-skin] body .offer .sub, html[data-skin] body .actions .sub { color: var(--dim); text-shadow: none; }
-html[data-skin] body .actions .msg { background: var(--panel); color: var(--text); border: 1px solid var(--border); box-shadow: 0 12px 28px var(--shadow); }
-html[data-skin] body .actions .btn { border-radius: calc(var(--u) * 1.4); }
-html[data-skin] body .lvls .btn small { color: inherit; opacity: .8; }
-html[data-skin] body .timer { background: color-mix(in srgb, var(--border) 70%, transparent); }
-html[data-skin] body .timer i { background: linear-gradient(90deg, var(--a1), var(--a2)); }
-
-/* bảng điều khiển bên phải */
-.td-side {
-  position: absolute; z-index: 20; right: 18px; top: 18px; bottom: 18px; width: 380px;
-  display: flex; flex-direction: column; gap: 14px; padding: 18px;
-  background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 24px;
-  box-shadow: 0 30px 70px var(--shadow);
-}
-.td-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.td-mini { display: flex; align-items: center; gap: 12px; }
-.td-mini b { display: block; font-size: 21px; font-weight: 800; line-height: 1.1; }
-.td-mini small { display: block; font-size: 12.5px; color: var(--dim); font-weight: 600; letter-spacing: 1px; }
-.td-pills { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-html[data-skin] body .td-pills .pill { background: var(--panel2); color: var(--text); border: 1px solid var(--border); box-shadow: none; font-weight: 700; }
-html[data-skin] body .td-pills .pill.clock { font-size: 18px; padding: 6px 14px; }
-html[data-skin] body .td-pills .pill.warn { background: #e0335a; color: #fff; border-color: transparent; }
-html[data-skin] body .statusbar.td-status { position: static; transform: none; max-width: none; pointer-events: auto; align-items: stretch; gap: 6px; }
-html[data-skin] body .td-status .turn-label {
-  justify-content: center; font-size: 17px; color: var(--text); text-shadow: none; padding: 10px 12px; border-radius: 14px; background: var(--panel2);
-  border: 1.5px solid color-mix(in srgb, var(--pc, var(--accent)) 70%, transparent); box-shadow: 0 0 18px color-mix(in srgb, var(--pc, var(--accent)) 25%, transparent);
-}
-html[data-skin] body .td-status .ticker { background: none; box-shadow: none; color: var(--a2); font-size: 14px; padding: 0 4px; text-shadow: none; white-space: normal; }
-html[data-td="wood"] body .td-status .ticker, html[data-td="ocean"] body .td-status .ticker { color: var(--accent); }
-/* người chơi: mỗi người một hàng — avatar | tên + số đất | tiền */
-html[data-skin] body .td-side .players { position: static; inset: auto; display: flex; flex-direction: column; gap: 9px; width: auto; margin: 0; pointer-events: auto; }
-html[data-skin] body .td-side .pc {
-  position: relative; width: auto; left: auto !important; right: auto !important; top: auto !important; bottom: auto !important; transform: none;
-  display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 1px 11px; align-items: center;
-  padding: 9px 14px 9px 10px; border-radius: 16px; border-width: 1.5px;
-  background: var(--panel2); border: 1.5px solid var(--border); box-shadow: none; color: var(--text);
-}
-html[data-skin] body .td-side .pc .tk { grid-row: 1 / span 2; grid-column: 1; width: 46px; height: 46px; border-width: 3px; box-shadow: 0 0 0 2px var(--c); }
-html[data-skin] body .td-side .pc .nm { grid-column: 2; grid-row: 1; font-size: 15px; }
-html[data-skin] body .td-side .pc .nm small { font-size: 9.5px; }
-html[data-skin] body .td-side .pc .st { grid-column: 2; grid-row: 2; font-size: 12px; color: var(--dim); }
-html[data-skin] body .td-side .pc .mn { grid-column: 3; grid-row: 1 / span 2; font-size: 17px; color: var(--money); text-align: right; }
-html[data-skin] body .td-side .pc .mn.neg { color: #ff5470; }
-html[data-skin] body .td-side .pc .mn::before { width: 12px; height: 12px; margin-right: 5px; }
-html[data-skin] body .td-side .pc.cur { transform: none; border-color: var(--c); box-shadow: 0 0 0 1.5px var(--c), 0 0 22px color-mix(in srgb, var(--c) 40%, transparent); }
-html[data-skin] body .td-side .pc.cur::before {
-  content: 'ĐẾN LƯỢT'; position: absolute; right: 12px; top: -9px; padding: 1px 9px; border-radius: 99px;
-  background: var(--c); color: #fff; font-size: 9.5px; font-weight: 800; letter-spacing: 2px; white-space: nowrap;
-}
-.td-spacer { flex: 1; min-height: 0; }
-html[data-skin] body .td-side .chat { position: static; transform: none; width: auto; background: var(--panel2); border: 1px solid var(--border); border-radius: 14px; box-shadow: none; }
-html[data-skin] body .td-side .chat input { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
-.td-btns { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 8px; }
-html[data-skin] body .td-btns .icon-btn {
-  width: auto; height: 44px; border-radius: 13px; display: flex; align-items: center; justify-content: center; gap: 8px;
-  background: var(--panel2); color: var(--text); border: 1.5px solid var(--border); box-shadow: none; font-weight: 700; font-size: 14px;
-}
-html[data-skin] body .td-btns .icon-btn:hover { border-color: var(--accent); }
-/* bảng bán đất khi nợ: nằm cạnh bảng điều khiển */
-html[data-skin] body .side-panel { right: 412px; }
+html[data-skin] body .chat { background: color-mix(in srgb, var(--panel) 85%, transparent); border: 1px solid var(--border); }
+html[data-skin] body .chat input { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+/* bảng bán đất khi nợ */
 html[data-skin] body .side-panel .sell-box { background: var(--panel); color: var(--text); border: 1px solid var(--border); box-shadow: 0 20px 44px var(--shadow); }
 
 /* ---------- hộp thoại, chú thích, lá bài ---------- */
@@ -322,11 +248,11 @@ html[data-skin] body .cf-text { color: var(--text); }
 html[data-skin] body .toast { background: var(--panel); color: var(--text); border: 1px solid var(--border); box-shadow: 0 14px 30px var(--shadow); }
 html[data-skin] body .banner small { background: color-mix(in srgb, var(--panel) 92%, transparent); color: var(--text); }
 
-/* màn hình hẹp (cửa sổ nhỏ): thu gọn bảng phải */
-@media (max-width: 1180px) {
-  .td-side { width: 330px; }
-  html[data-skin] body .board-wrap { right: 356px; --bw: min(calc(100dvh - 48px), calc(100vw - 356px - 40px)); }
-  html[data-skin] body .side-panel { right: 360px; }
+/* cửa sổ nhỏ: thẻ người chơi gọn hơn */
+@media (max-width: 1280px) {
+  html[data-skin] body .pc { width: 250px; padding: 9px 12px 9px 9px; }
+  html[data-skin] body .pc .tk { width: 50px; height: 50px; }
+  html[data-skin] body .pc .mn { font-size: 18px; }
   html[data-skin] body #home .home-card { grid-template-columns: minmax(0, 1fr) minmax(460px, 520px); gap: 36px; }
 }
 

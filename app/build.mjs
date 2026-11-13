@@ -15,11 +15,7 @@ for (const p of ['css', 'js', 'assets', 'manifest.webmanifest']) {
   if (existsSync(join(root, p))) cpSync(join(root, p), join(dist, p), { recursive: true });
 }
 cpSync(join(here, 'skin'), join(dist, 'skin'), { recursive: true });
-// app luôn dùng bố cục bàn vuông nhìn thẳng (bố cục điện thoại của bản web) -> bật các khối @media đó vô điều kiện
-const FLAT_MQ = '@media (max-width: 900px), (orientation: portrait)';
-const css = readFileSync(join(root, 'css', 'style.css'), 'utf8');
-if (!css.includes(FLAT_MQ)) throw new Error('build.mjs: không thấy khối @media bố cục điện thoại trong style.css');
-writeFileSync(join(dist, 'css', 'style.css'), css.split(FLAT_MQ).join('@media all'));
+
 
 let html = readFileSync(join(root, 'index.html'), 'utf8');
 const must = (cond, what) => { if (!cond) throw new Error('build.mjs: không tìm thấy ' + what + ' trong index.html'); };

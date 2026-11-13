@@ -57,22 +57,36 @@ function buildHome() {
 function buildGame() {
   const game = $('#game');
   if (!game) return;
-  const side = el('aside', 'td-side');
-  const head = el('div', 'td-head', `
-    <div class="td-mini"><span class="td-g-die sm"><i></i><i></i><i></i><i></i><i></i></span><div><b>Cờ Tỷ Phú</b><small>Việt Nam</small></div></div>`);
-  const pills = el('div', 'td-pills');
-  pills.append($('#roundInfo'), $('#netInfo'));
-  head.appendChild(pills);
-  const status = $('.statusbar', game);
-  status.classList.add('td-status');
-  const players = $('#players');
-  const btns = el('div', 'td-btns');
-  const menu = $('#btnMenu'); menu.insertAdjacentHTML('beforeend', '<span>Menu</span>');
-  btns.append(menu, $('#btnMusic'), $('#btnSound'));
-  side.append(head, status, players, el('div', 'td-spacer'), $('#chatForm'), btns);
-  game.appendChild(side);
-  $('.topbar', game)?.classList.add('td-topbar');
-
+  const title = $('.tb-title', game);
+  if (title) title.innerHTML = '<span class="td-g-die sm"><i></i><i></i><i></i><i></i><i></i></span>Cờ Tỷ Phú <span>Việt Nam</span>';
+  // nút toàn màn hình cạnh nút nhạc / âm thanh
+  const fs = el('button', 'icon-btn td-fs', FS_ICON); fs.type = 'button'; fs.title = 'Toàn màn hình (F11)';
+  fs.addEventListener('click', toggleFullscreen);
+  $('.tb-right', game)?.appendChild(fs);
+}
+// ---------- toàn màn hình: mở app là toàn màn hình; F11 / nút để bật tắt; Esc để thoát ----------
+const FS_ICON = '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M4 4h6v2H6v4H4zm10 0h6v6h-2V6h-4zM4 14h2v4h4v2H4zm14 0h2v6h-6v-2h4z"/></svg>';
+const appWin = () => window.__TAURI__?.window?.getCurrentWindow?.();
+async function isFull() {
+  try { const w = appWin(); if (w) return await w.isFullscreen(); } catch {}
+  return !!document.fullscreenElement;
+}
+async function setFull(on) {
+  try { const w = appWin(); if (w) { await w.setFullscreen(on); return; } } catch {}
+  try { if (on) await document.documentElement.requestFullscreen(); else if (document.fullscreenElement) await document.exitFullscreen(); } catch {}
+}
+async function toggleFullscreen() { await setFull(!(await isFull())); }
+addEventListener('keydown', async (e) => {
+  if (e.key === 'F11' || (e.key === 'Enter' && e.altKey)) { e.preventDefault(); toggleFullscreen(); }
+  else if (e.key === 'Escape' && !document.querySelector('#modal:not(.hidden)') && (await isFull())) setFull(false);
+});
+// trang chủ: nút toàn màn hình cạnh nút nhạc / luật chơi
+function homeFsButton() {
+  const row = $('.td-left .foot-btns');
+  if (!row) return;
+  const b = el('button', 'chip', '⛶ Toàn màn hình'); b.type = 'button';
+  b.addEventListener('click', toggleFullscreen);
+  row.appendChild(b);
 }
 
 // ---------- nền: biểu tượng trôi nhẹ (như X/O của TDCaro) ----------
@@ -155,5 +169,6 @@ document.addEventListener('click', (e) => {
 floats();
 buildHome();
 buildGame();
+homeFsButton();
 versionTag();
 setTheme(document.documentElement.dataset.td || 'midnight');

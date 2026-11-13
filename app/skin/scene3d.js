@@ -1107,6 +1107,7 @@ function fitCamera() {
   // vùng màn hình dành cho bàn cờ: theo khung .stage
   const r = stageEl?.getBoundingClientRect();
   let rect = r && r.width > 10 ? { x: r.left, y: r.top, w: r.width, h: r.height } : { x: 0, y: 0, w: Wv, h: Hv };
+  rect = { x: Wv * 0.2, y: 70, w: Wv * 0.6, h: Hv - 82 };   // giữa màn hình, 4 góc để thẻ người chơi
   viewRect = rect;
   const dir = camDir();
   const pts = [];
