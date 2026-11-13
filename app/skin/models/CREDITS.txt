@@ -2,7 +2,8 @@ Mô hình 3D dùng trong bản app (app/skin/models/)
 
 kk/ — KayKit của Kay Lousberg (https://kaylousberg.com), giấy phép CC0 1.0, tải từ github.com/KayKit-Game-Assets:
   chr/  KayKit Character Pack: Adventurers 1.0 + Skeletons 1.0 (đã bỏ vũ khí và rút gọn hoạt ảnh bằng app/tools/prep_models.py)
-        c0 Knight · c1 Mage · c2 Barbarian · c3 Rogue · c4 Rogue Hooded · c5 Skeleton Warrior · c6 Skeleton Mage · c7 Skeleton Minion
+        c0 Knight · c1 Mage · c2 Barbarian · c3 Rogue · c4 Rogue Hooded · c5 Skeleton Warrior · c6 Skeleton Mage · c7 Skeleton Minion · c8 Skeleton Rogue
+        (nhân vật 9–11 là Knight / Mage / Barbarian bỏ mũ)
   city/ KayKit City Builder Bits 1.0     med/ KayKit Medieval Hexagon Pack 1.0     dun/ KayKit Dungeon Remastered 1.0
 
 pf/ — Polyfork (https://polyfork.dev), giấy phép CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).

@@ -23,7 +23,7 @@ OUT = Path(__file__).resolve().parents[1] / 'skin' / 'models' / 'kk'
 KEEP_ANIMS = ['Idle', 'Walking_A', 'Running_A', 'Jump_Full_Short', 'Jump_Full_Long', 'Cheer', 'Hit_A', 'Death_A', 'Interact',
               'Throw', 'Sit_Floor_Down', 'Sit_Floor_Idle', 'Sit_Floor_StandUp', 'PickUp']
 HIDE_NODES = re.compile(r'sword|shield|axe|staff|wand|spellbook|crossbow|knife|dagger|mug|arrow|quiver|smokebomb|throwable|offhand|blade', re.I)
-CHARS = ['Knight', 'Mage', 'Barbarian', 'Rogue', 'Rogue_Hooded', 'Skeleton_Warrior', 'Skeleton_Mage', 'Skeleton_Minion']
+CHARS = ['Knight', 'Mage', 'Barbarian', 'Rogue', 'Rogue_Hooded', 'Skeleton_Warrior', 'Skeleton_Mage', 'Skeleton_Minion', 'Skeleton_Rogue']
 
 COMP = {5120: ('b', 1), 5121: ('B', 1), 5122: ('h', 2), 5123: ('H', 2), 5125: ('I', 4), 5126: ('f', 4)}
 NCOMP = {'SCALAR': 1, 'VEC2': 2, 'VEC3': 3, 'VEC4': 4, 'MAT4': 16}

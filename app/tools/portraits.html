@@ -22,8 +22,9 @@ function stage(obj) {
 await B.loadKit();
 const POR = {}, DICE = {};
 for (let k = 0; k < B.CHAR3D.length; k++) {
-  const name = `chr/${B.CHAR3D[k]}`, src = B.KIT.tpl[name];
-  const o = B.KIT.skClone ? (await import('three/addons/utils/SkeletonUtils.js')).clone(src) : src.clone(true);
+  const ent = B.CHAR3D[k], name = `chr/${ent.f}`, src = B.KIT.tpl[name];
+  const o = (await import('three/addons/utils/SkeletonUtils.js')).clone(src);
+  if (ent.hide) o.traverse((c) => { if (c !== o && ent.hide.test(c.name || '')) c.visible = false; });
   const mixer = new THREE.AnimationMixer(o);
   const idle = (B.KIT.anim[name] || []).find((a) => a.name === 'Idle');
   if (idle) { mixer.clipAction(idle).play(); mixer.update(0.5); }

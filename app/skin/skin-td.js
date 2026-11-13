@@ -1,8 +1,8 @@
 // ảnh chân dung 3D cho 4 nhân vật đầu (characters.js đọc biến này)
-globalThis.__charImg = [0, 1, 2, 3, 4, 5, 6, 7].map((k) => `skin/chars/c${k}.webp`);
+globalThis.__charImg = [...Array(12).keys()].map((k) => `skin/chars/c${k}.webp`);
 import { CHARACTERS } from '../js/characters.js';
 // tên theo mô hình 3D của bản app (bản web giữ tên cũ)
-['Hiệp Sĩ', 'Phù Thủy', 'Tráng Sĩ', 'Lãng Khách', 'Ninja', 'Xương Giáp', 'Xương Phép', 'Bé Xương'].forEach((n, k) => { if (CHARACTERS[k]) { CHARACTERS[k].name = n; CHARACTERS[k].kind = 'chibi'; } });
+['Hiệp Sĩ', 'Phù Thủy', 'Tráng Sĩ', 'Lãng Khách', 'Ninja', 'Xương Giáp', 'Xương Phép', 'Bé Xương', 'Xương Ninja', 'Chàng Hiệp Sĩ', 'Pháp Sư Trẻ', 'Thợ Săn'].forEach((n, k) => { if (!CHARACTERS[k]) CHARACTERS[k] = { kind: 'chibi', skin: '#ffd9b8', hair: '#3a2a22', style: 'short' }; CHARACTERS[k].name = n; CHARACTERS[k].kind = 'chibi'; });
 // Giao diện bản app (phong cách TDCaro): chỉ sắp xếp lại DOM + thêm vài chi tiết trang trí.
 // Không đụng vào luật chơi: app.js vẫn tìm phần tử theo id nên di chuyển chúng là an toàn.
 const $ = (s, r = document) => r.querySelector(s);
@@ -36,7 +36,7 @@ const swatches = () => {
 };
 
 // ---------- chọn bộ xúc xắc ----------
-const DICE = [['classic', 'Cổ điển'], ['gold', 'Vàng ròng'], ['jade', 'Ngọc bích'], ['ruby', 'Hồng ngọc'], ['wood', 'Gỗ'], ['neon', 'Neon'], ['crystal', 'Pha lê'], ['sakura', 'Anh đào']];
+const DICE = [['classic', 'Cổ điển'], ['gold', 'Vàng ròng'], ['jade', 'Ngọc bích'], ['ruby', 'Hồng ngọc'], ['wood', 'Gỗ'], ['neon', 'Neon'], ['crystal', 'Pha lê'], ['sakura', 'Anh đào'], ['obsidian', 'Hắc ngọc'], ['ocean', 'Đại dương'], ['candy', 'Kẹo ngọt'], ['galaxy', 'Ngân hà']];
 function dicePicker() {
   const box = el('div', 'td-themes td-dice', '<div class="td-label">Xúc xắc của bạn</div><div class="td-dsw"></div>');
   const row = $('.td-dsw', box);
@@ -65,8 +65,9 @@ function buildHome() {
     <div class="td-tag">VIỆT NAM <span>·</span> MUA ĐẤT <span>·</span> XÂY NHÀ</div>
     <p class="td-desc">Đi khắp 3 miền, mua đất, xây nhà, mở lễ hội và trở thành tỷ phú giàu nhất bàn cờ.</p>`;
   const left = el('div', 'td-left'), panel = el('div', 'td-panel');
-  left.append(brand, modes, $('.foot-btns', foot));
-  panel.append($('#tab-local', card), $('#tab-online', card), swatches(), dicePicker());
+  const picks = el('div', 'td-picks'); picks.append(swatches(), dicePicker());
+  left.append(brand, modes, $('.foot-btns', foot), picks);
+  panel.append($('#tab-local', card), $('#tab-online', card));
   foot.classList.add('hidden');            // nút theme cũ vẫn giữ trong DOM cho app.js
   card.prepend(left, panel);
   card.appendChild(foot);

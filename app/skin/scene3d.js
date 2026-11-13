@@ -139,6 +139,7 @@ export async function init({ stage, onTileClick }) {
   if (KIT_BASE) await loadKit();
   buildSky();
   buildBoardBase();
+  buildArena();
   buildDice();
   buildMarker();
   try { await document.fonts.load(`800 40px ${FONT}`); await document.fonts.ready; } catch {}
@@ -186,6 +187,80 @@ function buildBoardBase() {
   courtyard.rotation.x = -Math.PI / 2; courtyard.position.y = 0.012; courtyard.receiveShadow = true;
   boardGroup.add(courtyard);
 }
+// ======================= sân đấu: viền đèn chạy, cột đèn 4 góc, vòng vàng giữa sân, đạo cụ ở 4 ô góc =======================
+let arena = null;
+function buildArena() {
+  if (arena) boardGroup.remove(arena);
+  arena = new THREE.Group(); arena.name = 'arena'; boardGroup.add(arena);
+  const E = W / 2 + 0.38;
+  // đèn chạy quanh viền bàn (như bảng hiệu sòng bạc)
+  const per = 22, n = per * 4;
+  const bulbs = new THREE.InstancedMesh(new THREE.SphereGeometry(0.045, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffffff' }), n);
+  const dm = new THREE.Object3D();
+  for (let s = 0, k = 0; s < 4; s++) for (let j = 0; j < per; j++, k++) {
+    const u = -E + (2 * E * (j + 0.5)) / per;
+    const [x, z] = [[u, E], [E, -u], [-u, -E], [-E, u]][s];
+    dm.position.set(x, -0.18, z); dm.updateMatrix(); bulbs.setMatrixAt(k, dm.matrix); bulbs.setColorAt(k, new THREE.Color('#fff2c0'));
+  }
+  arena.add(bulbs); arena.userData.bulbs = bulbs;
+  // cột đèn 4 góc
+  const postMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.35, metalness: 0.2 });
+  const orbs = [];
+  [[1, 1], [1, -1], [-1, -1], [-1, 1]].forEach(([sx, sz]) => {
+    const p = new THREE.Group();
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.12, 16), postMat); base.position.y = 0.06; p.add(base);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.6, 12), postMat); pole.position.y = 0.42; p.add(pole);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.1, 0.06, 16), trimMat); cap.position.y = 0.74; p.add(cap);
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.13, 20, 14), new THREE.MeshStandardMaterial({ color: '#fff6d8', emissive: '#ffcf6a', emissiveIntensity: 1.6, roughness: 0.2 }));
+    orb.position.y = 0.88; p.add(orb); orbs.push(orb);
+    p.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    p.position.set(sx * (E + 0.05), 0, sz * (E + 0.05)); arena.add(p);
+  });
+  arena.userData.orbs = orbs;
+  // vòng vàng + đinh sáng quanh huy hiệu giữa sân
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(2.05, 0.035, 10, 96), trimMat); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; arena.add(ring);
+  const studs = new THREE.InstancedMesh(new THREE.SphereGeometry(0.035, 8, 6), new THREE.MeshStandardMaterial({ color: '#fff6d8', emissive: '#ffd36a', emissiveIntensity: 1.4 }), 24);
+  for (let k = 0; k < 24; k++) { const a = (k / 24) * Math.PI * 2; dm.position.set(Math.cos(a) * 2.2, 0.035, Math.sin(a) * 2.2); dm.updateMatrix(); studs.setMatrixAt(k, dm.matrix); }
+  arena.add(studs); arena.userData.studs = studs;
+  // đạo cụ 3D ở 4 ô góc
+  const corner = (i, a, s) => tp(i, a, s, TH);
+  // Xuất Phát: 2 cờ ca-rô
+  const checker = (() => { const [c, g] = canvas(64, 48); for (let y = 0; y < 3; y++) for (let x = 0; x < 4; x++) { g.fillStyle = (x + y) % 2 ? '#111' : '#fff'; g.fillRect(x * 16, y * 16, 16, 16); } return texOf(c); })();
+  [-0.38, 0.38].forEach((a) => {
+    const f = new THREE.Group();
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.62, 8), std('#c9a227', { metalness: 0.6, roughness: 0.3 })); pole.position.y = 0.31; f.add(pole);
+    const cl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.2, 8, 1), new THREE.MeshStandardMaterial({ map: checker, side: THREE.DoubleSide })); cl.position.set(0.15, 0.52, 0); cl.userData.flag = Math.random() * 6; f.add(cl);
+    f.position.copy(corner(0, a, 0.12)); f.rotation.y = Math.PI / 4; arena.add(f);
+  });
+  // Đảo Hoang: dừa + đá
+  const palm = kit('pf/palm-sapling-ef7ae4', { h: 0.85 }); if (palm) { palm.position.copy(corner(8, -0.32, 0.14)); arena.add(palm); }
+  const rk = kit('med/rock_single_A', { fit: 0.22 }); if (rk) { rk.position.copy(corner(8, 0.32, 0.18)); arena.add(rk); }
+  // Lễ Hội: 2 đèn lồng giấy phát sáng
+  [-0.35, 0.35].forEach((a) => { const l = kit('pf/paper-lantern-3387e9', { h: 0.5 }); if (l) { l.position.copy(corner(16, a, 0.14)); arena.add(l); } });
+  // Sân Bay: tháp điều khiển có đèn nháy
+  const tw = new THREE.Group();
+  const tb = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.1, 0.55, 12), std('#e8edf3')); tb.position.y = 0.275; tw.add(tb);
+  const cab = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.14, 8), new THREE.MeshStandardMaterial({ color: '#7fc8ff', roughness: 0.1, metalness: 0.3, emissive: '#2a6fb0', emissiveIntensity: 0.4 })); cab.position.y = 0.62; tw.add(cab);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.08, 8), std('#3a4a63')); roof.position.y = 0.73; tw.add(roof);
+  const bc = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), new THREE.MeshStandardMaterial({ color: '#ff3b3b', emissive: '#ff2020', emissiveIntensity: 2 })); bc.position.y = 0.8; tw.add(bc);
+  tw.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  tw.position.copy(corner(24, 0.36, 0.14)); arena.add(tw); arena.userData.beacon = bc;
+}
+function updateArena(t) {
+  if (!arena) return;
+  const u = arena.userData;
+  if (u.bulbs) {
+    const n = u.bulbs.count, c = new THREE.Color(), on = new THREE.Color(arena.userData.bulbOn || '#fff2c0'), off = new THREE.Color('#5a4a3a');
+    const head = (t * 18) % n;
+    for (let k = 0; k < n; k++) { const d = Math.min(Math.abs(k - head), n - Math.abs(k - head)); const v = (k % 3 === Math.floor(t * 3) % 3 ? 0.55 : 0.25) + Math.max(0, 1 - d / 6) * 0.9; c.copy(off).lerp(on, Math.min(1, v)); u.bulbs.setColorAt(k, c); }
+    u.bulbs.instanceColor.needsUpdate = true;
+  }
+  u.orbs?.forEach((o, k) => { o.material.emissiveIntensity = 1.3 + 0.5 * Math.sin(t * 2.2 + k); });
+  if (u.studs) u.studs.material.emissiveIntensity = 1.1 + 0.5 * Math.sin(t * 3);
+  if (u.beacon) u.beacon.material.emissiveIntensity = Math.sin(t * 6) > 0 ? 3 : 0.2;
+  arena.traverse((o) => { if (o.userData.flag != null) { const p = o.geometry.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i) + 0.15; p.setZ(i, Math.sin(t * 6 + x * 18 + o.userData.flag) * 0.025 * x * 4); } p.needsUpdate = true; } });
+}
+
 function courtyardTexture(kind) {
   const [c, g] = canvas(1024, 1024);
   if (kind === 'halong') {
@@ -583,10 +658,11 @@ const TOKEN_H = 1.25;
 const FACE_CAM = Math.PI / 4;                 // camera nhìn từ góc +x+z
 function charToken(k) {
   const idx = ((k % CHAR3D.length) + CHAR3D.length) % CHAR3D.length;
-  const name = `chr/${CHAR3D[idx]}`;
+  const ent = CHAR3D[idx], name = `chr/${ent.f}`;
   const src = KIT.tpl[name];
   if (!src || !KIT.skClone) return null;
   const o = KIT.skClone(src);
+  if (ent.hide) o.traverse((c) => { if (c !== o && ent.hide.test(c.name || '')) c.visible = false; });
   o.updateMatrixWorld(true);
   const box = visibleBox(o), H = box.max.y - box.min.y;
   o.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.frustumCulled = false; } });
@@ -707,7 +783,7 @@ function updateTokens(t, now, dt = 0.016) {
 
 // ======================= xúc xắc =======================
 // 8 bộ xúc xắc; người chơi trên máy này dùng bộ đã chọn, người khác / máy dùng bộ khác
-export const DICE_KEYS = ['classic', 'gold', 'jade', 'ruby', 'wood', 'neon', 'crystal', 'sakura'];
+export const DICE_KEYS = ['classic', 'gold', 'jade', 'ruby', 'wood', 'neon', 'crystal', 'sakura', 'obsidian', 'ocean', 'candy', 'galaxy'];
 const DICE_SKINS = {
   classic: { bg: ['#ffffff', '#ece4d6'], pip: ['#5a5a5a', '#0d0d0d'], red: ['#ff6b6b', '#b3121b'], mat: { roughness: 0.3, clearcoat: 0.6 } },
   gold: { bg: ['#fff1b8', '#d39a12'], pip: ['#6b3d00', '#2e1a00'], red: ['#c0182a', '#5a0008'], mat: { roughness: 0.25, metalness: 0.6, clearcoat: 0.8 }, ring: '#b07a08' },
@@ -717,6 +793,10 @@ const DICE_SKINS = {
   neon: { bg: ['#232850', '#090b1d'], pip: ['#c8fbff', '#35d5ff'], red: ['#ffc4e2', '#ff4f8b'], mat: { roughness: 0.3, clearcoat: 0.9 }, glow: true },
   crystal: { bg: ['#f4fcff', '#9fd2ee'], pip: ['#3d74b0', '#16365e'], red: ['#3d74b0', '#16365e'], mat: { roughness: 0.05, clearcoat: 1 }, facets: true },
   sakura: { bg: ['#fff3f8', '#f5b5cf'], pip: ['#e0598d', '#93204c'], red: ['#e0598d', '#93204c'], mat: { roughness: 0.3, clearcoat: 0.7 }, flower: true },
+  obsidian: { bg: ['#3a3a44', '#0b0b10'], pip: ['#ffe9a8', '#d4a017'], red: ['#ffe9a8', '#d4a017'], mat: { roughness: 0.12, clearcoat: 1, metalness: 0.2 }, ring: '#b8860b' },
+  ocean: { bg: ['#7fd8ff', '#1565c0'], pip: ['#ffffff', '#dbeeff'], red: ['#ffe066', '#f4a300'], mat: { roughness: 0.15, clearcoat: 1 }, waves: true },
+  candy: { bg: ['#fff7fb', '#ffd9ec'], pip: ['#7a5cff', '#4a2fc9'], red: ['#ff4f8b', '#c2185b'], mat: { roughness: 0.35, clearcoat: 0.8 }, stripes: true },
+  galaxy: { bg: ['#3b1d6e', '#0a0620'], pip: ['#fff4ff', '#ff8af5'], red: ['#c8fbff', '#35d5ff'], mat: { roughness: 0.25, clearcoat: 0.9 }, stars: true, glow: true },
 };
 const PIPS = { 1: [[0.5, 0.5]], 2: [[0.27, 0.27], [0.73, 0.73]], 3: [[0.27, 0.27], [0.5, 0.5], [0.73, 0.73]], 4: [[0.27, 0.27], [0.73, 0.27], [0.27, 0.73], [0.73, 0.73]],
   5: [[0.27, 0.27], [0.73, 0.27], [0.5, 0.5], [0.27, 0.73], [0.73, 0.73]], 6: [[0.27, 0.25], [0.73, 0.25], [0.27, 0.5], [0.73, 0.5], [0.27, 0.75], [0.73, 0.75]] };
@@ -731,6 +811,9 @@ function skinFace(n, S) {
   if (S.marble) { g.globalAlpha = 0.28; g.strokeStyle = S.marble; for (let k = 0; k < 7; k++) { g.lineWidth = 1 + (k % 3); g.beginPath(); let x = (k * 41) % 256, y = 0; g.moveTo(x, y); while (y < 256) { x += Math.sin(y / 23 + k) * 14; y += 12; g.lineTo(x, y); } g.stroke(); } g.globalAlpha = 1; }
   if (S.facets) { g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 3; [[0, 0, 256, 256], [256, 0, 0, 256], [128, 0, 128, 256], [0, 128, 256, 128]].forEach(([a, b, x, y]) => { g.beginPath(); g.moveTo(a, b); g.lineTo(x, y); g.stroke(); }); }
   if (S.ring) { g.strokeStyle = S.ring; g.lineWidth = 10; g.strokeRect(12, 12, 232, 232); }
+  if (S.waves) { g.strokeStyle = 'rgba(255,255,255,.28)'; g.lineWidth = 5; for (let y = 30; y < 256; y += 38) { g.beginPath(); for (let x = 0; x <= 256; x += 8) g.lineTo(x, y + Math.sin(x / 22 + y) * 6); g.stroke(); } }
+  if (S.stripes) { g.save(); g.globalAlpha = 0.45; g.fillStyle = '#ffb3d6'; for (let k = -256; k < 512; k += 44) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + 22, 0); g.lineTo(k + 22 - 256, 256); g.lineTo(k - 256, 256); g.fill(); } g.restore(); }
+  if (S.stars) { for (let k = 0; k < 70; k++) { const x = (k * 97) % 256, y = (k * 57 + 13) % 256, r = (k % 5) * 0.5 + 0.6; g.fillStyle = k % 7 ? 'rgba(255,255,255,.75)' : '#ffd6ff'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); } const neb = g.createRadialGradient(170, 90, 5, 170, 90, 120); neb.addColorStop(0, 'rgba(255,90,200,.35)'); neb.addColorStop(1, 'rgba(255,90,200,0)'); g.fillStyle = neb; g.fillRect(0, 0, 256, 256); }
   if (S.flower && n === 1) {
     g.save(); g.translate(128, 128);
     for (let k = 0; k < 5; k++) { g.rotate((Math.PI * 2) / 5); const gr = g.createLinearGradient(0, 0, 0, -78); gr.addColorStop(0, S.pip[1]); gr.addColorStop(1, S.pip[0]); g.fillStyle = gr; g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(-46, -24, -42, -78, -10, -80); g.lineTo(0, -66); g.lineTo(10, -80); g.bezierCurveTo(42, -78, 46, -24, 0, 0); g.fill(); }
@@ -945,11 +1028,18 @@ const KIT_FILES = {
     'beach-hut-fc7649', 'sandcastle-ddc562', 'lifebuoy-on-a-post-57421b', 'striped-deck-chair-70b506', 'tamarisk-bush-ba4337', 'small-fishing-boat-4ac0e3',
     'torii-gate-402f30', 'paper-lantern-3387e9', 'grass-tuft-a40a08', 'lily-pad-86edbb', 'cattail-reed-6abbb3', 'round-path-stone-4130f3', 'moat-bridge-4fbcd9',
     'garden-rock-2d3b51', 'wildflower-68d3a1', 'bamboo-stalk-e4d362', 'japanese-maple-d2fb29', 'tsukubai-stone-basin-677586',
-    'broadleaf-oak-997c22', 'maple-tree-65fa12', 'birch-tree-181b33', 'tall-pine-tree-ab4108', 'young-pine-0d7695'].map((n) => `pf/${n}.glb`),
+    'broadleaf-oak-997c22', 'maple-tree-65fa12', 'birch-tree-181b33', 'tall-pine-tree-ab4108', 'young-pine-0d7695',
+    'minka-farmhouse-680475', 'open-front-teahouse-c7dd18', 'kura-storehouse-5c9631', 'alley-bar-hut-3e41f8', 'machiya-townhouse-8ef64e', 'two-storey-shophouse-183790',
+    'corner-shophouse-ad15c2', 'wide-shophouse-089f20', 'three-storey-shophouse-2f6378', 'bathhouse-4ac41a', 'buddhist-temple-hall-f0aa09',
+    'tiered-pagoda-f4ade0', 'tenshu-keep-2ff636'].map((n) => `pf/${n}.glb`),
 };
 // nhân vật chibi KayKit Adventurers + Skeletons (models/kk/chr/c0..c7), thứ tự trùng CHARACTERS trong characters.js
-const CHAR3D = ['c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'];
-KIT_FILES.chr = CHAR3D.map((n) => `kk/chr/${n}.glb`);
+// mỗi nhân vật: file mô hình + các bộ phận ẩn đi (biến thể không mũ / không mũ giáp)
+const CHAR3D = [
+  { f: 'c0' }, { f: 'c1' }, { f: 'c2' }, { f: 'c3' }, { f: 'c4' }, { f: 'c5' }, { f: 'c6' }, { f: 'c7' },
+  { f: 'c8' }, { f: 'c0', hide: /Helmet/i }, { f: 'c1', hide: /Hat/i }, { f: 'c2', hide: /Hat/i },
+];
+KIT_FILES.chr = [...new Set(CHAR3D.map((c) => c.f))].map((n) => `kk/chr/${n}.glb`);
 const KIT = { ready: false, tpl: {}, anim: {}, skClone: null };
 export const __kitFiles = () => KIT_FILES;
 const kitKey = (f) => f.replace(/^(kk\/|pf\/)/, (m) => (m === 'pf/' ? 'pf/' : '')).replace(/\.(gltf|glb)$/, '');
@@ -1014,6 +1104,79 @@ function ownerPlate(color, w = 0.74, d = 0.62) {
   rim.position.y = 0.012; g.add(rim);
   return g;
 }
+// ======================= nhà theo cấp: phố Á Đông (Polyfork), mái tô màu chủ đất, sân vườn nhỏ =======================
+let HOUSE_STYLE = 'asia';
+export function setHouseStyle(v) { HOUSE_STYLE = v; }
+const HOUSE_SETS = {
+  1: ['pf/minka-farmhouse-680475', 'pf/open-front-teahouse-c7dd18', 'pf/kura-storehouse-5c9631', 'pf/alley-bar-hut-3e41f8'],
+  2: ['pf/machiya-townhouse-8ef64e', 'pf/two-storey-shophouse-183790', 'pf/corner-shophouse-ad15c2', 'pf/wide-shophouse-089f20'],
+  3: ['pf/buddhist-temple-hall-f0aa09', 'pf/bathhouse-4ac41a', 'pf/buddhist-temple-hall-f0aa09', 'pf/bathhouse-4ac41a'],
+  4: ['pf/tiered-pagoda-f4ade0', 'pf/tenshu-keep-2ff636', 'pf/tiered-pagoda-f4ade0', 'pf/tenshu-keep-2ff636'],
+};
+const HOUSE_FIT = { 1: [0.5, 0.5], 2: [0.56, 0.72], 3: [0.62, 0.95], 4: [0.6, 1.45] };
+const tintCache = new Map();
+/** tô lại mái nhà (mặt hướng lên, nửa trên, màu không quá sáng) theo màu chủ đất */
+function tintRoofs(grp, color) {
+  const oc = new THREE.Color(color);
+  grp.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(grp), H = box.max.y - box.min.y, y0 = box.min.y;
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3(), col = new THREE.Color();
+  grp.traverse((m) => {
+    if (!m.isMesh || !m.geometry.attributes.color) return;
+    const key = m.geometry.uuid + color;
+    if (tintCache.has(key)) { m.geometry = tintCache.get(key); return; }
+    const geo = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+    const pos = geo.attributes.position, colA = geo.attributes.color;
+    for (let t = 0; t < pos.count; t += 3) {
+      a.fromBufferAttribute(pos, t).applyMatrix4(m.matrixWorld); b.fromBufferAttribute(pos, t + 1).applyMatrix4(m.matrixWorld); c.fromBufferAttribute(pos, t + 2).applyMatrix4(m.matrixWorld);
+      n.subVectors(c, b).cross(new THREE.Vector3().subVectors(a, b)).normalize();
+      const cy = (a.y + b.y + c.y) / 3;
+      if (n.y < 0.3 || cy < y0 + H * 0.4) continue;
+      col.fromBufferAttribute(colA, t);
+      const L = 0.3 * col.r + 0.59 * col.g + 0.11 * col.b;
+      if (L > 0.6) continue;                   // giữ tường trắng, bậc thềm
+      const k = 0.55 + L * 1.2;
+      for (let j = 0; j < 3; j++) colA.setXYZ(t + j, Math.min(1, oc.r * k), Math.min(1, oc.g * k), Math.min(1, oc.b * k));
+    }
+    colA.needsUpdate = true;
+    tintCache.set(key, geo); m.geometry = geo;
+  });
+  return grp;
+}
+/** sân nhà: đế màu chủ đất viền trắng + thảm cỏ + bụi cây / đèn nhỏ theo cấp */
+function housePlot(color, lvl, st) {
+  const g = new THREE.Group();
+  const w = 0.78, d = 0.66;
+  const plate = new THREE.Mesh(new RoundedBoxGeometry(w, 0.06, d, 3, 0.025), new THREE.MeshStandardMaterial({ color, roughness: 0.45, metalness: 0.05 }));
+  plate.position.y = 0.03; plate.receiveShadow = true; plate.castShadow = true; g.add(plate);
+  const lawn = new THREE.Mesh(new RoundedBoxGeometry(w - 0.1, 0.02, d - 0.1, 2, 0.01), new THREE.MeshStandardMaterial({ color: '#86c46a', roughness: 1 }));
+  lawn.position.y = 0.065; lawn.receiveShadow = true; g.add(lawn);
+  const bush = KIT.tpl['city/bush'];
+  const spots = lvl >= 3 ? [[-0.3, 0.24], [0.3, 0.24], [-0.3, -0.24]] : lvl === 2 ? [[-0.3, 0.24], [0.3, 0.24]] : [[0.3, 0.24]];
+  spots.forEach(([x, z]) => { const b = kit('city/bush', { fit: 0.14 }); if (b) { b.position.set(x, 0.075, z); g.add(b); } });
+  if (lvl >= 2) {
+    const lamp = new THREE.Group();
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.01, 0.2, 6), std('#3a3040')); pole.position.y = 0.1; lamp.add(pole);
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.022, 10, 8), new THREE.MeshStandardMaterial({ color: '#fff3c4', emissive: '#ffc85a', emissiveIntensity: 2 })); bulb.position.y = 0.21; lamp.add(bulb);
+    lamp.position.set(-0.32, 0.075, -0.22); g.add(lamp);
+  }
+  void bush; void st;
+  return g;
+}
+function houseModel(type, lvl, st, color) {
+  const g = new THREE.Group();
+  const L = Math.min(4, lvl), s = ((st % 4) + 4) % 4;
+  const name = HOUSE_SETS[L][s];
+  const m = kit(name, { fit: HOUSE_FIT[L][0], hmax: HOUSE_FIT[L][1] });
+  if (!m) return null;
+  tintRoofs(m, color);
+  g.add(housePlot(color, L, s));
+  m.position.y = 0.075; g.add(m);
+  if (L === 4) hotelTop(g, m.userData.height + 0.075, color);
+  else { const f = ownerFlag(color); f.scale.setScalar(0.7); f.position.set(0.34, 0.075, -0.24); g.add(f); }
+  return g;
+}
+
 function kitModel(type, lvl, st, color) {
   const g = new THREE.Group();
   if (type === 'resort') {
@@ -1024,6 +1187,7 @@ function kitModel(type, lvl, st, color) {
     return g;
   }
   if (lvl === 0) { g.add(ownerFlag(color)); return g; }
+  const hm = HOUSE_STYLE === 'asia' ? houseModel(type, lvl, st, color) : null; if (hm) return hm;
   const L = Math.min(4, lvl);
   const name = LV_MODELS[L][((st % 2) + 2) % 2];
   const m = kit(name, { fit: LV_FIT[L][0], hmax: LV_FIT[L][1] });
@@ -1448,6 +1612,7 @@ export function setTheme(name) {
   sun.color.set(s.sun[0]); sun.intensity = s.sun[1];
   const b = BOARD_STYLE[theme];
   baseTop.color.set(b.top); baseSide.color.set(b.side); trimMat.color.set(b.trim);
+  if (arena) arena.userData.bulbOn = { midnight: '#c9b8ff', wood: '#ffe2a0', ocean: '#fff6c8', sakura: '#ffd6e8' }[theme] || '#fff2c0';
   boardGroup.getObjectByName('pedestal').material.color.set(b.ped);
   courtyard.material.map?.dispose(); courtyard.material.map = courtyardTD(b.court, b.trim); courtyard.material.needsUpdate = true;
   renderer.toneMappingExposure = s.exposure;
@@ -1499,7 +1664,7 @@ function fitCamera() {
   // vùng màn hình dành cho bàn cờ: theo khung .stage
   const r = stageEl?.getBoundingClientRect();
   let rect = r && r.width > 10 ? { x: r.left, y: r.top, w: r.width, h: r.height } : { x: 0, y: 0, w: Wv, h: Hv };
-  rect = { x: Wv * 0.15, y: 56, w: Wv * 0.7, h: Hv - 70 };   // giữa màn hình, 4 góc để thẻ người chơi
+  rect = { x: Wv * 0.15, y: 58, w: Wv * 0.7, h: Hv - 92 };   // giữa màn hình, 4 góc để thẻ người chơi
   viewRect = rect;
   const dir = camDir();
   const pts = [];
@@ -1556,6 +1721,7 @@ function loop() {
   updateCamera(t, dt);
   updateScenery(t, dt);
   updateTiles(t, dt);
+  updateArena(t);
   updateBuildings(t, dt, now);
   updateGates(t, now);
   updateTokens(t, now, dt);

@@ -288,7 +288,7 @@ html[data-skin] body .cp-name, html[data-skin] body .cp-side small { color: var(
 .td-update .td-bar em { display: block; height: 100%; background: #fff; border-radius: 99px; transition: width .2s; }
 
 /* chọn bộ xúc xắc */
-.td-dsw { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.td-dsw { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
 .td-die { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px 5px; border-radius: 12px; cursor: pointer;
   background: var(--panel2); border: 1.5px solid var(--border); color: var(--dim); font-family: var(--font); transition: transform .12s; }
 .td-die:hover { transform: translateY(-2px); }
@@ -299,3 +299,42 @@ html[data-skin] body .cp-name, html[data-skin] body .cp-side small { color: var(
 /* nút camera bám nhân vật: tắt thì mờ + gạch chéo */
 html[data-skin] body .td-cam.off { opacity: .55; position: relative; }
 html[data-skin] body .td-cam.off::after { content: ''; position: absolute; left: 9px; right: 9px; top: 50%; height: 2.5px; background: currentColor; transform: rotate(-40deg); border-radius: 2px; }
+
+/* giao diện + xúc xắc ở cột trái trang chủ */
+.td-picks { display: flex; flex-direction: column; gap: 14px; max-width: 520px; padding: 16px 18px; border-radius: 20px;
+  background: color-mix(in srgb, var(--panel) 72%, transparent); border: 1px solid var(--border); box-shadow: 0 14px 30px color-mix(in srgb, var(--shadow) 55%, transparent); }
+html[data-skin] body .td-left { gap: 20px; }
+html[data-skin] body .td-title { font-size: clamp(54px, 6vw, 104px); }
+@media (max-height: 820px) {
+  html[data-skin] body .td-title { font-size: clamp(46px, 5vw, 76px); }
+  html[data-skin] body .td-desc { display: none; }
+  html[data-skin] body .td-glyphs { display: none; }
+  html[data-skin] body .td-left { gap: 14px; }
+  .td-picks { padding: 12px 14px; gap: 10px; }
+  .td-sw-prev { height: 34px; }
+  .td-die img { height: 32px; }
+}
+html[data-skin] body .modal-box:has(> ul), html[data-skin] body .modal-box:has(ul li) { width: min(720px, 100%); font-size: 14px; }
+html[data-skin] body .modal-box ul { columns: 2; column-gap: 26px; }
+html[data-skin] body .modal-box ul li { break-inside: avoid; margin-bottom: 4px; }
+
+/* ---------- bảng thao tác giữa bàn (mua đất, nâng cấp…) theo màu giao diện ---------- */
+html[data-skin] body .offer { background: var(--panel); color: var(--text); border: 1px solid var(--border); box-shadow: 0 22px 48px var(--shadow); }
+html[data-skin] body .offer .o-head { color: var(--text); }
+html[data-skin] body .offer .o-head small { color: var(--dim) !important; }
+html[data-skin] body .offer .sub, html[data-skin] body .actions .sub { color: var(--dim); text-shadow: none; }
+html[data-skin] body .actions .msg { background: var(--panel); color: var(--text); border: 1px solid var(--border); box-shadow: 0 12px 28px var(--shadow); }
+html[data-skin] body .actions .btn { border-radius: calc(var(--u) * 1.4); }
+html[data-skin] body .lvls .btn small { color: inherit; opacity: .85; }
+html[data-skin] body .btn:not(.primary):not(.gold):not(.green) { color: var(--text); }
+html[data-skin] body .timer { background: color-mix(in srgb, var(--border) 70%, transparent); }
+html[data-skin] body .timer i { background: linear-gradient(90deg, var(--a1), var(--a2)); }
+/* chú thích ô đất / người chơi */
+html[data-skin] body .tp-head small { background: var(--panel2); color: var(--dim); }
+html[data-skin] body .tp-row span, html[data-skin] body .tp-rents span small { color: var(--dim); }
+html[data-skin] body .tp-row.big b, html[data-skin] body .tp-row b.pos { color: var(--money); }
+html[data-skin] body .tp-desc { color: var(--text); }
+html[data-skin] body .tp-rents span { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+html[data-skin] body .tp-rents span.now { background: var(--accent); color: #fff; border-color: transparent; }
+html[data-skin] body .tp-rents span.now small { color: #fff; opacity: .85; }
+html[data-skin] body .tp-list { border-top-color: var(--border); }
