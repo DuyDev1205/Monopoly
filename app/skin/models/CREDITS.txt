@@ -1,10 +1,14 @@
-Mô hình 3D dùng để dựng ảnh cho bản app (app/skin/models/pf/)
+Mô hình 3D dùng trong bản app (app/skin/models/)
 
-Tất cả mô hình trong thư mục pf/ là của Polyfork — https://polyfork.dev — dùng theo giấy phép CC BY 4.0
-(https://creativecommons.org/licenses/by/4.0/). Một số mô hình đã được chỉnh sửa (đổi màu mái theo người chơi,
-ghép cảnh, thêm động tác). Mỗi file mang tên trang gốc: https://polyfork.dev/asset/<tên file không có .glb>
-Ví dụ: Farmer by Polyfork (https://polyfork.dev/asset/farmer-base), CC BY 4.0.
+kk/ — KayKit của Kay Lousberg (https://kaylousberg.com), giấy phép CC0 1.0, tải từ github.com/KayKit-Game-Assets:
+  chr/  KayKit Character Pack: Adventurers 1.0 + Skeletons 1.0 (đã bỏ vũ khí và rút gọn hoạt ảnh bằng app/tools/prep_models.py)
+        c0 Knight · c1 Mage · c2 Barbarian · c3 Rogue · c4 Rogue Hooded · c5 Skeleton Warrior · c6 Skeleton Mage · c7 Skeleton Minion
+  city/ KayKit City Builder Bits 1.0     med/ KayKit Medieval Hexagon Pack 1.0     dun/ KayKit Dungeon Remastered 1.0
 
-Ảnh 2D trong app/skin/sprites/ và chân dung app/skin/chars/ được dựng từ các mô hình trên bằng app/tools/bake.py.
-Cổng Festival, cờ chủ đất, biển HOTEL và xúc xắc vẽ bằng code (app/skin/scene3d.js).
-PixiJS (MIT) — app/skin/vendor/pixi/LICENSE · pixi-filters (MIT) — app/skin/vendor/pixi/LICENSE-filters · three.js (MIT) — app/skin/vendor/three/LICENSE
+pf/ — Polyfork (https://polyfork.dev), giấy phép CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
+  Mỗi file mang tên trang gốc: https://polyfork.dev/asset/<tên file không có .glb>
+  Ví dụ: Cherry Blossom Tree by Polyfork (https://polyfork.dev/asset/cherry-blossom-tree-3f7ab7), CC BY 4.0.
+
+Chân dung app/skin/chars/ và ảnh xúc xắc app/skin/dice/ dựng từ các mô hình trên bằng app/tools/portraits.py.
+Cổng Festival, cờ chủ đất, biển HOTEL, xúc xắc vẽ bằng code (app/skin/scene3d.js).
+three.js (MIT) — app/skin/vendor/three/LICENSE

@@ -16,8 +16,16 @@ for (const p of ['css', 'js', 'assets', 'manifest.webmanifest']) {
 }
 // mô hình 3D + Three.js chỉ cần khi dựng ảnh (BAKE=1 node build.mjs); bản đóng gói chỉ chở ảnh đã dựng
 const BAKE = process.env.BAKE === '1';
-const SKIP = BAKE ? [] : ['models', join('vendor', 'three'), 'scene3d.js'].map((p) => join(here, 'skin', p));
-cpSync(join(here, 'skin'), join(dist, 'skin'), { recursive: true, filter: (src) => !SKIP.some((s) => src === s || src.startsWith(s + sep)) });
+// bản đóng gói chỉ chở các mô hình được dùng (danh sách KIT_FILES trong scene3d.js)
+const s3 = readFileSync(join(here, 'skin', 'scene3d.js'), 'utf8');
+const PF_USED = new Set([...s3.matchAll(/'([a-z0-9-]+-[0-9a-f]{6})'/g)].map((m) => m[1] + '.glb'));
+const SKIP = ['sprites', 'scene2d.js', join('vendor', 'pixi')].map((p) => join(here, 'skin', p));
+const PF = join(here, 'skin', 'models', 'pf');
+cpSync(join(here, 'skin'), join(dist, 'skin'), { recursive: true, filter: (src) => {
+  if (SKIP.some((s) => src === s || src.startsWith(s + sep))) return false;
+  if (src.startsWith(PF + sep) && !BAKE && !PF_USED.has(src.slice(PF.length + 1))) return false;
+  return true;
+} });
 
 
 let html = readFileSync(join(root, 'index.html'), 'utf8');
@@ -33,7 +41,7 @@ html = html
   .replace(/<link href="https:\/\/fonts\.googleapis\.com[^>]*>\n?/, '')
   .replace('<link rel="stylesheet" href="css/style.css">', `<link rel="stylesheet" href="css/style.css">\n<link rel="stylesheet" href="skin/skin-td.css">\n${theme}`)
   .replace('<script type="module" src="js/app.js"></script>',
-    `<script type="importmap">${JSON.stringify({ imports: { 'pixi.js': './skin/vendor/pixi/pixi.min.mjs', ...(BAKE ? { three: './skin/vendor/three/three.module.js', 'three/addons/': './skin/vendor/three/addons/' } : {}) } })}</script>\n` +
+    `<script type="importmap">${JSON.stringify({ imports: { three: './skin/vendor/three/three.module.js', 'three/addons/': './skin/vendor/three/addons/' } })}</script>\n` +
     '<script type="module" src="skin/skin-td.js"></script>\n<script type="module" src="js/app.js"></script>');
 writeFileSync(join(dist, 'index.html'), html);
 console.log(`app/dist sẵn sàng (v${pkg.version})`);

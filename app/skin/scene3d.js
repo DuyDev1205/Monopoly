@@ -1,6 +1,6 @@
 // Bộ vẽ 3D (Three.js / WebGL): bàn cờ, ô đất, nhà, quân cờ, xúc xắc, cổng Festival, cảnh nền theo theme.
 // app.js chỉ gọi các hàm xuất ra ở cuối file; luật chơi không phụ thuộc vào file này.
-// Chỉ dùng trong bản app (exe/dmg). Nhà, cây, đồ trang trí: mô hình CC0 của Kenney (www.kenney.nl).
+// Chỉ dùng trong bản app (exe/dmg). Nhà, nhân vật, cây, xu: KayKit (CC0). Cây anh đào, dừa, chòi biển: Polyfork (CC BY 4.0).
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
@@ -110,9 +110,10 @@ export async function init({ stage, onTileClick }) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.toneMappingExposure = 1.0;
   scene = new THREE.Scene();
+  { const { RoomEnvironment } = await import('three/addons/environments/RoomEnvironment.js'); scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.5; }
   camera = new THREE.PerspectiveCamera(32, 1, 0.1, 900);
   clock = new THREE.Clock();
   raycaster = new THREE.Raycaster();
@@ -283,6 +284,7 @@ export function updateTile(i, u) {
 export function setPicks(list) {
   const set = list ? new Set(list) : null;
   tiles.forEach((T, i) => { T.st.pick = !!set && set.has(i); T.st.dim = !!set && set.size > 0 && !set.has(i); });
+  pickActive = !!set && set.size > 0;
 }
 export function setChosen(list) { const s = new Set(list || []); tiles.forEach((T, i) => { T.st.chosen = s.has(i); }); }
 export function stepFlash(i) { if (tiles[i]) tiles[i].st.step = 1; }
@@ -448,6 +450,7 @@ export function setBuilding(i, info) {
   root.position.copy(p);
   root.rotation.y = KIT.ready ? Math.atan2(-t.far.x, -t.far.z) : t.rotY;   // mặt tiền nhà quay ra mép gần (phía chữ)
   root.userData = { key, model, t0: performance.now(), anim: po === String(info.owner) && +pl < info.lvl ? 'up' : 'grow', lvl: info.lvl };
+  if (performance.now() - readyAt > 1500) setTimeout(() => buildFx(p.clone(), info.type === 'resort' ? 1 : info.lvl), 350);
   setFestLabel(root, info.festMult);
   bldGroup.add(root);
   buildings[i] = root;
@@ -576,24 +579,22 @@ const SLOTS = [[0], [-0.2, 0.2], [-0.27, 0, 0.27], [-0.33, -0.11, 0.11, 0.33]];
 let _shadowTex;
 function shadowTex() { if (_shadowTex) return _shadowTex; const [c, g] = canvas(64, 64); const r = g.createRadialGradient(32, 32, 2, 32, 32, 30); r.addColorStop(0, 'rgba(30,0,40,.55)'); r.addColorStop(1, 'rgba(30,0,40,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); return (_shadowTex = texOf(c)); }
 /** players: [{ img: url ảnh nhân vật toàn thân, color }] */
-const TOKEN_H = 1.0;
+const TOKEN_H = 1.25;
 const FACE_CAM = Math.PI / 4;                 // camera nhìn từ góc +x+z
 function charToken(k) {
   const idx = ((k % CHAR3D.length) + CHAR3D.length) % CHAR3D.length;
-  const name = `chr2/${CHAR3D[idx]}`;
+  const name = `chr/${CHAR3D[idx]}`;
   const src = KIT.tpl[name];
   if (!src || !KIT.skClone) return null;
   const o = KIT.skClone(src);
-  o.traverse((c) => { if (c !== o && HIDE_PROPS.test(c.name || '')) c.visible = false; });
   o.updateMatrixWorld(true);
   const box = visibleBox(o), H = box.max.y - box.min.y;
-  if (idx === 2) addNonLa(o, box);               // Bác Ba: đội nón lá
-  o.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.frustumCulled = false; (Array.isArray(c.material) ? c.material : [c.material]).forEach((m) => { m.metalness = 0; }); } });
+  o.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.frustumCulled = false; } });
   const s = TOKEN_H / H;
-  o.scale.setScalar(s); o.position.y = -box.min.y * s;
+  o.scale.multiplyScalar(s); o.position.y = -box.min.y * s;
   const wrap = new THREE.Group(); wrap.add(o); wrap.rotation.y = FACE_CAM;
   const mixer = new THREE.AnimationMixer(o), acts = {};
-  (KIT.anim[name] || []).forEach((clip) => { const key = clipKey(clip.name); if (key && !acts[key]) acts[key] = mixer.clipAction(clip); });
+  (KIT.anim[name] || []).forEach((clip) => { acts[clip.name] = mixer.clipAction(clip); });
   const pick = (n) => (ANIM_ALIAS[n] || [n]).map((x) => acts[x]).find(Boolean);
   const play = (n, { once = false, fade = 0.2 } = {}) => {
     const a = pick(n); if (!a) return;
@@ -604,19 +605,14 @@ function charToken(k) {
   };
   mixer.addEventListener('finished', () => { if (!wrap.userData.dead) play('idle'); });
   play('idle');
+  mixer.update(Math.random() * 2);
   return { wrap, mixer, play };
 }
-// vũ khí / đạo cụ cầm tay trong mô hình gốc: ẩn đi
-const HIDE_PROPS = /weapon|axe|sword|knife|pistol|gun|staff|lute|cutlass|dagger/i;
-// tên hoạt ảnh Quaternius rất dài, lấy phần có nghĩa (Idle, Walk, Yes, No, Death…)
-const CLIP_KEYS = ['idle', 'walk', 'run', 'jump', 'yes', 'no', 'wave', 'death', 'hitreact', 'recievehit', 'pickup', 'roll', 'spell1', 'punch'];
-function clipKey(n) {
-  const parts = n.split('|').map((p) => p.trim().toLowerCase());
-  return parts.find((p) => CLIP_KEYS.includes(p)) || null;
-}
+const HIDE_PROPS = /^$/;
+const clipKey = (n) => n;
 const ANIM_ALIAS = {
-  idle: ['idle'], walk: ['walk', 'run'], jump: ['jump', 'roll', 'run'],
-  'emote-yes': ['yes', 'wave', 'pickup', 'spell1', 'jump'], 'emote-no': ['no', 'hitreact', 'recievehit'], die: ['death'],
+  idle: ['Idle'], walk: ['Walking_A', 'Running_A'], jump: ['Jump_Full_Short', 'Jump_Full_Long'],
+  'emote-yes': ['Cheer'], 'emote-no': ['Hit_A'], die: ['Death_A'],
 };
 function visibleBox(o) {
   const box = new THREE.Box3(), b = new THREE.Box3();
@@ -627,26 +623,10 @@ function visibleBox(o) {
   });
   return box.isEmpty() ? new THREE.Box3().setFromObject(o) : box;
 }
-function addNonLa(o, box) {
-  let head = null;
-  o.traverse((c) => { if (!head && c.isBone && /head/i.test(c.name)) head = c; });
-  const w = (box.max.x - box.min.x) * 0.95, top = new THREE.Vector3((box.min.x + box.max.x) / 2, box.max.y - w * 0.06, (box.min.z + box.max.z) / 2);
-  const non = new THREE.Group();
-  const cone = new THREE.Mesh(new THREE.ConeGeometry(w * 0.55, w * 0.32, 32, 1, true), new THREE.MeshStandardMaterial({ color: '#e9cf8a', roughness: 0.85, side: THREE.DoubleSide }));
-  cone.position.y = w * 0.16; cone.castShadow = true; non.add(cone);
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(w * 0.54, w * 0.022, 6, 32), new THREE.MeshStandardMaterial({ color: '#c9a95a', roughness: 0.9 }));
-  rim.rotation.x = Math.PI / 2; non.add(rim);
-  if (head) {
-    head.updateMatrixWorld(true);
-    const ws = head.getWorldScale(new THREE.Vector3()).x || 1;
-    non.position.copy(head.worldToLocal(top.clone()));
-    non.scale.setScalar(1 / ws);
-    const q = head.getWorldQuaternion(new THREE.Quaternion()).invert(); non.quaternion.copy(q);
-    head.add(non);
-  } else { non.position.copy(top); o.add(non); }
-}
+function addNonLa() {}
 export async function setTokens(players) {
   tokens.forEach((tk) => tokenGroup.remove(tk.grp));
+  readyAt = performance.now();
   if (!tokenGroup.userData.lit) { const l = new THREE.DirectionalLight('#ffffff', 1.1); l.position.set(6, 9, 8); tokenGroup.add(l); tokenGroup.userData.lit = true; }
   tokens = await Promise.all(players.map(async (p) => {
     const grp = new THREE.Group();
@@ -656,8 +636,12 @@ export async function setTokens(players) {
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.01; grp.add(ring);
     const ch = p.char != null ? charToken(p.char) : null;
     if (ch) {
+      // đế quân cờ theo màu người chơi
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.23, 0.07, 32), new THREE.MeshStandardMaterial({ color: p.color || '#ffd23f', roughness: 0.35, metalness: 0.1 }));
+      base.position.y = 0.035; base.castShadow = true; base.receiveShadow = true; grp.add(base);
+      ch.wrap.position.y = 0.07;
       grp.add(ch.wrap); tokenGroup.add(grp);
-      return { grp, sp: ch.wrap, model: ch, ring, sh, h: TOKEN_H, from: null, to: null, t0: 0, dur: 0, arc: 0, cur: false, out: false };
+      return { grp, sp: ch.wrap, model: ch, ring, sh, h: TOKEN_H, mine: p.mine ?? !p.bot, from: null, to: null, t0: 0, dur: 0, arc: 0, cur: false, out: false };
     }
     const im = await loadImg(p.img);
     const [cv, cg] = canvas(240, 416);
@@ -691,7 +675,7 @@ export function placeToken(pid, place, opt = {}) {
     tk.model.play(opt.dur > 600 ? 'jump' : 'walk', { fade: 0.08 });
   }
 }
-export function setCurrent(pid) { tokens.forEach((tk, i) => { tk.cur = i === pid; }); }
+export function setCurrent(pid) { curPid = pid; tokens.forEach((tk, i) => { tk.cur = i === pid; }); }
 function updateTokens(t, now, dt = 0.016) {
   tokens.forEach((tk) => {
     if (tk.model) {
@@ -699,8 +683,8 @@ function updateTokens(t, now, dt = 0.016) {
       if (tk.from) {
         const k = Math.min(1, (now - tk.t0) / tk.dur), e = ease.inOut(k);
         tk.grp.position.lerpVectors(tk.from, tk.to, e);
-        tk.sp.position.y = Math.sin(k * Math.PI) * tk.arc;
-        if (k >= 1) { tk.from = null; tk.sp.position.y = 0; tk.walkEnd = now; }
+        tk.sp.position.y = 0.07 + Math.sin(k * Math.PI) * tk.arc;
+        if (k >= 1) { tk.from = null; tk.sp.position.y = 0.07; tk.walkEnd = now; }
       } else if (tk.walkEnd && now - tk.walkEnd > 140) {   // dừng hẳn: quay mặt về camera, đứng thở
         tk.walkEnd = 0; tk.model.wrap.rotation.y = FACE_CAM; if (!tk.model.wrap.userData.dead) tk.model.play('idle', { fade: 0.25 });
       }
@@ -722,21 +706,66 @@ function updateTokens(t, now, dt = 0.016) {
 }
 
 // ======================= xúc xắc =======================
+// 8 bộ xúc xắc; người chơi trên máy này dùng bộ đã chọn, người khác / máy dùng bộ khác
+export const DICE_KEYS = ['classic', 'gold', 'jade', 'ruby', 'wood', 'neon', 'crystal', 'sakura'];
+const DICE_SKINS = {
+  classic: { bg: ['#ffffff', '#ece4d6'], pip: ['#5a5a5a', '#0d0d0d'], red: ['#ff6b6b', '#b3121b'], mat: { roughness: 0.3, clearcoat: 0.6 } },
+  gold: { bg: ['#fff1b8', '#d39a12'], pip: ['#6b3d00', '#2e1a00'], red: ['#c0182a', '#5a0008'], mat: { roughness: 0.25, metalness: 0.6, clearcoat: 0.8 }, ring: '#b07a08' },
+  jade: { bg: ['#a8f5cf', '#24905f'], pip: ['#fff6c8', '#d9a21b'], red: ['#fff6c8', '#d9a21b'], mat: { roughness: 0.15, clearcoat: 1 }, marble: '#ffffff' },
+  ruby: { bg: ['#ff7a90', '#9c0f2a'], pip: ['#ffffff', '#f1dde3'], red: ['#ffe14d', '#d9a21b'], mat: { roughness: 0.15, clearcoat: 1 } },
+  wood: { bg: ['#e0ac72', '#94592a'], pip: ['#3a2210', '#140802'], red: ['#7a1f10', '#2a0802'], mat: { roughness: 0.75 }, grain: true },
+  neon: { bg: ['#232850', '#090b1d'], pip: ['#c8fbff', '#35d5ff'], red: ['#ffc4e2', '#ff4f8b'], mat: { roughness: 0.3, clearcoat: 0.9 }, glow: true },
+  crystal: { bg: ['#f4fcff', '#9fd2ee'], pip: ['#3d74b0', '#16365e'], red: ['#3d74b0', '#16365e'], mat: { roughness: 0.05, clearcoat: 1 }, facets: true },
+  sakura: { bg: ['#fff3f8', '#f5b5cf'], pip: ['#e0598d', '#93204c'], red: ['#e0598d', '#93204c'], mat: { roughness: 0.3, clearcoat: 0.7 }, flower: true },
+};
 const PIPS = { 1: [[0.5, 0.5]], 2: [[0.27, 0.27], [0.73, 0.73]], 3: [[0.27, 0.27], [0.5, 0.5], [0.73, 0.73]], 4: [[0.27, 0.27], [0.73, 0.27], [0.27, 0.73], [0.73, 0.73]],
   5: [[0.27, 0.27], [0.73, 0.27], [0.5, 0.5], [0.27, 0.73], [0.73, 0.73]], 6: [[0.27, 0.25], [0.73, 0.25], [0.27, 0.5], [0.73, 0.5], [0.27, 0.75], [0.73, 0.75]] };
 // thứ tự mặt BoxGeometry: +x, -x, +y, -y, +z, -z
 const FACE_N = [2, 5, 1, 6, 3, 4];
 const FACE_DIR = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1)];
-function pipTex(n) {
+function skinFace(n, S) {
   const [c, g] = canvas(256, 256);
-  const gr = g.createRadialGradient(90, 80, 10, 128, 128, 180); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#efe8dc'); g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
-  PIPS[n].forEach(([x, y]) => { const r = g.createRadialGradient(x * 256 - 6, y * 256 - 6, 2, x * 256, y * 256, 26); r.addColorStop(0, n === 1 || n === 4 ? '#ff6b6b' : '#555'); r.addColorStop(1, n === 1 || n === 4 ? '#b3121b' : '#0d0d0d'); g.fillStyle = r; g.beginPath(); g.arc(x * 256, y * 256, n === 1 ? 32 : 22, 0, Math.PI * 2); g.fill(); });
+  const bg = g.createRadialGradient(80, 70, 10, 128, 128, 200); bg.addColorStop(0, S.bg[0]); bg.addColorStop(1, S.bg[1]);
+  g.fillStyle = bg; g.fillRect(0, 0, 256, 256);
+  if (S.grain) { for (let k = 0; k < 26; k++) { g.strokeStyle = `rgba(80,40,10,${0.12 + (k % 3) * 0.06})`; g.lineWidth = 2 + (k % 4); g.beginPath(); const y = k * 10 + 3; g.moveTo(0, y); for (let x = 0; x <= 256; x += 16) g.lineTo(x, y + Math.sin(x / 30 + k) * 5); g.stroke(); } }
+  if (S.marble) { g.globalAlpha = 0.28; g.strokeStyle = S.marble; for (let k = 0; k < 7; k++) { g.lineWidth = 1 + (k % 3); g.beginPath(); let x = (k * 41) % 256, y = 0; g.moveTo(x, y); while (y < 256) { x += Math.sin(y / 23 + k) * 14; y += 12; g.lineTo(x, y); } g.stroke(); } g.globalAlpha = 1; }
+  if (S.facets) { g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 3; [[0, 0, 256, 256], [256, 0, 0, 256], [128, 0, 128, 256], [0, 128, 256, 128]].forEach(([a, b, x, y]) => { g.beginPath(); g.moveTo(a, b); g.lineTo(x, y); g.stroke(); }); }
+  if (S.ring) { g.strokeStyle = S.ring; g.lineWidth = 10; g.strokeRect(12, 12, 232, 232); }
+  if (S.flower && n === 1) {
+    g.save(); g.translate(128, 128);
+    for (let k = 0; k < 5; k++) { g.rotate((Math.PI * 2) / 5); const gr = g.createLinearGradient(0, 0, 0, -78); gr.addColorStop(0, S.pip[1]); gr.addColorStop(1, S.pip[0]); g.fillStyle = gr; g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(-46, -24, -42, -78, -10, -80); g.lineTo(0, -66); g.lineTo(10, -80); g.bezierCurveTo(42, -78, 46, -24, 0, 0); g.fill(); }
+    g.fillStyle = '#ffd36b'; g.beginPath(); g.arc(0, 0, 13, 0, 7); g.fill(); g.restore();
+    return texOf(c);
+  }
+  PIPS[n].forEach(([x, y]) => {
+    const colr = n === 1 || n === 4 ? S.red : S.pip, R = n === 1 ? 34 : 23;
+    if (S.glow) { g.shadowColor = colr[1]; g.shadowBlur = 26; }
+    const r = g.createRadialGradient(x * 256 - 7, y * 256 - 7, 2, x * 256, y * 256, R); r.addColorStop(0, colr[0]); r.addColorStop(1, colr[1]);
+    g.fillStyle = r; g.beginPath(); g.arc(x * 256, y * 256, R, 0, Math.PI * 2); g.fill();
+    g.shadowBlur = 0;
+  });
   return texOf(c);
 }
+const diceMats = {};
+function matsFor(key) {
+  if (diceMats[key]) return diceMats[key];
+  const S = DICE_SKINS[key] || DICE_SKINS.classic;
+  return (diceMats[key] = FACE_N.map((n) => { const t = skinFace(n, S); return new THREE.MeshPhysicalMaterial({ map: t, ...S.mat, emissive: S.glow ? '#ffffff' : '#000000', emissiveMap: S.glow ? t : null, emissiveIntensity: S.glow ? 0.9 : 0 }); }));
+}
+let mySkin = (() => { try { const k = JSON.parse(localStorage.getItem('ctp_dice')); return DICE_KEYS.includes(k) ? k : 'classic'; } catch { return 'classic'; } })();
+let curPid = 0, lastDice = [5, 6];
+function skinOf(pid) {
+  const tk = tokens[pid];
+  if (!tk || tk.mine) return mySkin;
+  const others = DICE_KEYS.filter((k) => k !== mySkin);
+  return others[(pid * 3 + 1) % others.length];
+}
+export function setDiceSkin(k) { if (!DICE_KEYS.includes(k)) return; mySkin = k; try { localStorage.setItem('ctp_dice', JSON.stringify(k)); } catch {} if (dice.length) showDice(lastDice); }
+export const getDiceSkin = () => mySkin;
+function pipTex(n) { return skinFace(n, DICE_SKINS.classic); }
 function buildDice() {
-  const mats = FACE_N.map((n) => new THREE.MeshStandardMaterial({ map: pipTex(n), roughness: 0.35 }));
-  const geo = new RoundedBoxGeometry(0.62, 0.62, 0.62, 4, 0.1);
-  dice = [-0.42, 0.42].map((x) => { const m = new THREE.Mesh(geo, mats); m.castShadow = true; m.position.set(x, 0.32, 0); m.userData.home = new THREE.Vector3(x, 0.32, 0); boardGroup.add(m); return m; });
+  const geo = new RoundedBoxGeometry(0.62, 0.62, 0.62, 5, 0.1);
+  dice = [-0.42, 0.42].map((x) => { const m = new THREE.Mesh(geo, matsFor(mySkin)); m.castShadow = true; m.position.set(x, 0.32, 0); m.userData.home = new THREE.Vector3(x, 0.32, 0); boardGroup.add(m); return m; });
   showDice([5, 6]);
 }
 function quatFor(n, yaw) {
@@ -744,28 +773,94 @@ function quatFor(n, yaw) {
   const q = new THREE.Quaternion().setFromUnitVectors(FACE_DIR[idx], new THREE.Vector3(0, 1, 0));
   return new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw).multiply(q);
 }
-export function showDice(d) { dice.forEach((m, k) => { m.quaternion.copy(quatFor(d[k], (isFlat ? 0 : Math.PI / 4) + k * 0.3)); m.position.copy(m.userData.home); }); }
+export function showDice(d) {
+  lastDice = d; const mats = matsFor(skinOf(curPid));
+  dice.forEach((m, k) => { m.material = mats; m.quaternion.copy(quatFor(d[k], (isFlat ? 0 : Math.PI / 4) + k * 0.3)); m.position.copy(m.userData.home); });
+}
 export function rollDice(d, dur = 1000) {
+  const mats = matsFor(skinOf(curPid));
+  dice.forEach((m) => { m.material = mats; });
   return new Promise((res) => {
     const t0 = performance.now();
-    const parts = dice.map((m, k) => ({ m, q1: quatFor(d[k], (isFlat ? 0 : Math.PI / 4) + k * 0.3 + rnd(-0.2, 0.2)), axis: new THREE.Vector3(rnd(-1, 1), rnd(-0.3, 0.3), rnd(-1, 1)).normalize(), turns: rnd(3, 5) * Math.PI * 2, home: m.userData.home, start: m.userData.home.clone().add(new THREE.Vector3(rnd(-0.6, 0.6), 0, rnd(0.8, 1.4))) }));
+    const parts = dice.map((m, k) => ({ m, landed: false, q1: quatFor(d[k], (isFlat ? 0 : Math.PI / 4) + k * 0.3 + rnd(-0.2, 0.2)), axis: new THREE.Vector3(rnd(-1, 1), rnd(-0.3, 0.3), rnd(-1, 1)).normalize(), turns: rnd(3, 5) * Math.PI * 2, home: m.userData.home, start: m.userData.home.clone().add(new THREE.Vector3(rnd(-0.6, 0.6), 0, rnd(0.8, 1.4))) }));
     anims.add(() => {
       const k = Math.min(1, (performance.now() - t0) / dur);
       parts.forEach((p) => {
         const e = ease.outCubic(k);
         p.m.position.lerpVectors(p.start, p.home, e);
-        // nảy: cao lúc đầu, nảy nhỏ cuối
         const b = k < 0.55 ? Math.sin((k / 0.55) * Math.PI) * 1.5 : k < 0.82 ? Math.sin(((k - 0.55) / 0.27) * Math.PI) * 0.35 : Math.sin(((k - 0.82) / 0.18) * Math.PI) * 0.08;
         p.m.position.y = p.home.y + b;
         const spin = new THREE.Quaternion().setFromAxisAngle(p.axis, (1 - e) * p.turns);
         p.m.quaternion.copy(spin.multiply(p.q1));
+        if (!p.landed && k > 0.5 && b < 0.04) { p.landed = true; puffs(p.m.position.clone().setY(0.05), 4); }
       });
-      if (k >= 1) { res(); return false; }
+      if (k >= 1) { sparkle(new THREE.Vector3(0, 0.5, 0), '#fff2b0', 14); res(); return false; }
       return true;
     });
   });
 }
 export function hideDice(on) { dice.forEach((m) => { m.visible = !on; }); }
+
+// ======================= hiệu ứng: lấp lánh, cột sáng, pháo hoa =======================
+let _spark;
+function sparkTex() { if (_spark) return _spark; const [c, g] = canvas(64, 64); const r = g.createRadialGradient(32, 32, 1, 32, 32, 31); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.25, 'rgba(255,255,255,.85)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); return (_spark = texOf(c)); }
+function spark(color, size) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex(), color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); s.scale.setScalar(size); return s; }
+function sparkle(pos, color = '#fff2b0', n = 14, up = 2.2) {
+  for (let k = 0; k < n; k++) {
+    const s = spark(color, rnd(0.08, 0.16)); s.position.copy(pos).add(new THREE.Vector3(rnd(-0.15, 0.15), 0, rnd(-0.15, 0.15))); fxGroup.add(s);
+    const v = new THREE.Vector3(rnd(-1, 1), rnd(1, up), rnd(-1, 1)), t0 = performance.now(), life = rnd(0.7, 1.2);
+    anims.add((t, dt) => { const a = (performance.now() - t0) / 1000; v.y -= 3.2 * dt; s.position.addScaledVector(v, dt); s.material.opacity = Math.max(0, 1 - a / life); if (a > life) { fxGroup.remove(s); return false; } return true; });
+  }
+}
+let _beam;
+function beamTex() { if (_beam) return _beam; const [c, g] = canvas(64, 256); const gr = g.createLinearGradient(0, 256, 0, 0); gr.addColorStop(0, 'rgba(255,255,255,.95)'); gr.addColorStop(0.4, 'rgba(255,255,255,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 256); const hg = g.createLinearGradient(0, 0, 64, 0); hg.addColorStop(0, 'rgba(0,0,0,1)'); hg.addColorStop(0.5, 'rgba(0,0,0,0)'); hg.addColorStop(1, 'rgba(0,0,0,1)'); g.globalCompositeOperation = 'destination-out'; g.fillStyle = hg; g.fillRect(0, 0, 64, 256); return (_beam = texOf(c)); }
+function beam(pos, color = '#ffd76a', h = 3.2, life = 1.6) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, h, 24, 1, true), new THREE.MeshBasicMaterial({ map: beamTex(), color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+  m.position.copy(pos).setY(pos.y + h / 2); fxGroup.add(m);
+  const t0 = performance.now();
+  anims.add(() => { const a = (performance.now() - t0) / 1000 / life; m.material.opacity = a < 0.15 ? a / 0.15 : Math.max(0, 1 - (a - 0.15) / 0.85); m.scale.set(1 + Math.sin(a * Math.PI) * 0.3, 1, 1 + Math.sin(a * Math.PI) * 0.3); m.rotation.y += 0.02; if (a >= 1) { fxGroup.remove(m); return false; } return true; });
+}
+const FW_COLORS = ['#ff4d6d', '#ffd60a', '#3a86ff', '#06d6a0', '#ff9f1c', '#b15cff', '#ffffff'];
+function firework(pos, delay = 0, color) {
+  const colr = color || FW_COLORS[(Math.random() * FW_COLORS.length) | 0];
+  const born = performance.now() + delay, topY = pos.y + rnd(2.4, 3.4);
+  const rocket = spark('#fff4c2', 0.18); rocket.visible = false; rocket.position.copy(pos); fxGroup.add(rocket);
+  let done = false;
+  anims.add(() => {
+    const a = (performance.now() - born) / 1000;
+    if (a < 0) return true;
+    if (!done) {
+      rocket.visible = true; const k = Math.min(1, a / 0.55); rocket.position.y = pos.y + (topY - pos.y) * ease.outCubic(k);
+      if (k >= 1) {
+        done = true; fxGroup.remove(rocket);
+        const c = rocket.position.clone();
+        for (let i = 0; i < 40; i++) {
+          const s = spark(i % 5 === 0 ? '#ffffff' : colr, rnd(0.1, 0.18)); s.position.copy(c); fxGroup.add(s);
+          const v = new THREE.Vector3().randomDirection().multiplyScalar(rnd(1.6, 2.4)), b0 = performance.now(), life = rnd(1, 1.5);
+          anims.add((t, dt) => { const q = (performance.now() - b0) / 1000; v.multiplyScalar(1 - dt * 1.8); v.y -= 1.2 * dt; s.position.addScaledVector(v, dt); s.material.opacity = Math.max(0, 1 - q / life) * (0.7 + 0.3 * Math.sin(q * 40)); if (q > life) { fxGroup.remove(s); return false; } return true; });
+        }
+        const fl = new THREE.PointLight(colr, 18, 8, 1.5); fl.position.copy(c); fxGroup.add(fl);
+        const fb = performance.now(); anims.add(() => { const q = (performance.now() - fb) / 450; fl.intensity = 18 * Math.max(0, 1 - q); if (q >= 1) { fxGroup.remove(fl); return false; } return true; });
+        return false;
+      }
+    }
+    return true;
+  });
+}
+/** pháo hoa trên một ô (lễ hội, festival) */
+export function fireworks(i) { const p = tp(i, 0, 0.5, TH); for (let k = 0; k < 3; k++) firework(p.clone().add(new THREE.Vector3(rnd(-0.3, 0.3), 0, rnd(-0.3, 0.3))), k * 260); cam.punch = Math.max(cam.punch, 0.06); }
+/** mừng độc quyền: pháo hoa + cột sáng trên cả nhóm ô */
+export function celebrate(list) {
+  (list || []).forEach((i, k) => { const p = tp(i, 0, 0.4, TH); setTimeout(() => { beam(p, '#ffd76a', 3, 1.4); sparkle(p, '#ffe27a', 16); }, k * 220); firework(p, 300 + k * 260, ['#ffd60a', '#ff4d6d', '#06d6a0'][k % 3]); });
+  cam.punch = Math.max(cam.punch, 0.1);
+}
+function buildFx(pos, lvl) {
+  puffs(pos, 6); sparkle(pos.clone().setY(pos.y + 0.3), '#fff2b0', lvl >= 4 ? 26 : 12);
+  if (lvl >= 4) { beam(pos, '#ffd76a', 3.6, 1.7); firework(pos, 450, '#ffd60a'); cam.punch = Math.max(cam.punch, 0.08); }
+}
+// camera: bám theo quân đang đi rồi lùi về toàn cảnh
+const cam = { f: 1, tx: 0, tz: 0, follow: -1, until: 0, punch: 0, base: null, dir: null };
+let pickActive = false, readyAt = 0;
 
 // ======================= đánh dấu ô đích =======================
 function buildMarker() {
@@ -790,34 +885,31 @@ function updateMarker(t) { if (!markerGrp.visible) return; markerGrp.userData.ri
 export function showPile(amount) {
   clearPile();
   pileGrp = new THREE.Group(); boardGroup.add(pileGrp);
-  const gold = new THREE.MeshStandardMaterial({ color: '#ffcc33', metalness: 0.85, roughness: 0.28 });
   const items = [];
   if (amount < 100) {
-    const stacks = Math.min(4, 1 + Math.floor(amount / 30));
     const P = [[0, 0], [0.42, -0.2], [-0.4, 0.22], [0.12, 0.45]];
-    for (let s = 0; s < stacks; s++) for (let j = 0; j < 3 + ((Math.round(amount) + s * 3) % 5); j++) items.push([new THREE.CylinderGeometry(0.17, 0.17, 0.055, 24), gold, P[s][0], j * 0.06 + 0.03, P[s][1]]);
+    const n = Math.min(4, 1 + Math.floor(amount / 30));
+    for (let k = 0; k < n; k++) items.push(['dun/coin_stack_small', 0.42, P[k][0], P[k][1]]);
   } else if (amount < 600) {
-    const n = Math.min(12, Math.max(2, Math.round(amount / 50)));
-    const cashTex = (() => { const [c, g] = canvas(256, 128); g.fillStyle = '#7ddb7a'; g.fillRect(0, 0, 256, 128); g.fillStyle = '#ffe27a'; g.fillRect(96, 0, 64, 128); g.strokeStyle = '#3f9d4b'; g.lineWidth = 8; g.strokeRect(4, 4, 248, 120); g.fillStyle = '#2f7a3a'; g.font = `900 46px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('₫', 50, 64); g.fillText('₫', 206, 64); return texOf(c); })();
-    const side = std('#49a956'), top = new THREE.MeshStandardMaterial({ map: cashTex, roughness: 0.8 });
-    const P = [[-0.36, 0, 0], [0.36, 0, 0], [-0.36, -0.38, 0], [0.36, -0.38, 0], [-0.36, 0.38, 0], [0.36, 0.38, 0], [-0.36, -0.19, 1], [0.36, -0.19, 1], [-0.36, 0.19, 1], [0.36, 0.19, 1], [-0.36, 0, 2], [0.36, 0, 2]];
-    for (let k = 0; k < n; k++) items.push([new THREE.BoxGeometry(0.68, 0.14, 0.34), [side, side, top, side, side, side], P[k][0], P[k][2] * 0.15 + 0.07, P[k][1]]);
+    const P = [[-0.3, -0.1], [0.32, 0.12], [0, 0.42], [-0.05, -0.45], [0.45, -0.38], [-0.48, 0.36]];
+    const n = Math.min(6, Math.max(2, Math.round(amount / 90)));
+    for (let k = 0; k < n; k++) items.push([k % 2 ? 'dun/coin_stack_medium' : 'dun/coin_stack_large', 0.5, P[k][0], P[k][1]]);
   } else {
-    const n = Math.min(9, 2 + Math.floor(amount / 300));
-    const bar = new THREE.CylinderGeometry(0.2, 0.26, 0.17, 4, 1); bar.rotateY(Math.PI / 4); bar.scale(1.6, 1, 0.72);
-    const P = [[0, -0.16, 0], [0, 0.16, 0], [0, -0.48, 0], [0, 0.48, 0], [0, 0, 1], [0, -0.32, 1], [0, 0.32, 1], [0, -0.16, 2], [0, 0.16, 2]];
-    for (let k = 0; k < n; k++) items.push([bar, gold, P[k][0] - 0.22, P[k][2] * 0.18 + 0.09, P[k][1]]);
-    for (let j = 0; j < 6; j++) items.push([new THREE.CylinderGeometry(0.15, 0.15, 0.05, 24), gold, 0.62, j * 0.055 + 0.03, -0.2]);
+    items.push(['dun/chest_gold', 0.9, 0, -0.05]);
+    const P = [[0.62, 0.3], [-0.62, 0.32], [0.55, -0.5], [-0.5, -0.52]];
+    const n = Math.min(4, 1 + Math.floor(amount / 500));
+    for (let k = 0; k < n; k++) items.push(['dun/coin_stack_large', 0.48, P[k][0], P[k][1]]);
   }
   const t0 = performance.now();
-  let top = 0;
-  items.forEach(([geo, m, x, y, z], k) => {
-    const mesh = new THREE.Mesh(geo, m); mesh.castShadow = true; mesh.position.set(x, y + 3, z); pileGrp.add(mesh); top = Math.max(top, y);
-    const delay = k * 55;
-    anims.add(() => { const a = (performance.now() - t0 - delay) / 420; if (a < 0) return true; const k2 = Math.min(1, a); mesh.position.y = y + 3 * (1 - ease.outCubic(k2)); if (k2 >= 1) { mesh.position.y = y; return false; } return true; });
+  let top = 0.3;
+  items.forEach(([name, fit, x, z], k) => {
+    const m = kit(name, { fit }); if (!m) return;
+    m.position.set(x, 3, z); m.rotation.y = rnd(-0.5, 0.5) + Math.PI / 4; pileGrp.add(m); top = Math.max(top, m.userData.height);
+    const delay = k * 90;
+    anims.add(() => { const a = (performance.now() - t0 - delay) / 420; if (a < 0) return true; const k2 = Math.min(1, a); m.position.y = 3 * (1 - ease.outBack(k2)); if (k2 >= 1) { m.position.y = 0; sparkle(m.position.clone().setY(0.2), '#ffe27a', 6); return false; } return true; });
   });
   hideDice(true);
-  return project(new THREE.Vector3(0, top + 0.6, 0));
+  return project(new THREE.Vector3(0, top + 0.5, 0));
 }
 export function clearPile() { if (pileGrp) { boardGroup.remove(pileGrp); pileGrp = null; } hideDice(false); }
 
@@ -839,121 +931,102 @@ function waterMaterial(c) {
         gl_FragColor = vec4(mix(c, uFog, f), 1.); }`,
   });
 }
-// ======================= mô hình Kenney (CC0, www.kenney.nl) =======================
+// ======================= mô hình: KayKit (CC0, kaylousberg.com) + Polyfork (CC BY 4.0, polyfork.dev) =======================
 const KIT_BASE = 'skin/models/';
 const KIT_FILES = {
-  sub: ['building-type-a', 'building-type-c', 'building-type-e', 'building-type-g', 'building-type-h', 'building-type-i', 'building-type-m',
-    'building-type-o', 'building-type-p', 'building-type-q', 'building-type-s', 'building-type-u', 'tree-large', 'tree-small', 'planter'],
-  com: ['building-skyscraper-a', 'building-skyscraper-b', 'building-skyscraper-c', 'building-skyscraper-e', 'detail-parasol-a', 'detail-parasol-b'],
-  nat: ['tree_default', 'tree_oak', 'tree_fat', 'tree_detailed', 'tree_cone', 'tree_default_fall', 'tree_oak_fall', 'tree_fat_fall', 'tree_cone_fall',
-    'tree_pineRoundA', 'tree_pineRoundC', 'tree_pineTallA', 'tree_pineDefaultA', 'tree_palmTall', 'tree_palmShort', 'tree_palmBend',
-    'plant_bush', 'plant_bushLarge', 'plant_bushSmall', 'flower_purpleA', 'flower_redA', 'flower_yellowA', 'flower_purpleB', 'flower_redB',
-    'rock_largeA', 'rock_largeC', 'rock_smallA', 'rock_smallC', 'rock_smallFlatA', 'grass', 'grass_large', 'mushroom_redGroup', 'stump_round', 'log_stack'],
+  // nhà phố KayKit City Builder Bits: A..H thấp -> cao
+  city: ['building_A_withoutBase', 'building_B_withoutBase', 'building_C_withoutBase', 'building_D_withoutBase', 'building_E_withoutBase',
+    'building_F_withoutBase', 'building_G_withoutBase', 'building_H_withoutBase', 'streetlight', 'bench', 'bush', 'firehydrant', 'car_taxi', 'car_sedan', 'car_hatchback'].map((n) => `kk/city/${n}.gltf`),
+  med: ['tree_single_A', 'tree_single_B', 'trees_A_large', 'trees_A_medium', 'trees_A_small', 'trees_B_large', 'trees_B_medium', 'trees_B_small',
+    'rock_single_A', 'rock_single_B', 'rock_single_C', 'rock_single_D', 'rock_single_E', 'cloud_big', 'cloud_small', 'hill_single_A', 'hill_single_B',
+    'mountain_A_grass_trees', 'mountain_C_grass_trees', 'barrel', 'crate_A_big', 'tent'].map((n) => `kk/med/${n}.gltf`),
+  dun: ['coin', 'coin_stack_small', 'coin_stack_medium', 'coin_stack_large', 'chest_gold'].map((n) => `kk/dun/${n}.glb`),
+  pf: ['cherry-blossom-tree-3f7ab7', 'stone-lantern-d56d0a', 'sculpted-pine-e45d4f', 'azalea-bush-7bb14d', 'palm-tree-a307da', 'palm-sapling-ef7ae4',
+    'beach-hut-fc7649', 'sandcastle-ddc562', 'lifebuoy-on-a-post-57421b', 'striped-deck-chair-70b506', 'tamarisk-bush-ba4337', 'small-fishing-boat-4ac0e3'].map((n) => `pf/${n}.glb`),
 };
-// nhân vật chibi Quaternius (models/chr2/c0..c7), thứ tự trùng CHARACTERS trong characters.js
+// nhân vật chibi KayKit Adventurers + Skeletons (models/kk/chr/c0..c7), thứ tự trùng CHARACTERS trong characters.js
 const CHAR3D = ['c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'];
-KIT_FILES.chr2 = CHAR3D;
+KIT_FILES.chr = CHAR3D.map((n) => `kk/chr/${n}.glb`);
 const KIT = { ready: false, tpl: {}, anim: {}, skClone: null };
+export const __kitFiles = () => KIT_FILES;
+const kitKey = (f) => f.replace(/^(kk\/|pf\/)/, (m) => (m === 'pf/' ? 'pf/' : '')).replace(/\.(gltf|glb)$/, '');
 async function loadKit() {
   const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
   KIT.skClone = (await import('three/addons/utils/SkeletonUtils.js')).clone;
   const loader = new GLTFLoader();
   const jobs = [];
-  for (const [dir, names] of Object.entries(KIT_FILES)) {
-    for (const n of names) {
-      jobs.push(loader.loadAsync(`${KIT_BASE}${dir}/${n}.glb`).then((gl) => {
+  for (const files of Object.values(KIT_FILES)) {
+    for (const f of files) {
+      jobs.push(loader.loadAsync(KIT_BASE + f).then((gl) => {
         gl.scene.traverse((o) => {
           if (!o.isMesh) return;
           o.castShadow = true; o.receiveShadow = true;
-          // glTF mặc định metalness = 1 -> không có môi trường phản chiếu sẽ tối sẫm; đưa về chất liệu thường
-          (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { m.metalness = 0; m.roughness = Math.max(0.6, m.roughness ?? 1); });
+          (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => {
+            m.metalness = Math.min(m.metalness ?? 0, 0.1); m.roughness = Math.max(0.55, m.roughness ?? 1);
+            if (m.map) { m.map.anisotropy = MAXANI; m.map.colorSpace = THREE.SRGBColorSpace; }
+          });
         });
-        KIT.tpl[`${dir}/${n}`] = gl.scene;
-        if (gl.animations?.length) KIT.anim[`${dir}/${n}`] = gl.animations;
-      }).catch((e) => console.warn('Không nạp được mô hình', n, e)));
+        const key = kitKey(f);
+        KIT.tpl[key] = gl.scene;
+        if (gl.animations?.length) KIT.anim[key] = gl.animations;
+      }).catch((e) => console.warn('Không nạp được mô hình', f, e)));
     }
   }
   await Promise.all(jobs);
-  KIT.ready = !!KIT.tpl['sub/building-type-a'];
+  KIT.ready = !!KIT.tpl['city/building_A_withoutBase'];
 }
 const _v3 = new THREE.Vector3();
 /** bản sao mô hình, đặt đáy ở y=0, tâm ở giữa; fit = bề ngang tối đa, h = chiều cao */
-function kit(name, { fit, h } = {}) {
+function kit(name, { fit, h, hmax } = {}) {
   const src = KIT.tpl[name];
   if (!src) return null;
-  const o = src.clone(true);
+  // mô hình có khung xương (vd. cây đung đưa của Polyfork) phải nhân bản cả khung xương, nếu không sẽ vẽ ở gốc toạ độ
+  let skinned = false; src.traverse((c) => { if (c.isSkinnedMesh) skinned = true; });
+  const o = skinned && KIT.skClone ? KIT.skClone(src) : src.clone(true);
   const box = new THREE.Box3().setFromObject(o), size = box.getSize(_v3);
-  const s = fit ? fit / Math.max(size.x, size.z) : h ? h / size.y : 1;
-  o.scale.setScalar(s);
+  let s = fit ? fit / Math.max(size.x, size.z) : h ? h / size.y : 1;
+  if (hmax && size.y * s > hmax) s = hmax / size.y;
+  o.scale.multiplyScalar(s);
   o.position.set(-(box.min.x + box.max.x) / 2 * s, -box.min.y * s, -(box.min.z + box.max.z) / 2 * s);
   const g = new THREE.Group(); g.add(o);
   g.userData.height = size.y * s;
   return g;
 }
-// mái nhà theo màu chủ đất: tô lại ô màu mái (xanh lá) trong bảng màu colormap của Kenney
-const roofCache = new Map();
-function recolorRoof(obj, color) {
-  obj.traverse((o) => {
-    if (!o.isMesh || !o.material?.map) return;
-    const src = o.material, key = src.uuid + color;
-    if (!roofCache.has(key)) {
-      const img = src.map.image, w = img.width, h = img.height;
-      const [c, g] = canvas(w, h);
-      g.drawImage(img, 0, 0);
-      const d = g.getImageData(0, Math.round(h * 0.25), Math.round(w / 8), Math.round(h * 0.25));
-      const oc = col(color), base = [oc.r * 255, oc.g * 255, oc.b * 255];
-      const sr = col(color); sr.convertLinearToSRGB(); const sb = [sr.r * 255, sr.g * 255, sr.b * 255];
-      for (let k = 0; k < d.data.length; k += 4) {
-        const L = (d.data[k] + d.data[k + 1] + d.data[k + 2]) / 3 / 150;   // giữ độ sáng tối của vân mái
-        for (let j = 0; j < 3; j++) d.data[k + j] = Math.min(255, sb[j] * L);
-      }
-      void base;
-      g.putImageData(d, 0, Math.round(h * 0.25));
-      const tex = new THREE.CanvasTexture(c);
-      tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace; tex.magFilter = src.map.magFilter; tex.minFilter = src.map.minFilter; tex.anisotropy = MAXANI;
-      const m = src.clone(); m.map = tex; roofCache.set(key, m);
-    }
-    o.material = roofCache.get(key);
-  });
-}
-// tán cây theo theme (anh đào hồng, đêm xanh thẫm…)
-const leafCache = new Map();
-function tintLeaves(obj, color) {
-  if (!color) return;
-  obj.traverse((o) => {
-    if (!o.isMesh) return;
-    const mats = Array.isArray(o.material) ? o.material : [o.material];
-    const next = mats.map((m) => {
-      if (!/leaf|leaves/i.test(m.name || '')) return m;
-      const key = m.uuid + color;
-      if (!leafCache.has(key)) { const n = m.clone(); n.color = col(color); leafCache.set(key, n); }
-      return leafCache.get(key);
-    });
-    o.material = Array.isArray(o.material) ? next : next[0];
-  });
-}
+function tintLeaves() {}
+// nhà theo cấp: cấp 1 nhà 2 tầng, cấp 3 nhà 4 tầng, khách sạn = toà cao nhất + bảng HOTEL; đế lát màu chủ đất
 const LV_MODELS = {
-  1: ['sub/building-type-h', 'sub/building-type-i', 'sub/building-type-g', 'sub/building-type-m'],
-  2: ['sub/building-type-a', 'sub/building-type-p', 'sub/building-type-q', 'sub/building-type-c'],
-  3: ['sub/building-type-e', 'sub/building-type-s', 'sub/building-type-u', 'sub/building-type-o'],
-  4: ['com/building-skyscraper-a', 'com/building-skyscraper-e', 'com/building-skyscraper-c', 'com/building-skyscraper-b'],
+  1: ['city/building_A_withoutBase', 'city/building_B_withoutBase'],
+  2: ['city/building_C_withoutBase', 'city/building_D_withoutBase'],
+  3: ['city/building_E_withoutBase', 'city/building_F_withoutBase'],
+  4: ['city/building_G_withoutBase', 'city/building_H_withoutBase'],
 };
+const LV_FIT = { 1: [0.56, 0.62], 2: [0.6, 0.8], 3: [0.62, 1.0], 4: [0.64, 1.45] };
+function ownerPlate(color, w = 0.74, d = 0.62) {
+  const g = new THREE.Group();
+  const plate = new THREE.Mesh(new RoundedBoxGeometry(w, 0.07, d, 3, 0.03), new THREE.MeshStandardMaterial({ color, roughness: 0.45, metalness: 0.05 }));
+  plate.position.y = 0.035; plate.receiveShadow = true; plate.castShadow = true; g.add(plate);
+  const rim = new THREE.Mesh(new RoundedBoxGeometry(w + 0.04, 0.03, d + 0.04, 3, 0.015), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.4 }));
+  rim.position.y = 0.012; g.add(rim);
+  return g;
+}
 function kitModel(type, lvl, st, color) {
   const g = new THREE.Group();
   if (type === 'resort') {
-    const p = kit(st % 2 ? 'com/detail-parasol-b' : 'com/detail-parasol-a', { h: 0.42 }); if (p) { p.position.set(0.12, 0, 0.05); g.add(p); }
-    const palm = kit('nat/tree_palmShort', { h: 0.7 }); if (palm) { tintLeaves(palm, null); palm.position.set(-0.2, 0, -0.08); g.add(palm); }
-    const f = ownerFlag(color); f.position.set(0.32, 0, -0.18); g.add(f);
+    g.add(ownerPlate(color, 0.7, 0.5));
+    const hut = kit('pf/beach-hut-fc7649', { fit: 0.36 }); if (hut) { hut.position.set(-0.12, 0.07, -0.02); g.add(hut); }
+    const palm = kit('pf/palm-sapling-ef7ae4', { h: 0.62 }); if (palm) { palm.position.set(0.2, 0.07, 0.05); g.add(palm); }
+    const f = ownerFlag(color); f.scale.setScalar(0.8); f.position.set(0.3, 0.07, -0.18); g.add(f);
     return g;
   }
   if (lvl === 0) { g.add(ownerFlag(color)); return g; }
-  const name = LV_MODELS[Math.min(4, lvl)][((st % 4) + 4) % 4];
-  const m = kit(name, { fit: lvl === 4 ? 0.52 : 0.6 + lvl * 0.03 });
+  const L = Math.min(4, lvl);
+  const name = LV_MODELS[L][((st % 2) + 2) % 2];
+  const m = kit(name, { fit: LV_FIT[L][0], hmax: LV_FIT[L][1] });
   if (!m) return buildModel(type, lvl, st, color);
-  if (lvl < 4) recolorRoof(m, color);
-  g.add(m);
-  if (lvl === 4) hotelTop(g, m.userData.height, color);
-  else { const f = ownerFlag(color); f.scale.setScalar(0.7); f.position.set(0.3, 0, 0.2); g.add(f); }
+  g.add(ownerPlate(color));
+  m.position.y = 0.07; g.add(m);
+  if (L === 4) hotelTop(g, m.userData.height + 0.07, color);
+  else { const f = ownerFlag(color); f.scale.setScalar(0.72); f.position.set(0.32, 0.07, 0.22); g.add(f); }
   return g;
 }
 
@@ -965,39 +1038,53 @@ const BOARD_STYLE = {
   sakura: { top: '#ffffff', side: '#fbe6f0', ped: '#e5bcd3', trim: '#e8467c', court: ['#FFF8FB', '#FBE6F0', '#EBCFE0'] },
 };
 const TD_SCENES = {
-  midnight: { ground: '#2c3d73', rim: '#1d2852', dirt: '#141b3d', leaf: '#2f9e8f',
-    trees: ['nat/tree_pineRoundA', 'nat/tree_pineTallA', 'nat/tree_cone', 'nat/tree_pineRoundC', 'nat/tree_pineDefaultA'],
-    small: ['nat/rock_smallA', 'nat/plant_bushSmall', 'nat/rock_smallFlatA', 'nat/grass', 'nat/mushroom_redGroup', 'nat/flower_purpleA'],
-    lamps: true, hemi: ['#9fb0ff', '#1a1f3a', 0.85], sun: ['#c9d4ff', 1.35], exposure: 1.0 },
-  wood: { ground: '#a8c45e', rim: '#86a24a', dirt: '#7a5634', leaf: null,
-    trees: ['nat/tree_default_fall', 'nat/tree_oak_fall', 'nat/tree_fat_fall', 'nat/tree_cone_fall', 'nat/tree_oak'],
-    small: ['nat/rock_smallA', 'nat/stump_round', 'nat/log_stack', 'nat/plant_bush', 'nat/flower_yellowA', 'nat/mushroom_redGroup', 'nat/grass_large'],
-    hemi: ['#fff1dc', '#7a5a3a', 1.2], sun: ['#ffe2b8', 2.4], exposure: 1.05 },
-  ocean: { ground: '#f2dda4', rim: '#e1c47f', dirt: '#c9a464', leaf: null, water: true,
-    trees: ['nat/tree_palmTall', 'nat/tree_palmShort', 'nat/tree_palmBend', 'nat/tree_palmTall'],
-    small: ['nat/rock_smallC', 'nat/rock_largeA', 'nat/plant_bushSmall', 'nat/rock_smallFlatA', 'nat/grass'],
-    hemi: ['#ffffff', '#5a9aa0', 1.25], sun: ['#fff6e0', 2.5], exposure: 1.05 },
-  sakura: { ground: '#b7e39a', rim: '#93c77a', dirt: '#8a6b5a', leaf: '#ffb3cf', leaf2: ['#ffc6db', '#ff9fc0', '#ffd4e4'],
-    trees: ['nat/tree_default', 'nat/tree_oak', 'nat/tree_fat', 'nat/tree_detailed'],
-    small: ['nat/flower_purpleA', 'nat/flower_redA', 'nat/flower_purpleB', 'nat/plant_bush', 'nat/rock_smallA', 'nat/flower_redB', 'nat/grass'],
-    hemi: ['#fff4fb', '#a07a8a', 1.3], sun: ['#fff1e6', 2.3], exposure: 1.05 },
+  midnight: { ground: '#3b5a3a', rim: '#2c4630', dirt: '#2a2340',
+    trees: ['tree_single_A', 'tree_single_B', 'trees_A_small', 'tree_single_A', 'trees_B_small'].map((n) => 'med/' + n),
+    small: ['med/rock_single_A', 'med/rock_single_C', 'city/bush', 'med/rock_single_E', 'city/bench'],
+    far: ['med/mountain_A_grass_trees', 'med/hill_single_A', 'med/mountain_C_grass_trees'],
+    lamps: true, hemi: ['#9fb0ff', '#2a2340', 0.9], sun: ['#c9d4ff', 1.6], env: 0.35, exposure: 1.0 },
+  wood: { ground: '#8cb556', rim: '#749a47', dirt: '#8a5a34',
+    trees: ['tree_single_B', 'trees_B_small', 'tree_single_A', 'trees_A_small', 'tree_single_B'].map((n) => 'med/' + n),
+    small: ['med/rock_single_B', 'med/barrel', 'city/bush', 'med/rock_single_D', 'city/bush', 'med/rock_single_C'],
+    far: ['med/mountain_A_grass_trees', 'med/hill_single_B', 'med/mountain_C_grass_trees'],
+    hemi: ['#fff6e6', '#7a5a3a', 1.05], sun: ['#fff0d8', 2.3], env: 0.5, exposure: 0.95 },
+  ocean: { ground: '#f4dea0', rim: '#e6c77f', dirt: '#c9a464', water: true,
+    trees: ['pf/palm-tree-a307da', 'pf/palm-sapling-ef7ae4', 'pf/palm-tree-a307da', 'pf/tamarisk-bush-ba4337'],
+    small: ['pf/beach-hut-fc7649', 'pf/sandcastle-ddc562', 'pf/lifebuoy-on-a-post-57421b', 'pf/striped-deck-chair-70b506', 'med/rock_single_A'],
+    far: [], boat: 'pf/small-fishing-boat-4ac0e3',
+    hemi: ['#ffffff', '#5a9aa0', 1.2], sun: ['#fff6e0', 2.8], env: 0.6, exposure: 1.0 },
+  sakura: { ground: '#acd38f', rim: '#90bd76', dirt: '#8a6b5a',
+    trees: ['pf/cherry-blossom-tree-3f7ab7', 'pf/cherry-blossom-tree-3f7ab7', 'pf/sculpted-pine-e45d4f', 'pf/cherry-blossom-tree-3f7ab7'],
+    small: ['pf/stone-lantern-d56d0a', 'pf/azalea-bush-7bb14d', 'med/rock_single_C', 'pf/azalea-bush-7bb14d', 'med/rock_single_A'],
+    far: ['med/hill_single_A', 'med/hill_single_B'],
+    hemi: ['#fff4fb', '#a07a8a', 1.15], sun: ['#fff1e6', 2.7], env: 0.6, exposure: 1.0 },
 };
-function courtyardTD(cols) {
+function courtyardTD(cols, trim) {
   const [c, g] = canvas(1024, 1024);
   const n = 8, s = 1024 / n;
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { g.fillStyle = (x + y) % 2 ? cols[1] : cols[0]; g.fillRect(x * s, y * s, s, s); }
-  const rg = g.createRadialGradient(512, 512, 60, 512, 512, 720); rg.addColorStop(0, 'rgba(255,255,255,.22)'); rg.addColorStop(1, 'rgba(0,0,0,.12)'); g.fillStyle = rg; g.fillRect(0, 0, 1024, 1024);
+  const rg = g.createRadialGradient(512, 512, 60, 512, 512, 720); rg.addColorStop(0, 'rgba(255,255,255,.2)'); rg.addColorStop(1, 'rgba(0,0,0,.1)'); g.fillStyle = rg; g.fillRect(0, 0, 1024, 1024);
   g.strokeStyle = cols[2]; g.globalAlpha = 0.35; g.lineWidth = 6; rr(g, 14, 14, 996, 996, 40); g.stroke(); g.globalAlpha = 1;
+  // huy hiệu giữa sân
+  g.save(); g.translate(512, 512); g.strokeStyle = trim; g.fillStyle = trim;
+  g.globalAlpha = 0.6; g.lineWidth = 12; g.beginPath(); g.arc(0, 0, 330, 0, 7); g.stroke();
+  g.lineWidth = 4; g.beginPath(); g.arc(0, 0, 300, 0, 7); g.stroke(); g.beginPath(); g.arc(0, 0, 226, 0, 7); g.stroke();
+  const ring = [...'CỜ TỶ PHÚ • VIỆT NAM • MUA ĐẤT • XÂY NHÀ • '], step = (Math.PI * 2) / ring.length;
+  g.font = `900 38px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalAlpha = 0.7;
+  ring.forEach((ch, k) => { g.save(); g.rotate(k * step); g.translate(0, -263); g.fillText(ch, 0, 0); g.restore(); });
+  g.restore(); g.globalAlpha = 1;
   return texOf(c);
 }
 // số ngẫu nhiên cố định để cảnh không đổi giữa các lần mở
 function seeded(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
 function lampPost() {
   const g = new THREE.Group();
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.7, 8), std('#2a3050')); pole.position.y = 0.85; pole.castShadow = true; g.add(pole);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), new THREE.MeshStandardMaterial({ color: '#fff3c4', emissive: '#ffc85a', emissiveIntensity: 2.2 }));
-  head.position.y = 1.78; g.add(head);
-  const light = new THREE.PointLight('#ffcf7a', 7, 7, 1.6); light.position.y = 1.8; g.add(light);
+  const m = kit('city/streetlight', { h: 1.7 });
+  if (m) g.add(m);
+  else { const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.7, 8), std('#2a3050')); pole.position.y = 0.85; g.add(pole); }
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 12), new THREE.MeshStandardMaterial({ color: '#fff3c4', emissive: '#ffc85a', emissiveIntensity: 3 }));
+  head.position.set(0, 1.62, 0.32); g.add(head);
+  const light = new THREE.PointLight('#ffcf7a', 9, 7, 1.6); light.position.set(0, 1.6, 0.32); g.add(light);
   return g;
 }
 function buildTD(key) {
@@ -1009,39 +1096,57 @@ function buildTD(key) {
   const island = new THREE.Mesh(new THREE.CylinderGeometry(R, R - 0.25, 0.6, 72), [rimM, groundM, rimM]);
   island.position.y = top - 0.3; island.receiveShadow = true; g.add(island);
   const under = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.25, R * 0.45, 4.5, 48, 4), new THREE.MeshStandardMaterial({ color: P.dirt, roughness: 1, flatShading: true }));
-  { const p = under.geometry.attributes.position; for (let k = 0; k < p.count; k++) { const y = p.getY(k); if (y < 2.2) { p.setX(k, p.getX(k) * (0.92 + Math.random() * 0.14)); p.setZ(k, p.getZ(k) * (0.92 + Math.random() * 0.14)); } } under.geometry.computeVertexNormals(); }
+  { const p = under.geometry.attributes.position; const r2 = seeded(5); for (let k = 0; k < p.count; k++) { const y = p.getY(k); if (y < 2.2) { p.setX(k, p.getX(k) * (0.92 + r2() * 0.14)); p.setZ(k, p.getZ(k) * (0.92 + r2() * 0.14)); } } under.geometry.computeVertexNormals(); }
   under.position.y = top - 0.6 - 2.25; g.add(under);
   if (P.water) {
     const wm = waterMaterial({ deep: '#0f8fa8', sky: '#8ff1ea', sun: '#ffffff', fog: '#34E5D7', fogNear: 30, fogFar: 90 });
     const w = new THREE.Mesh(new THREE.CircleGeometry(90, 64), wm); w.rotation.x = -Math.PI / 2; w.position.y = top - 0.5; g.add(w);
-    // bãi cát thoai thoải ra biển
     const shore = new THREE.Mesh(new THREE.CylinderGeometry(R + 1.2, R + 2.2, 0.35, 72), new THREE.MeshStandardMaterial({ color: '#f6e7bd', roughness: 1 }));
     shore.position.y = top - 0.55; shore.receiveShadow = true; g.add(shore);
   }
-  // đồ trang trí: cây cao ở phía sau/hai bên, đồ thấp ở phía trước (camera nhìn từ góc +x+z)
   const rnd2 = seeded({ midnight: 7, wood: 11, ocean: 23, sakura: 31 }[key]);
   const half = W / 2 + 0.75;
   const spots = [];
-  for (let tries = 0; spots.length < 64 && tries < 2000; tries++) {
+  for (let tries = 0; spots.length < 58 && tries < 2000; tries++) {
     const a = rnd2() * Math.PI * 2, r = half + 0.4 + rnd2() * (R - half - 1.1);
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     if (Math.abs(x) < half && Math.abs(z) < half) continue;
     if (Math.hypot(x, z) > R - 0.6) continue;
-    if (spots.some((s) => Math.hypot(s[0] - x, s[1] - z) < 1.05)) continue;
+    if (spots.some((s) => Math.hypot(s[0] - x, s[1] - z) < 1.15)) continue;
     spots.push([x, z]);
   }
   spots.forEach(([x, z], k) => {
     const front = x + z > 3.5;                 // phía gần camera: chỉ đồ thấp để không che bàn cờ
     const tall = !front && k % 3 !== 2;
     const name = tall ? P.trees[k % P.trees.length] : P.small[k % P.small.length];
-    const m = tall ? kit(name, { h: 1.9 + rnd2() * 1.3 }) : kit(name, { fit: 0.45 + rnd2() * 0.4 });
+    const cluster = /trees_/.test(name);
+    const m = tall ? (cluster ? kit(name, { fit: 1.3 + rnd2() * 0.4, hmax: 2.4 }) : kit(name, { h: 1.9 + rnd2() * 1.1, hmax: 3.2 })) : kit(name, { fit: 0.55 + rnd2() * 0.35, hmax: 1.0 });
     if (!m) return;
-    if (tall && P.leaf) tintLeaves(m, P.leaf2 ? P.leaf2[k % P.leaf2.length] : P.leaf);
     m.position.set(x, top, z); m.rotation.y = rnd2() * Math.PI * 2;
     g.add(m);
   });
-  if (P.lamps) [[-1, -1], [1, -1], [-1, 1]].forEach(([sx, sz]) => { const l = lampPost(); l.position.set(sx * (half + 0.55), top, sz * (half + 0.55)); g.add(l); });
-  g.userData.style = { bg2d: true, sky: ['#000', '#000', '#000'], fog: ['#000', 50, 200], hemi: P.hemi, sun: P.sun, exposure: P.exposure };
+  // đồi núi xa phía sau
+  [].forEach((n, k) => {
+    const m = kit(n, { fit: 4.2 + k * 0.6 }); if (!m) return;
+    const a = -Math.PI * 0.75 + (k - 1) * 0.55;
+    m.position.set(Math.cos(a) * (R - 2.2), top, Math.sin(a) * (R - 2.2)); m.rotation.y = rnd2() * 6.28; g.add(m);
+  });
+  if (P.lamps) [[-1, -1], [1, -1], [-1, 1]].forEach(([sx, sz]) => { const l = lampPost(); l.position.set(sx * (half + 0.55), top, sz * (half + 0.55)); l.rotation.y = Math.atan2(-sx, -sz); g.add(l); });
+  // mây KayKit trôi trên trời
+  const clouds = [];
+  for (let k = 0; k < 5; k++) {
+    const c = kit(k % 2 ? 'med/cloud_small' : 'med/cloud_big', { fit: 1.6 + rnd2() * 1.0 }); if (!c) continue;
+    // mây chỉ trôi ở phía sau bàn cờ, ngang tầm nhìn (không bao giờ che bàn)
+    c.userData.u = -14 + rnd2() * 28; c.userData.back = 13 + rnd2() * 6; c.userData.y = 6 + rnd2() * 3; c.userData.drift = 0.25 + rnd2() * 0.3;
+    c.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
+    g.add(c); clouds.push(c);
+  }
+  g.userData.clouds = clouds;
+  if (P.boat) {
+    const boats = [0, 1].map((k) => { const b = kit(P.boat, { fit: 2.4 }); if (!b) return null; b.userData.orbit = { R: R + 5 + k * 3, sp: k ? -0.04 : 0.05, a: k * 2.6 }; g.add(b); return b; }).filter(Boolean);
+    g.userData.boats = boats;
+  }
+  g.userData.style = { bg2d: true, sky: ['#000', '#000', '#000'], fog: ['#000', 50, 200], hemi: P.hemi, sun: P.sun, exposure: P.exposure, env: P.env };
   return g;
 }
 export function setTheme(name) {
@@ -1060,14 +1165,16 @@ export function setTheme(name) {
   const b = BOARD_STYLE[theme];
   baseTop.color.set(b.top); baseSide.color.set(b.side); trimMat.color.set(b.trim);
   boardGroup.getObjectByName('pedestal').material.color.set(b.ped);
-  courtyard.material.map?.dispose(); courtyard.material.map = courtyardTD(b.court); courtyard.material.needsUpdate = true;
+  courtyard.material.map?.dispose(); courtyard.material.map = courtyardTD(b.court, b.trim); courtyard.material.needsUpdate = true;
   renderer.toneMappingExposure = s.exposure;
+  scene.environmentIntensity = s.env ?? 0.5;
 }
 function updateScenery(t, dt) {
   if (water) water.material.uniforms.uTime.value = t;
   if (!curTheme) return;
   const u = curTheme.userData;
-  u.boats?.forEach((b) => { const o = b.userData.orbit; o.a += o.sp * dt; b.position.set(Math.cos(o.a) * o.R, -2.45 + Math.sin(t * 1.5 + o.R) * 0.05, Math.sin(o.a) * o.R - 6); b.rotation.y = -o.a - (o.sp > 0 ? Math.PI / 2 : -Math.PI / 2); b.rotation.z = Math.sin(t * 1.2 + o.R) * 0.04; });
+  u.boats?.forEach((b) => { const o = b.userData.orbit; o.a += o.sp * dt; b.position.set(Math.cos(o.a) * o.R, -1.48 + Math.sin(t * 1.5 + o.R) * 0.05, Math.sin(o.a) * o.R); b.rotation.y = -o.a - (o.sp > 0 ? Math.PI / 2 : -Math.PI / 2); b.rotation.z = Math.sin(t * 1.2 + o.R) * 0.04; });
+  u.clouds?.forEach((c) => { const d = c.userData; d.u += d.drift * dt; if (d.u > 15) d.u = -15; const k = Math.SQRT1_2; c.position.set(-d.back * k + d.u * k, d.y + Math.sin(t * 0.5 + d.drift * 9) * 0.15, -d.back * k - d.u * k); });
   curTheme.children.forEach((c) => { if (c.isSprite && c.userData.drift) { c.position.x += c.userData.drift * dt; if (c.position.x > 180) c.position.x = -180; } });
   if (u.petals) {
     const { mesh, data } = u.petals, m = new THREE.Object3D();
@@ -1118,9 +1225,10 @@ function fitCamera() {
     let minx = 1, maxx = -1, miny = 1, maxy = -1;
     pts.forEach((p) => { const v = p.clone().project(camera); minx = Math.min(minx, v.x); maxx = Math.max(maxx, v.x); miny = Math.min(miny, v.y); maxy = Math.max(maxy, v.y); });
     const pw = ((maxx - minx) / 2) * Wv, ph = ((maxy - miny) / 2) * Hv;
-    D *= Math.max(pw / (rect.w * 0.96), ph / (rect.h * 0.96));
+    D *= Math.max(pw / (rect.w * 0.93), ph / (rect.h * 0.93));
   }
   camera.position.copy(dir).multiplyScalar(D); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+  cam.D = D; cam.dir = dir.clone();
   // dịch hình để tâm bàn nằm giữa khung .stage
   const c = new THREE.Vector3(0, 0.3, 0).project(camera);
   const cx = (c.x + 1) / 2 * Wv, cy = (1 - c.y) / 2 * Hv;
@@ -1129,8 +1237,19 @@ function fitCamera() {
   camera.updateProjectionMatrix();
   lastRectKey = `${Math.round(rect.x)}|${Math.round(rect.y)}|${Math.round(rect.w)}|${Math.round(rect.h)}`;
 }
-function updateCamera(t) {
+function updateCamera(t, dt = 0.016) {
   if (mode === 'debug') return;
+  if (mode === 'game' && cam.D) {
+    const now = performance.now(), mover = tokens.findIndex((tk) => tk.from);
+    if (mover >= 0) { cam.follow = mover; cam.until = now + 900; }
+    let tf = 1, tx = 0, tz = 0;
+    if (!pickActive && cam.follow >= 0 && now < cam.until && tokens[cam.follow]) { const p = tokens[cam.follow].grp.position; tf = 0.74; tx = p.x * 0.5; tz = p.z * 0.5; } else cam.follow = -1;
+    tf -= cam.punch;
+    const k = 1 - Math.exp(-dt * 2.6);
+    cam.f += (tf - cam.f) * k; cam.tx += (tx - cam.tx) * k; cam.tz += (tz - cam.tz) * k; cam.punch = Math.max(0, cam.punch - dt * 0.3);
+    camera.position.copy(cam.dir).multiplyScalar(cam.D * cam.f); camera.position.x += cam.tx; camera.position.z += cam.tz;
+    camera.lookAt(cam.tx, 0, cam.tz); camera.updateMatrixWorld();
+  }
   if (mode === 'home') {
     const a = t * 0.06;
     camera.position.set(Math.cos(a) * 30, 15, Math.sin(a) * 30); camera.lookAt(0, -0.5, 0); camera.updateMatrixWorld();
@@ -1149,7 +1268,7 @@ document.addEventListener('visibilitychange', () => { paused = document.hidden; 
 function loop() {
   if (paused || mode === 'home') return;
   const dt = Math.min(0.05, clock.getDelta()), t = clock.elapsedTime, now = performance.now();
-  updateCamera(t);
+  updateCamera(t, dt);
   updateScenery(t, dt);
   updateTiles(t, dt);
   updateBuildings(t, dt, now);
@@ -1171,5 +1290,7 @@ export function pickTile(x, y) {
 }
 export { W as BOARD_W };
 
-// ======================= dùng cho app/tools/bake.html (dựng ảnh 2D cho bản PixiJS) =======================
-export const __bake = { THREE, RoundedBoxGeometry, loadKit, KIT, kit, kitModel, tintLeaves, lampPost, TD_SCENES, CHAR3D, HIDE_PROPS, clipKey, visibleBox, addNonLa, buildGate, quatFor, FACE_N, pipTex, ownerFlag, hotelTop };
+// ======================= dùng cho app/tools/portraits.html (chân dung nhân vật + ảnh xem trước xúc xắc) =======================
+export const __bake = { THREE, RoundedBoxGeometry, loadKit, KIT, CHAR3D, visibleBox, quatFor, matsFor, DICE_KEYS };
+
+export const __dbg = () => ({ scene, camera, curTheme });

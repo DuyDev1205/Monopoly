@@ -1,0 +1,48 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Dựng chân dung nhân vật (skin/chars/c*.webp) và ảnh xem trước xúc xắc (skin/dice/*.webp). Chạy bằng app/tools/portraits.py -->
+<script type="importmap">{"imports":{"three":"./skin/vendor/three/three.module.js","three/addons/":"./skin/vendor/three/addons/"}}</script>
+</head><body style="margin:0;background:transparent">
+<script type="module">
+import { __bake as B } from './skin/scene3d.js';
+const { THREE } = B;
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setClearColor(0x000000, 0); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.setSize(512, 512, false);
+document.body.appendChild(renderer.domElement);
+const { RoomEnvironment } = await import('three/addons/environments/RoomEnvironment.js');
+const ENV = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+function stage(obj) {
+  const s = new THREE.Scene(); s.environment = ENV; s.environmentIntensity = 0.55;
+  s.add(new THREE.HemisphereLight('#ffffff', '#8a7f99', 1.1));
+  const sun = new THREE.DirectionalLight('#fff3e6', 2.4); sun.position.set(2, 4, 5); s.add(sun);
+  const rim = new THREE.DirectionalLight('#cfe0ff', 1.4); rim.position.set(-4, 3, -3); s.add(rim);
+  s.add(obj); return s;
+}
+await B.loadKit();
+const POR = {}, DICE = {};
+for (let k = 0; k < B.CHAR3D.length; k++) {
+  const name = `chr/${B.CHAR3D[k]}`, src = B.KIT.tpl[name];
+  const o = B.KIT.skClone ? (await import('three/addons/utils/SkeletonUtils.js')).clone(src) : src.clone(true);
+  const mixer = new THREE.AnimationMixer(o);
+  const idle = (B.KIT.anim[name] || []).find((a) => a.name === 'Idle');
+  if (idle) { mixer.clipAction(idle).play(); mixer.update(0.5); }
+  o.updateMatrixWorld(true);
+  let head = null; o.traverse((c) => { if (!head && c.isBone && /^head$/i.test(c.name)) head = c; });
+  const box = B.visibleBox(o), H = box.max.y - box.min.y;
+  const hp = head ? head.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(0, box.min.y + H * 0.75, 0);
+  hp.y += H * 0.16;
+  const cam = new THREE.PerspectiveCamera(26, 1, 0.01, 100);
+  cam.position.set(hp.x + H * 0.32, hp.y + H * 0.06, hp.z + H * 1.8); cam.lookAt(hp.x, hp.y - H * 0.04, hp.z);
+  renderer.render(stage(o), cam);
+  POR[k] = renderer.domElement.toDataURL('image/webp', 0.92);
+}
+for (const key of B.DICE_KEYS) {
+  const geo = new B.RoundedBoxGeometry(0.62, 0.62, 0.62, 5, 0.1);
+  const m = new THREE.Mesh(geo, B.matsFor(key)); m.quaternion.copy(B.quatFor(5, Math.PI / 4));
+  const cam = new THREE.PerspectiveCamera(30, 1, 0.01, 100); cam.position.set(1.15, 1.25, 1.15); cam.lookAt(0, 0, 0);
+  renderer.render(stage(m), cam);
+  DICE[key] = renderer.domElement.toDataURL('image/webp', 0.92);
+}
+window.__POR = POR; window.__DICE = DICE; window.done = true;
+</script></body></html>

@@ -121,7 +121,7 @@ const isMine = () => {
 let G = null;
 async function initGL() {
   try {
-    const mod = await import('../skin/scene2d.js');   // chỉ có trong bản app (app/skin): PixiJS 2.5D
+    const mod = await import('../skin/scene3d.js');   // chỉ có trong bản app (app/skin): Three.js 3D + mô hình KayKit
     if (!mod.webglOK()) return;
     await mod.init({ stage: $('.stage') });
     mod.buildTiles(BOARD.map((t, i) => ({

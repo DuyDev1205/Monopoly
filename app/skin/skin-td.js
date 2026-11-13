@@ -2,7 +2,7 @@
 globalThis.__charImg = [0, 1, 2, 3, 4, 5, 6, 7].map((k) => `skin/chars/c${k}.webp`);
 import { CHARACTERS } from '../js/characters.js';
 // tên theo mô hình 3D của bản app (bản web giữ tên cũ)
-['Ông Trùm', 'Bà Trùm', 'Cô Ba', 'Bé Mai', 'Cu Tí', 'Bà Năm', 'Anh Shipper', 'Quân Sư'].forEach((n, k) => { if (CHARACTERS[k]) { CHARACTERS[k].name = n; CHARACTERS[k].kind = 'chibi'; } });
+['Hiệp Sĩ', 'Phù Thủy', 'Tráng Sĩ', 'Lãng Khách', 'Ninja', 'Xương Giáp', 'Xương Phép', 'Bé Xương'].forEach((n, k) => { if (CHARACTERS[k]) { CHARACTERS[k].name = n; CHARACTERS[k].kind = 'chibi'; } });
 // Giao diện bản app (phong cách TDCaro): chỉ sắp xếp lại DOM + thêm vài chi tiết trang trí.
 // Không đụng vào luật chơi: app.js vẫn tìm phần tử theo id nên di chuyển chúng là an toàn.
 const $ = (s, r = document) => r.querySelector(s);
