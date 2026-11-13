@@ -95,21 +95,55 @@ async function openUrl(url) {
 function versionTag() {
   const v = el('button', 'td-ver', `v${VERSION}`);
   v.type = 'button';
-  v.title = 'Trang tải bản mới';
-  v.addEventListener('click', () => openUrl(`https://github.com/${REPO}/releases`));
+  v.title = 'Kiểm tra bản mới';
+  v.addEventListener('click', () => checkUpdate(true));
   document.body.appendChild(v);
-  const newer = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
-  fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } })
-    .then((r) => (r.ok ? r.json() : null))
-    .then((rel) => {
-      const tag = (rel?.tag_name || '').replace(/^[^\d]*/, '');
-      if (!tag || !newer(tag, VERSION)) return;
-      const n = el('button', 'td-update', `<b>Có bản mới v${tag}</b><small>Bấm để tải về</small>`);
-      n.type = 'button';
-      n.addEventListener('click', () => openUrl(rel.html_url));
-      document.body.appendChild(n);
-    })
-    .catch(() => {});
+  setTimeout(() => checkUpdate(false), 1500);
+}
+// ---------- tự cập nhật (Tauri updater): kiểm tra -> bấm 1 lần -> tải + cài + mở lại ----------
+let updBox = null, updBusy = false;
+function updUI(html, onClick) {
+  if (!updBox) { updBox = el('button', 'td-update'); updBox.type = 'button'; document.body.appendChild(updBox); }
+  updBox.innerHTML = html;
+  updBox.onclick = onClick || null;
+  updBox.classList.toggle('busy', !onClick);
+}
+async function checkUpdate(manual) {
+  if (updBusy) return;
+  const U = window.__TAURI__?.updater;
+  if (!U?.check) {                                   // chạy ngoài app (trình duyệt): chỉ báo có bản mới
+    if (manual) openUrl(`https://github.com/${REPO}/releases/latest`);
+    return;
+  }
+  let up = null;
+  try { up = await U.check(); } catch (e) {
+    if (manual) { updUI('<b>Không kiểm tra được bản mới</b><small>Kiểm tra mạng rồi bấm lại</small>', () => { updBox.remove(); updBox = null; checkUpdate(true); }); }
+    return;
+  }
+  if (!up) {
+    if (manual) { updUI(`<b>Đang dùng bản mới nhất</b><small>v${VERSION}</small>`, () => { updBox.remove(); updBox = null; }); setTimeout(() => { if (updBox && !updBusy) { updBox.remove(); updBox = null; } }, 3000); }
+    return;
+  }
+  updUI(`<b>Có bản mới v${up.version}</b><small>Bấm để tự cập nhật</small>`, () => install(up));
+}
+async function install(up) {
+  updBusy = true;
+  let total = 0, got = 0;
+  updUI(`<b>Đang tải v${up.version}…</b><small>0%</small><i class="td-bar"><em style="width:0%"></em></i>`);
+  try {
+    await up.downloadAndInstall((ev) => {
+      if (ev.event === 'Started') total = ev.data?.contentLength || 0;
+      else if (ev.event === 'Progress') {
+        got += ev.data?.chunkLength || 0;
+        const pc = total ? Math.min(100, Math.round((got / total) * 100)) : 0;
+        updUI(`<b>Đang tải v${up.version}…</b><small>${total ? pc + '%' : (got / 1048576).toFixed(1) + ' MB'}</small><i class="td-bar"><em style="width:${pc}%"></em></i>`);
+      } else if (ev.event === 'Finished') updUI(`<b>Đang cài v${up.version}…</b><small>App sẽ tự mở lại</small>`);
+    });
+    await window.__TAURI__.process.relaunch();
+  } catch (e) {
+    updBusy = false;
+    updUI(`<b>Cập nhật lỗi</b><small>${String(e?.message || e).slice(0, 60)} · bấm để thử lại</small>`, () => install(up));
+  }
 }
 
 // link ngoài (ví dụ trang luật / github) mở bằng trình duyệt của máy

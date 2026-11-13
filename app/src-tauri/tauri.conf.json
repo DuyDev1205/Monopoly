@@ -22,18 +22,49 @@
         "resizable": true
       }
     ],
-    "security": { "csp": null }
+    "security": {
+      "csp": null
+    }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "dmg", "app"],
+    "targets": [
+      "nsis",
+      "dmg",
+      "app"
+    ],
     "publisher": "Trần Thanh Duy",
     "copyright": "© Trần Thanh Duy",
     "category": "BoardGame",
     "shortDescription": "Cờ Tỷ Phú Việt Nam",
     "longDescription": "Cờ Tỷ Phú Việt Nam — mua đất, xây nhà, mở lễ hội khắp 3 miền. Chơi với máy hoặc online cùng bạn bè.",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
-    "windows": { "nsis": { "installMode": "currentUser" } },
-    "macOS": { "signingIdentity": "-", "minimumSystemVersion": "10.15" }
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
+    "macOS": {
+      "signingIdentity": "-",
+      "minimumSystemVersion": "10.15"
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDkwNDBGRTI5NjlCRkU3RUQKUldUdDU3OXBLZjVBa01FMk91N3lLZUxXdm05MTBzT1M5Qy9rdHFlanhYVElCbUtRTmNpSm54b3gK",
+      "endpoints": [
+        "https://github.com/DuyDev1205/Monopoly/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }
