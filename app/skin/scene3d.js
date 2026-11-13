@@ -944,7 +944,8 @@ const KIT_FILES = {
   pf: ['cherry-blossom-tree-3f7ab7', 'stone-lantern-d56d0a', 'sculpted-pine-e45d4f', 'azalea-bush-7bb14d', 'palm-tree-a307da', 'palm-sapling-ef7ae4',
     'beach-hut-fc7649', 'sandcastle-ddc562', 'lifebuoy-on-a-post-57421b', 'striped-deck-chair-70b506', 'tamarisk-bush-ba4337', 'small-fishing-boat-4ac0e3',
     'torii-gate-402f30', 'paper-lantern-3387e9', 'grass-tuft-a40a08', 'lily-pad-86edbb', 'cattail-reed-6abbb3', 'round-path-stone-4130f3', 'moat-bridge-4fbcd9',
-    'garden-rock-2d3b51', 'wildflower-68d3a1', 'bamboo-stalk-e4d362', 'japanese-maple-d2fb29', 'tsukubai-stone-basin-677586'].map((n) => `pf/${n}.glb`),
+    'garden-rock-2d3b51', 'wildflower-68d3a1', 'bamboo-stalk-e4d362', 'japanese-maple-d2fb29', 'tsukubai-stone-basin-677586',
+    'broadleaf-oak-997c22', 'maple-tree-65fa12', 'birch-tree-181b33', 'tall-pine-tree-ab4108', 'young-pine-0d7695'].map((n) => `pf/${n}.glb`),
 };
 // nhân vật chibi KayKit Adventurers + Skeletons (models/kk/chr/c0..c7), thứ tự trùng CHARACTERS trong characters.js
 const CHAR3D = ['c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'];
@@ -976,6 +977,7 @@ async function loadKit() {
   }
   await Promise.all(jobs);
   if (KIT.tpl['pf/cherry-blossom-tree-3f7ab7']) bloomCherry(KIT.tpl['pf/cherry-blossom-tree-3f7ab7']);
+  Object.entries(TREE_FOLIAGE).forEach(([k, o], i) => { if (KIT.tpl[k]) foliate(KIT.tpl[k], { seed: 11 + i * 7, ...o }); });
   KIT.ready = !!KIT.tpl['city/building_A_withoutBase'];
 }
 const _v3 = new THREE.Vector3();
@@ -1049,6 +1051,91 @@ function flowerGeo() {
   }
   return (FLOWER_GEO = new THREE.ShapeGeometry(sh, 2));
 }
+// lá cây (lá bản hình giọt, gân giữa) và kim thông (chùm kim mảnh) dùng chung
+const LEAF_GEO = {};
+function leafGeo(kind) {
+  if (LEAF_GEO[kind]) return LEAF_GEO[kind];
+  let geo;
+  if (kind === 'needle') {
+    // chùm 3 kim toả ra
+    const parts = [0, 2.1, 4.2].map((a) => { const s = new THREE.Shape(); s.moveTo(0, 0); s.lineTo(0.09, 0.5); s.lineTo(0, 1); s.lineTo(-0.09, 0.5); s.closePath(); const g = new THREE.ShapeGeometry(s, 1); g.rotateZ(a); return g; });
+    geo = mergeGeos(parts);
+  } else {
+    const s = new THREE.Shape(); s.moveTo(0, -0.5); s.bezierCurveTo(0.42, -0.3, 0.38, 0.25, 0, 0.55); s.bezierCurveTo(-0.38, 0.25, -0.42, -0.3, 0, -0.5);
+    geo = new THREE.ShapeGeometry(s, 3);
+    // cong nhẹ như lá thật
+    const p = geo.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i); p.setZ(i, -x * x * 0.5); } geo.computeVertexNormals();
+  }
+  return (LEAF_GEO[kind] = geo);
+}
+function mergeGeos(list) {
+  let n = 0, idx = 0; list.forEach((g) => { n += g.attributes.position.count; idx += g.index ? g.index.count : g.attributes.position.count; });
+  const pos = new Float32Array(n * 3), ind = []; let o = 0;
+  list.forEach((g) => { pos.set(g.attributes.position.array, o * 3); const gi = g.index ? Array.from(g.index.array) : [...Array(g.attributes.position.count).keys()]; gi.forEach((v) => ind.push(v + o)); o += g.attributes.position.count; });
+  const out = new THREE.BufferGeometry(); out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setIndex(ind); out.computeVertexNormals(); return out;
+}
+/** phủ lá lên tán cây (nhận biết tán theo màu đỉnh); palette = bảng màu thay thế (vd lá thu), mặc định lấy màu tán gốc */
+function foliate(tpl, { isCanopy, kind = 'leaf', count = 2200, sizeK = 0.035, palette = null, seed = 5 } = {}) {
+  const rnd2 = seeded(seed);
+  tpl.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(tpl.matrixWorld).invert();
+  const tris = []; let area = 0, minY = Infinity, maxY = -Infinity;
+  const A = new THREE.Vector3(), Bv = new THREE.Vector3(), Cv = new THREE.Vector3(), c = new THREE.Color();
+  tpl.traverse((m) => {
+    if (!m.isMesh || m.isInstancedMesh || !m.geometry.attributes.color) return;
+    const geo = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+    const pos = geo.attributes.position, colA = geo.attributes.color;
+    const mw = new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld);
+    for (let t = 0; t < pos.count; t += 3) {
+      c.fromBufferAttribute(colA, t);
+      if (!isCanopy(c)) continue;
+      const base = c.clone();
+      for (let j = 0; j < 3; j++) { c.fromBufferAttribute(colA, t + j); colA.setXYZ(t + j, c.r * 0.62, c.g * 0.62, c.b * 0.62); }
+      A.fromBufferAttribute(pos, t).applyMatrix4(mw); Bv.fromBufferAttribute(pos, t + 1).applyMatrix4(mw); Cv.fromBufferAttribute(pos, t + 2).applyMatrix4(mw);
+      const nrm = new THREE.Vector3().subVectors(Cv, Bv).cross(new THREE.Vector3().subVectors(A, Bv));
+      const ar = nrm.length() / 2; if (ar < 1e-7) continue;
+      tris.push({ a: A.clone(), b: Bv.clone(), d: Cv.clone(), n: nrm.normalize(), ar, col: base }); area += ar;
+      minY = Math.min(minY, A.y, Bv.y, Cv.y); maxY = Math.max(maxY, A.y, Bv.y, Cv.y);
+    }
+    colA.needsUpdate = true; m.geometry = geo;
+  });
+  if (!tris.length) return tpl;
+  const span = maxY - minY, size = Math.max(span, 0.5) * sizeK;
+  const pick = () => { let r = rnd2() * area; for (const t of tris) { r -= t.ar; if (r <= 0) return t; } return tris[tris.length - 1]; };
+  const P = new THREE.Vector3();
+  const N = Math.round(count * (isMobile() ? 0.55 : 1));
+  const inst = new THREE.InstancedMesh(leafGeo(kind), new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.75 }), N);
+  const dm = new THREE.Object3D(), up = new THREE.Vector3(0, 0, 1), hsl = {};
+  for (let i = 0; i < N; i++) {
+    const t = pick();
+    let u = rnd2(), v = rnd2(); if (u + v > 1) { u = 1 - u; v = 1 - v; }
+    P.copy(t.a).addScaledVector(new THREE.Vector3().subVectors(t.b, t.a), u).addScaledVector(new THREE.Vector3().subVectors(t.d, t.a), v);
+    dm.position.copy(P).addScaledVector(t.n, (Math.pow(rnd2(), 0.7) * 1.4 - 0.15) * size * 1.8);
+    const nn = t.n.clone().add(new THREE.Vector3(rnd2() - 0.5, rnd2() * 0.8 - 0.2, rnd2() - 0.5).multiplyScalar(1.1)).normalize();
+    dm.quaternion.setFromUnitVectors(up, nn); dm.rotateZ(rnd2() * 6.28);
+    dm.scale.setScalar(size * (0.65 + rnd2() * 0.7)); dm.updateMatrix(); inst.setMatrixAt(i, dm.matrix);
+    const col = palette ? palette[(rnd2() * palette.length) | 0].clone() : t.col.clone();
+    col.getHSL(hsl); col.setHSL(hsl.h + (rnd2() - 0.5) * 0.04, Math.min(1, hsl.s * (0.9 + rnd2() * 0.25)), Math.min(0.9, hsl.l * (0.85 + rnd2() * 0.55)));
+    col.multiplyScalar(0.8 + 0.3 * ((P.y - minY) / Math.max(span, 0.01)));   // dưới tán tối hơn, ngọn sáng hơn
+    inst.setColorAt(i, col);
+  }
+  inst.castShadow = true; inst.receiveShadow = false;
+  tpl.add(inst);
+  return tpl;
+}
+const isGreen = (c) => c.g > 0.08 && c.g > c.r * 1.25 && c.g > c.b * 1.25;
+const isMapleLeaf = (c) => (c.r > 0.4 && c.r > c.b * 2) || isGreen(c);
+const AUTUMN = ['#e8742a', '#f2a033', '#d9481f', '#f5c242', '#c2391f', '#e98a2e'].map((h) => new THREE.Color(h));
+const TREE_FOLIAGE = {
+  'pf/broadleaf-oak-997c22': { isCanopy: isGreen, count: 3400, sizeK: 0.04 },
+  'pf/maple-tree-65fa12': { isCanopy: isMapleLeaf, count: 4200, sizeK: 0.045, palette: AUTUMN },
+  'pf/birch-tree-181b33': { isCanopy: isGreen, count: 1800, sizeK: 0.03 },
+  'pf/tall-pine-tree-ab4108': { isCanopy: isGreen, kind: 'needle', count: 2600, sizeK: 0.04 },
+  'pf/young-pine-0d7695': { isCanopy: isGreen, kind: 'needle', count: 1800, sizeK: 0.045 },
+  'pf/japanese-maple-d2fb29': { isCanopy: (c) => isGreen(c) || (c.r > 0.12 && c.r > c.g * 1.4), count: 3600, sizeK: 0.04, palette: ['#7fbf4a', '#9ad35a', '#6aa83e', '#b5e070', '#5c9a38'].map((h) => new THREE.Color(h)) },
+  'pf/sculpted-pine-e45d4f': { isCanopy: (c) => isGreen(c) || (c.g > c.r && c.b > c.r && c.g > 0.05), kind: 'needle', count: 4200, sizeK: 0.05 },
+};
+
 const SAKURA_PAL = ['#fff6fa', '#ffe3ee', '#ffcfe0', '#ffb3cc', '#ff9bbd', '#ffffff', '#ffd9e6'].map((h) => new THREE.Color(h));
 /** phủ hoa lên tán cây anh đào (tán gốc tối lại để hoa nổi lên) + nụ + thảm cánh rụng dưới gốc */
 function bloomCherry(tpl, seed = 3) {
@@ -1182,16 +1269,16 @@ function decorate(g, key, top, half, R) {
   }
   // bụi cỏ + hoa dại (instancing)
   if (D.grass) {
-    const list = []; for (let k = 0; k < (isMobile() ? 500 : 1100); k++) { const a = rnd2() * 6.28, r = half + 0.6 + Math.sqrt(rnd2()) * (R - half - 1.1), x = Math.cos(a) * r, z = Math.sin(a) * r; if (free(x, z, 0.3)) list.push([x, top, z, rnd2() * 6.28, 0.6 + rnd2() * 0.8]); }
+    const list = []; for (let k = 0; k < (isMobile() ? 300 : 600); k++) { const a = rnd2() * 6.28, r = half + 0.6 + Math.sqrt(rnd2()) * (R - half - 1.1), x = Math.cos(a) * r, z = Math.sin(a) * r; if (free(x, z, 0.3)) list.push([x, top, z, rnd2() * 6.28, 0.6 + rnd2() * 0.8]); }
     const gr = scatter(D.grass, list, { fit: 0.32, hmax: 0.22 }); if (gr) g.add(gr);
   }
   if (D.flowers) {
-    const list = []; for (let k = 0; k < 260; k++) { const a = rnd2() * 6.28, r = half + 0.8 + Math.sqrt(rnd2()) * (R - half - 1.3), x = Math.cos(a) * r, z = Math.sin(a) * r; if (free(x, z, 0.4)) list.push([x, top, z, rnd2() * 6.28, 0.7 + rnd2() * 0.6]); }
+    const list = []; for (let k = 0; k < 140; k++) { const a = rnd2() * 6.28, r = half + 0.8 + Math.sqrt(rnd2()) * (R - half - 1.3), x = Math.cos(a) * r, z = Math.sin(a) * r; if (free(x, z, 0.4)) list.push([x, top, z, rnd2() * 6.28, 0.7 + rnd2() * 0.6]); }
     const fl = scatter(D.flowers, list, { fit: 0.3, hmax: 0.3 }); if (fl) g.add(fl);
   }
   // cánh hoa / lá rơi lả tả
   if (D.petals) {
-    const N = isMobile() ? 160 : 320, data = [];
+    const N = (isMobile() ? 160 : 320) * (key === 'wood' ? 0.4 : 1) | 0, data = [];
     const m = new THREE.InstancedMesh(new THREE.CircleGeometry(0.06, 5), new THREE.MeshStandardMaterial({ color: D.petals, side: THREE.DoubleSide, roughness: 0.8, emissive: D.petals, emissiveIntensity: 0.15 }), N);
     for (let k = 0; k < N; k++) data.push({ x: rnd(-13, 13), y: rnd(top, 6), z: rnd(-13, 13), vy: rnd(0.25, 0.6), sw: rnd(0, 6), rs: rnd(0.8, 2.4), s: rnd(0.7, 1.4) });
     m.castShadow = false; g.add(m); g.userData.fall = { mesh: m, data, top };
@@ -1234,12 +1321,12 @@ const BOARD_STYLE = {
 };
 const TD_SCENES = {
   midnight: { ground: '#3b5a3a', rim: '#2c4630', dirt: '#2a2340',
-    trees: ['tree_single_A', 'tree_single_B', 'trees_A_small', 'tree_single_A', 'trees_B_small'].map((n) => 'med/' + n),
+    trees: ['pf/tall-pine-tree-ab4108', 'pf/young-pine-0d7695', 'pf/birch-tree-181b33', 'pf/tall-pine-tree-ab4108', 'pf/young-pine-0d7695'],
     small: ['med/rock_single_A', 'med/rock_single_C', 'city/bush', 'med/rock_single_E', 'city/bench'],
     far: ['med/mountain_A_grass_trees', 'med/hill_single_A', 'med/mountain_C_grass_trees'],
     lamps: true, hemi: ['#9fb0ff', '#2a2340', 0.9], sun: ['#c9d4ff', 1.6], env: 0.35, exposure: 1.0 },
   wood: { ground: '#8cb556', rim: '#749a47', dirt: '#8a5a34',
-    trees: ['tree_single_B', 'trees_B_small', 'tree_single_A', 'trees_A_small', 'tree_single_B'].map((n) => 'med/' + n),
+    trees: ['pf/maple-tree-65fa12', 'pf/broadleaf-oak-997c22', 'pf/birch-tree-181b33', 'pf/maple-tree-65fa12', 'pf/tall-pine-tree-ab4108', 'pf/broadleaf-oak-997c22'],
     small: ['med/rock_single_B', 'med/barrel', 'city/bush', 'med/rock_single_D', 'city/bush', 'med/rock_single_C'],
     far: ['med/mountain_A_grass_trees', 'med/hill_single_B', 'med/mountain_C_grass_trees'],
     hemi: ['#fff6e6', '#7a5a3a', 1.05], sun: ['#fff0d8', 2.3], env: 0.5, exposure: 0.95 },
@@ -1303,18 +1390,18 @@ function buildTD(key) {
   const half = W / 2 + 0.75;
   const free = decorate(g, key, top, half, R);
   const spots = [];
-  for (let tries = 0; spots.length < 58 && tries < 2000; tries++) {
-    const a = rnd2() * Math.PI * 2, r = half + 0.4 + rnd2() * (R - half - 1.1);
+  for (let tries = 0; spots.length < 26 && tries < 2000; tries++) {
+    const a = rnd2() * Math.PI * 2, r = half + 2.2 + rnd2() * (R - half - 2.9);
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     if (Math.abs(x) < half && Math.abs(z) < half) continue;
     if (Math.hypot(x, z) > R - 0.6) continue;
-    if (spots.some((s) => Math.hypot(s[0] - x, s[1] - z) < 1.15)) continue;
+    if (spots.some((s) => Math.hypot(s[0] - x, s[1] - z) < 1.9)) continue;
     if (!free(x, z, 0.2)) continue;
     spots.push([x, z]);
   }
   spots.forEach(([x, z], k) => {
-    const front = x + z > 3.5;                 // phía gần camera: chỉ đồ thấp để không che bàn cờ
-    const tall = !front && k % 3 !== 2;
+    const front = x + z > -2;                  // phía gần camera: chỉ đồ thấp để không che bàn cờ
+    const tall = !front && k % 4 !== 3;
     const name = tall ? P.trees[k % P.trees.length] : P.small[k % P.small.length];
     const cluster = /trees_/.test(name);
     const m = tall ? (cluster ? kit(name, { fit: 1.3 + rnd2() * 0.4, hmax: 2.4 }) : kit(name, { h: 1.9 + rnd2() * 1.1, hmax: 3.2 })) : kit(name, { fit: 0.55 + rnd2() * 0.35, hmax: 1.0 });
@@ -1412,18 +1499,18 @@ function fitCamera() {
   // vùng màn hình dành cho bàn cờ: theo khung .stage
   const r = stageEl?.getBoundingClientRect();
   let rect = r && r.width > 10 ? { x: r.left, y: r.top, w: r.width, h: r.height } : { x: 0, y: 0, w: Wv, h: Hv };
-  rect = { x: Wv * 0.2, y: 70, w: Wv * 0.6, h: Hv - 82 };   // giữa màn hình, 4 góc để thẻ người chơi
+  rect = { x: Wv * 0.15, y: 56, w: Wv * 0.7, h: Hv - 70 };   // giữa màn hình, 4 góc để thẻ người chơi
   viewRect = rect;
   const dir = camDir();
   const pts = [];
-  [-1, 1].forEach((sx) => [-1, 1].forEach((sz) => [0, 0.6].forEach((y) => pts.push(new THREE.Vector3(sx * (W / 2 + 0.35), y, sz * (W / 2 + 0.35))))));
+  [-1, 1].forEach((sx) => [-1, 1].forEach((sz) => [-0.35, 0.6].forEach((y) => pts.push(new THREE.Vector3(sx * (W / 2 + 0.45), y, sz * (W / 2 + 0.45))))));
   let D = 26;
   for (let it = 0; it < 3; it++) {
     camera.position.copy(dir).multiplyScalar(D); camera.lookAt(0, 0, 0); camera.updateMatrixWorld(); camera.updateProjectionMatrix();
     let minx = 1, maxx = -1, miny = 1, maxy = -1;
     pts.forEach((p) => { const v = p.clone().project(camera); minx = Math.min(minx, v.x); maxx = Math.max(maxx, v.x); miny = Math.min(miny, v.y); maxy = Math.max(maxy, v.y); });
     const pw = ((maxx - minx) / 2) * Wv, ph = ((maxy - miny) / 2) * Hv;
-    D *= Math.max(pw / (rect.w * 0.93), ph / (rect.h * 0.93));
+    D *= Math.max(pw / (rect.w * 0.97), ph / (rect.h * 0.97));
   }
   camera.position.copy(dir).multiplyScalar(D); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
   cam.D = D; cam.dir = dir.clone();
