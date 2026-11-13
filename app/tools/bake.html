@@ -139,19 +139,189 @@ function pack(items, maxW = 2048) {
 const OUT = {};
 function emit(name, items) { OUT[name] = pack(items); console.log('baked', name, items.length); }
 
+// ================= mô hình Polyfork (CC BY 4.0, polyfork.dev) =================
+const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+const { clone: skClone } = await import('three/addons/utils/SkeletonUtils.js');
+const PF = {};
+async function pf(slug) {
+  if (!PF[slug]) PF[slug] = new GLTFLoader().loadAsync(`skin/models/pf/${slug}.glb`).then((g) => { g.scene.updateMatrixWorld(true); return g; });
+  return PF[slug];
+}
+/** bản sao mô hình đặt đáy ở y=0, tâm ở giữa; fit = bề ngang tối đa, h = chiều cao, hmax = chiều cao tối đa */
+async function pfModel(slug, { fit, h, hmax } = {}) {
+  const g = await pf(slug);
+  const o = g.animations.length && g.animations[0].name !== 'tick' ? skClone(g.scene) : g.scene.clone(true);
+  o.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(o), size = box.getSize(new THREE.Vector3());
+  let s = fit ? fit / Math.max(size.x, size.z) : h ? h / size.y : 1;
+  if (hmax && size.y * s > hmax) s = hmax / size.y;
+  o.scale.multiplyScalar(s);
+  const grp = new THREE.Group(); grp.add(o);
+  o.position.set(-(box.min.x + box.max.x) / 2 * s, -box.min.y * s, -(box.min.z + box.max.z) / 2 * s);
+  grp.userData.height = size.y * s;
+  return grp;
+}
+// mái nhà theo màu chủ đất: tô lại các mặt tam giác hướng lên ở phần trên của mô hình
+function tintRoofs(grp, color) {
+  const oc = new THREE.Color(color);
+  grp.updateMatrixWorld(true);
+  const H = grp.userData.height || new THREE.Box3().setFromObject(grp).getSize(new THREE.Vector3()).y;
+  grp.traverse((m) => {
+    if (!m.isMesh || !m.geometry.attributes.color) return;
+    let geo = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+    const pos = geo.attributes.position, colA = geo.attributes.color;
+    const nm = new THREE.Matrix3().getNormalMatrix(m.matrixWorld);
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3(), cen = new THREE.Vector3();
+    const col = new THREE.Color();
+    for (let t = 0; t < pos.count; t += 3) {
+      a.fromBufferAttribute(pos, t).applyMatrix4(m.matrixWorld); b.fromBufferAttribute(pos, t + 1).applyMatrix4(m.matrixWorld); c.fromBufferAttribute(pos, t + 2).applyMatrix4(m.matrixWorld);
+      n.subVectors(c, b).cross(new THREE.Vector3().subVectors(a, b)).normalize();
+      cen.copy(a).add(b).add(c).divideScalar(3);
+      if (n.y < 0.3 || cen.y < H * 0.42) continue;
+      col.fromBufferAttribute(colA, t);
+      const L = 0.3 * col.r + 0.59 * col.g + 0.11 * col.b;
+      if (L > 0.75) continue;                 // bỏ qua mặt trắng (tường, bậc thềm)
+      const k = 0.55 + L * 0.9;
+      for (let j = 0; j < 3; j++) colA.setXYZ(t + j, Math.min(1, oc.r * k), Math.min(1, oc.g * k), Math.min(1, oc.b * k));
+    }
+    colA.needsUpdate = true;
+    m.geometry = geo;
+  });
+  return grp;
+}
+// ---- làm chi tiết cây hoa anh đào: phủ hàng nghìn bông 5 cánh + nụ lên tán, thảm cánh hoa dưới gốc ----
+function seededRnd(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
+let FLOWER_GEO = null;
+function flowerGeo() {
+  if (FLOWER_GEO) return FLOWER_GEO;
+  const sh = new THREE.Shape();
+  const R = 1, n = 5;
+  for (let i = 0; i <= n; i++) {
+    const a0 = (i / n) * Math.PI * 2, a1 = ((i + 0.5) / n) * Math.PI * 2;
+    if (i === 0) sh.moveTo(Math.cos(a0) * 0.18, Math.sin(a0) * 0.18);
+    if (i === n) break;
+    // cánh tròn, đầu cánh khía nhẹ
+    sh.quadraticCurveTo(Math.cos(a0 + 0.1) * R * 1.05, Math.sin(a0 + 0.1) * R * 1.05, Math.cos(a1 - 0.08) * R * 0.92, Math.sin(a1 - 0.08) * R * 0.92);
+    sh.lineTo(Math.cos(a1) * R * 0.78, Math.sin(a1) * R * 0.78);
+    sh.lineTo(Math.cos(a1 + 0.08) * R * 0.92, Math.sin(a1 + 0.08) * R * 0.92);
+    const a2 = ((i + 1) / n) * Math.PI * 2;
+    sh.quadraticCurveTo(Math.cos(a2 - 0.1) * R * 1.05, Math.sin(a2 - 0.1) * R * 1.05, Math.cos(a2) * 0.18, Math.sin(a2) * 0.18);
+  }
+  FLOWER_GEO = new THREE.ShapeGeometry(sh, 3);
+  return FLOWER_GEO;
+}
+function detailCherry(grp, seed = 1) {
+  const rnd = seededRnd(seed);
+  grp.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(grp.matrixWorld).invert();
+  // 1) gom tam giác của tán (màu hồng) theo toạ độ của grp
+  const tris = [];
+  let area = 0, minY = Infinity, maxY = -Infinity, cx = 0, cz = 0, cn = 0;
+  grp.traverse((m) => {
+    if (!m.isMesh || !m.geometry.attributes.color) return;
+    const geo = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry;
+    const pos = geo.attributes.position, colA = geo.attributes.color;
+    const mw = new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld);
+    for (let t = 0; t < pos.count; t += 3) {
+      const c = new THREE.Color().fromBufferAttribute(colA, t);
+      const pink = c.r > 0.55 && c.r > c.g + 0.06 && c.b > c.g - 0.05;
+      if (!pink) continue;
+      const a = new THREE.Vector3().fromBufferAttribute(pos, t).applyMatrix4(mw);
+      const b = new THREE.Vector3().fromBufferAttribute(pos, t + 1).applyMatrix4(mw);
+      const d = new THREE.Vector3().fromBufferAttribute(pos, t + 2).applyMatrix4(mw);
+      const n = new THREE.Vector3().subVectors(d, b).cross(new THREE.Vector3().subVectors(a, b));
+      const ar = n.length() / 2; if (ar < 1e-6) continue;
+      n.normalize();
+      tris.push({ a, b, d, n, ar }); area += ar;
+      [a, b, d].forEach((p) => { minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); cx += p.x; cz += p.z; cn++; });
+    }
+    // tán gốc tối đi một chút để hoa nổi lên
+    for (let t = 0; t < colA.count; t++) {
+      const c = new THREE.Color().fromBufferAttribute(colA, t);
+      if (c.r > 0.55 && c.r > c.g + 0.06) colA.setXYZ(t, c.r * 0.82, c.g * 0.74, c.b * 0.8);
+    }
+    colA.needsUpdate = true;
+    if (geo !== m.geometry) m.geometry = geo;
+  });
+  if (!tris.length) return grp;
+  cx /= cn; cz /= cn;
+  const span = maxY - minY;
+  // 2) bông hoa
+  const N = 7200, size = span * 0.03;
+  const pal = ['#fff6fa', '#ffe3ee', '#ffcfe0', '#ffb3cc', '#ff9bbd', '#ffffff', '#ffd9e6'].map((h) => new THREE.Color(h));
+  const mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.75, emissive: '#ff9cc2', emissiveIntensity: 0.12 });
+  const fl = new THREE.InstancedMesh(flowerGeo(), mat, N);
+  const buds = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: '#e8749a', roughness: 0.6 }), 260);
+  const dm = new THREE.Object3D(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 0, 1);
+  const pick = () => { let r = rnd() * area; for (const t of tris) { r -= t.ar; if (r <= 0) return t; } return tris[tris.length - 1]; };
+  const sample = (t) => { let u = rnd(), v = rnd(); if (u + v > 1) { u = 1 - u; v = 1 - v; } return p.copy(t.a).addScaledVector(new THREE.Vector3().subVectors(t.b, t.a), u).addScaledVector(new THREE.Vector3().subVectors(t.d, t.a), v); };
+  for (let i = 0; i < N; i++) {
+    const t = pick(); sample(t);
+    dm.position.copy(p).addScaledVector(t.n, (Math.pow(rnd(), 0.7) * 1.3 - 0.1) * size * 2.2);
+    const nn = t.n.clone().add(new THREE.Vector3(rnd() - 0.5, rnd() * 0.6, rnd() - 0.5).multiplyScalar(0.9)).normalize();
+    dm.quaternion.setFromUnitVectors(up, nn); dm.rotateZ(rnd() * 6.28);
+    dm.scale.setScalar(size * (0.6 + rnd() * 0.7));
+    dm.updateMatrix(); fl.setMatrixAt(i, dm.matrix);
+    const c = pal[(rnd() * pal.length) | 0].clone();
+    const shade = 0.88 + 0.12 * ((p.y - minY) / span);         // dưới tán tối hơn
+    fl.setColorAt(i, c.multiplyScalar(shade));
+  }
+  for (let i = 0; i < buds.count; i++) {
+    const t = pick(); sample(t);
+    dm.position.copy(p).addScaledVector(t.n, size * (0.3 + rnd() * 0.9)); dm.rotation.set(0, 0, 0);
+    dm.scale.set(size * 0.2, size * 0.26, size * 0.2); dm.updateMatrix(); buds.setMatrixAt(i, dm.matrix);
+  }
+  fl.instanceMatrix.needsUpdate = true; fl.instanceColor.needsUpdate = true;
+  grp.add(fl, buds);
+  // 3) thảm cánh hoa rụng
+  const R = span * 0.9, M = 420;
+  const pet = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 6), new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.9 }), M);
+  for (let i = 0; i < M; i++) {
+    const a = rnd() * 6.28, r = Math.pow(rnd(), 0.6) * R;
+    dm.position.set(cx + Math.cos(a) * r, 0.006 + rnd() * 0.004, cz + Math.sin(a) * r * 0.9);
+    dm.rotation.set(-Math.PI / 2, 0, rnd() * 6.28);
+    dm.scale.set(size * (0.5 + rnd() * 0.5), size * (0.3 + rnd() * 0.3), 1); dm.updateMatrix(); pet.setMatrixAt(i, dm.matrix);
+    pet.setColorAt(i, pal[(rnd() * pal.length) | 0].clone().multiplyScalar(0.95));
+  }
+  pet.instanceMatrix.needsUpdate = true; pet.instanceColor.needsUpdate = true;
+  const carpet = new THREE.Group(); carpet.add(pet);
+  grp.userData.carpet = carpet;
+  return grp;
+}
+
 // ================= 1) nhà / khách sạn / khu du lịch / cờ chủ đất =================
-await B.loadKit();
+const LV = {
+  1: ['minka-farmhouse-680475', 'kura-storehouse-5c9631', 'open-front-teahouse-c7dd18', 'alley-bar-hut-3e41f8'],
+  2: ['machiya-townhouse-8ef64e', 'two-storey-shophouse-183790', 'wide-shophouse-089f20', 'corner-shophouse-ad15c2'],
+  3: ['three-storey-shophouse-2f6378', 'bathhouse-4ac41a', 'apartment-block-6445af', 'buddhist-temple-hall-f0aa09'],
+  4: ['tiered-pagoda-f4ade0', 'tenshu-keep-2ff636', 'office-tower-1538cc', 'art-deco-setback-tower-b3a788'],
+};
+const FIT = { 1: [0.62, 0.6], 2: [0.66, 0.85], 3: [0.7, 1.05], 4: [0.62, 1.75] };   // [bề ngang, cao tối đa]
 {
   const items = [];
-  const rots = [0, Math.PI / 2];        // 0: cạnh dưới/trên, 1: cạnh trái/phải
+  const rots = [0, Math.PI / 2];
   for (let o = 0; o < 4; o++) {
     const color = PLAYER_COLORS[o];
-    for (let lvl = 1; lvl <= 4; lvl++) rots.forEach((ry, r) => {
-      const m = B.kitModel('city', lvl, o, color); m.rotation.y = ry; m.scale.setScalar(1.0);
-      items.push({ name: `b${lvl}_${o}_${r}`, ...bakeStatic(m) });
-    });
-    rots.forEach((ry, r) => { const m = B.kitModel('resort', 0, o, color); m.rotation.y = ry; items.push({ name: `r_${o}_${r}`, ...bakeStatic(m) }); });
-    const f = B.ownerFlag(color); items.push({ name: `f_${o}`, ...bakeStatic(f) });
+    for (let lvl = 1; lvl <= 4; lvl++) {
+      for (let r = 0; r < 2; r++) {
+        const g = new THREE.Group();
+        const m = tintRoofs(await pfModel(LV[lvl][o], { fit: FIT[lvl][0], hmax: FIT[lvl][1] }), color);
+        g.add(m);
+        if (lvl === 4) B.hotelTop(g, m.userData.height, color);
+        else { const f = B.ownerFlag(color); f.scale.setScalar(0.75); f.position.set(0.3, 0, 0.24); g.add(f); }
+        g.rotation.y = rots[r];
+        items.push({ name: `b${lvl}_${o}_${r}`, ...bakeStatic(g) });
+      }
+    }
+    for (let r = 0; r < 2; r++) {
+      const g = new THREE.Group();
+      const hut = tintRoofs(await pfModel('beach-hut-fc7649', { fit: 0.42 }), color); hut.position.set(-0.1, 0, -0.06); g.add(hut);
+      const chair = await pfModel('striped-deck-chair-70b506', { fit: 0.26 }); chair.position.set(0.2, 0, 0.14); chair.rotation.y = -0.5; g.add(chair);
+      const f = B.ownerFlag(color); f.scale.setScalar(0.75); f.position.set(0.32, 0, -0.2); g.add(f);
+      g.rotation.y = rots[r];
+      items.push({ name: `r_${o}_${r}`, ...bakeStatic(g) });
+    }
+    items.push({ name: `f_${o}`, ...bakeStatic(B.ownerFlag(color)) });
   }
   emit('bld', items);
 }
@@ -162,18 +332,27 @@ await B.loadKit();
   emit('gate', items);
 }
 // ================= 3) cây cối, đồ trang trí theo theme =================
-for (const [key, P] of Object.entries(B.TD_SCENES)) {
+const SCENES = {
+  sakura: { trees: ['cherry-blossom-tree-3f7ab7', 'cherry-blossom-tree-3f7ab7', 'sculpted-pine-e45d4f', 'cherry-blossom-tree-3f7ab7'],
+    small: ['stone-lantern-d56d0a', 'azalea-bush-7bb14d', 'bamboo-stalk-e4d362', 'tsukubai-stone-basin-677586', 'garden-rock-2d3b51', 'andon-floor-lantern-b1b7ea'] },
+  midnight: { trees: ['tall-pine-tree-ab4108', 'young-pine-0d7695', 'birch-tree-181b33', 'tall-pine-tree-ab4108'],
+    small: ['medium-rock-e08405', 'round-bush-cd2ac0', 'toadstool-257a4a', 'fern-plant-1559b8', 'lantern-post-f47665'], lamp: 'street-lamp-29f365' },
+  wood: { trees: ['broadleaf-oak-997c22', 'maple-tree-65fa12', 'birch-tree-181b33', 'tall-pine-tree-ab4108'],
+    small: ['fallen-log-1685fb', 'tree-stump-ec3f48', 'toadstool-257a4a', 'firewood-stack-8a2899', 'wildflower-68d3a1', 'round-bush-cd2ac0', 'wooden-barrel-ab50ca'] },
+  ocean: { trees: ['palm-tree-a307da', 'palm-sapling-ef7ae4', 'palm-tree-a307da', 'tamarisk-bush-ba4337'],
+    small: ['beach-hut-fc7649', 'lifebuoy-on-a-post-57421b', 'sandcastle-ddc562', 'driftwood-log-89a68f', 'striped-deck-chair-70b506', 'marram-grass-tuft-8c7a99'], boat: 'small-fishing-boat-4ac0e3' },
+};
+for (const [key, P] of Object.entries(SCENES)) {
   const items = [];
-  P.trees.forEach((n, k) => {
-    const tints = P.leaf2 || (P.leaf ? [P.leaf] : [null]);
-    tints.forEach((tint, j) => {
-      const m = B.kit(n, { h: 2.4 }); if (!m) return;
-      if (tint) B.tintLeaves(m, tint);
-      items.push({ name: `t${k}_${j}`, ...bakeStatic(m, { shadow: false }) });
-    });
-  });
-  P.small.forEach((n, k) => { const m = B.kit(n, { fit: 0.7 }); if (m) items.push({ name: `s${k}`, ...bakeStatic(m, { shadow: false }) }); });
-  if (P.lamps) items.push({ name: 'lamp', ...bakeStatic(B.lampPost()) });
+  for (let k = 0; k < P.trees.length; k++) {
+    let m = await pfModel(P.trees[k], { h: k === 3 && key === 'ocean' ? 1.2 : 2.4 });
+    if (P.trees[k].startsWith('cherry-blossom')) m = detailCherry(m, 11 + k * 7);
+    items.push({ name: `t${k}_0`, ...bakeStatic(m, { shadow: false }) });
+    if (m.userData.carpet) { const c = m.userData.carpet; prep(c); items.push({ name: `t${k}_0c`, ...shoot(c, pad(bounds(boxPts(worldBox(c))), 0.04), { shadow: false, outline: 0 }) }); }
+  }
+  for (let k = 0; k < P.small.length; k++) items.push({ name: `s${k}`, ...bakeStatic(await pfModel(P.small[k], { fit: 0.6, hmax: 0.75 }), { shadow: false }) });
+  if (P.lamp) items.push({ name: 'lamp', ...bakeStatic(await pfModel(P.lamp, { h: 1.9 }), { shadow: false }) });
+  if (P.boat) items.push({ name: 'boat', ...bakeStatic(await pfModel(P.boat, { fit: 2.2 }), { shadow: false }) });
   emit(`nat_${key}`, items);
 }
 // ================= 4) xúc xắc: 6 mặt cuối + khung lăn =================
@@ -189,66 +368,80 @@ for (const [key, P] of Object.entries(B.TD_SCENES)) {
   }
   emit('dice', items);
 }
-// ================= 5) tiền: xấp tiền, thỏi vàng, đồng xu =================
-{
-  const gold = new THREE.MeshStandardMaterial({ color: '#ffcc33', metalness: 0, roughness: 0.3, emissive: '#5a3a00', emissiveIntensity: 0.15 });
-  const cashTex = (() => { const c = document.createElement('canvas'); c.width = 256; c.height = 128; const g = c.getContext('2d'); g.fillStyle = '#7ddb7a'; g.fillRect(0, 0, 256, 128); g.fillStyle = '#ffe27a'; g.fillRect(96, 0, 64, 128); g.strokeStyle = '#3f9d4b'; g.lineWidth = 8; g.strokeRect(4, 4, 248, 120); g.fillStyle = '#2f7a3a'; g.font = '900 46px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('₫', 50, 64); g.fillText('₫', 206, 64); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
-  const side = new THREE.MeshStandardMaterial({ color: '#49a956' }), top = new THREE.MeshStandardMaterial({ map: cashTex, roughness: 0.8 });
-  const cash = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.14, 0.34), [side, side, top, side, side, side]); cash.position.y = 0.07;
-  const bg = new THREE.CylinderGeometry(0.2, 0.26, 0.17, 4, 1); bg.rotateY(Math.PI / 4); bg.scale(1.6, 1, 0.72);
-  const bar = new THREE.Mesh(bg, gold); bar.position.y = 0.085;
-  const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.055, 28), gold); coin.position.y = 0.028;
-  emit('money', [{ name: 'cash', ...bakeStatic(cash, { shadow: false }) }, { name: 'bar', ...bakeStatic(bar, { shadow: false }) }, { name: 'coin', ...bakeStatic(coin, { shadow: false }) }]);
-}
-// ================= 6) nhân vật: các khung hoạt ảnh =================
-const ANIMS = [   // [tên, các khoá clip, số khung, hướng]
-  ['idle', ['idle'], 10, 'cam'],
-  ['walkF', ['walk', 'run'], 8, 'front'],
-  ['walkB', ['walk', 'run'], 8, 'back'],
-  ['jump', ['jump', 'roll', 'run'], 10, 'cam'],
-  ['yes', ['yes', 'wave', 'pickup', 'spell1', 'jump'], 10, 'cam'],
-  ['no', ['no', 'hitreact', 'recievehit'], 10, 'cam'],
-  ['die', ['death'], 10, 'cam'],
-];
+// ================= 5) tiền: xấp tiền, thỏi vàng, chồng xu =================
+emit('money', [
+  { name: 'cash', ...bakeStatic(await pfModel('banded-cash-bundle-7da278', { fit: 0.66 }), { shadow: false }) },
+  { name: 'bar', ...bakeStatic(await pfModel('gold-ingot-85e62e', { fit: 0.56 }), { shadow: false }) },
+  { name: 'coin', ...bakeStatic(await pfModel('gold-coin-stack-a9ef52', { fit: 0.36 }), { shadow: false }) },
+]);
+// ================= 6) nhân vật: các khung hoạt ảnh + chân dung =================
+const CHARS = ['audience-gentleman-base', 'opera-soprano-base', 'farmer-base', 'kite-kid-base', 'schoolkid-da94c1', 'elderly-audience-member-base', 'delivery-courier-327e30', 'strategist-base'];
 const FACE = { cam: Math.PI / 4, front: 0, back: -Math.PI / 2 };
-const CH = 1.0;      // chiều cao nhân vật (đơn vị thế giới)
-for (let k = 0; k < B.CHAR3D.length; k++) {
-  const name = `chr2/${B.CHAR3D[k]}`;
-  const src = B.KIT.tpl[name];
-  const o = src;      // dùng thẳng bản gốc (mỗi nhân vật chỉ dựng 1 lần)
-  o.traverse((c) => { if (c !== o && B.HIDE_PROPS.test(c.name || '')) c.visible = false; });
-  o.rotation.set(0, 0, 0); o.position.set(0, 0, 0); o.scale.setScalar(1);
-  o.updateMatrixWorld(true);
-  const box0 = B.visibleBox(o);
-  if (k === 2) B.addNonLa(o, box0);
-  const s = CH / (box0.max.y - box0.min.y);
-  const holder = new THREE.Group(); holder.add(o);
-  o.scale.setScalar(s); o.position.y = -box0.min.y * s;
+const ANIMS = [   // [tên, clip, số khung, hướng]
+  ['idle', 'Idle', 10, 'cam'], ['walkF', 'Walk', 8, 'front'], ['walkB', 'Walk', 8, 'back'], ['jump', 'Run', 10, 'cam'],
+  ['yes', 'Idle', 10, 'cam'], ['no', 'Idle', 10, 'cam'], ['die', 'Idle', 10, 'cam'],
+];
+const ADULT = 1.75;           // người lớn cao 1.75m -> 1 đơn vị; trẻ em thấp hơn tự nhiên
+const POR = {};
+for (let k = 0; k < CHARS.length; k++) {
+  const g = await pf(CHARS[k]);
+  const o = skClone(g.scene);
+  const s = 1 / ADULT;
+  const holder = new THREE.Group(), pivot = new THREE.Group(); pivot.add(o); holder.add(pivot);
+  o.scale.multiplyScalar(s);
   prep(holder);
   const mixer = new THREE.AnimationMixer(o);
-  const clips = {};
-  (B.KIT.anim[name] || []).forEach((c) => { const key = B.clipKey(c.name); if (key && !clips[key]) clips[key] = c; });
-  // khung chung cho mọi tư thế: lấy rộng theo nhân vật
+  const clips = Object.fromEntries(g.animations.map((c) => [c.name, c]));
+  const bone = (n) => { let r = null; o.traverse((c) => { if (!r && c.isBone && c.name.replace(/^mixamorig:?/, '') === n) r = c; }); return r; };
+  const head = bone('Head'), lArm = bone('LeftArm'), rArm = bone('RightArm');
   const bd = pad(bounds([
-    new THREE.Vector3(-0.55, 0, -0.55), new THREE.Vector3(0.55, 0, 0.55), new THREE.Vector3(0.55, 0, -0.55), new THREE.Vector3(-0.55, 0, 0.55),
-    new THREE.Vector3(-0.55, CH * 1.25, -0.55), new THREE.Vector3(0.55, CH * 1.25, 0.55), new THREE.Vector3(0.55, CH * 1.25, -0.55), new THREE.Vector3(-0.55, CH * 1.25, 0.55),
+    new THREE.Vector3(-0.6, 0, -0.6), new THREE.Vector3(0.6, 0, 0.6), new THREE.Vector3(0.6, 0, -0.6), new THREE.Vector3(-0.6, 0, 0.6),
+    new THREE.Vector3(-0.6, 1.2, -0.6), new THREE.Vector3(0.6, 1.2, 0.6), new THREE.Vector3(0.6, 1.2, -0.6), new THREE.Vector3(-0.6, 1.2, 0.6),
   ]), 0.02);
   const items = [];
-  for (const [an, keys, n, face] of ANIMS) {
-    const clip = keys.map((x) => clips[x]).find(Boolean);
+  for (const [an, clipName, n, face] of ANIMS) {
     holder.rotation.y = FACE[face];
     mixer.stopAllAction();
-    const act = clip ? mixer.clipAction(clip) : null;
-    if (act) { act.reset(); act.setLoop(THREE.LoopRepeat, Infinity); act.play(); }
+    const clip = clips[clipName] || clips.Idle;
+    const act = mixer.clipAction(clip); act.reset(); act.setLoop(THREE.LoopRepeat, Infinity); act.play();
     for (let f = 0; f < n; f++) {
-      if (act) { const T = an === 'die' ? clip.duration * Math.min(1, f / (n - 1)) * 0.999 : clip.duration * f / n; mixer.setTime(T); }
+      const p = f / n;
+      mixer.setTime(an === 'idle' || an.startsWith('walk') || an === 'jump' ? clip.duration * p : clip.duration * 0.3);
+      pivot.position.set(0, 0, 0); pivot.rotation.set(0, 0, 0);
+      // động tác thêm (không có sẵn trong mô hình)
+      if (an === 'yes') {                    // nhún nhảy mừng + giơ tay
+        pivot.position.y = Math.abs(Math.sin(p * Math.PI * 2)) * 0.12;
+        const up = 0.5 + 0.5 * Math.sin(p * Math.PI * 4);
+        if (lArm) lArm.rotateX(-1.6 * up);
+        if (rArm) rArm.rotateX(-1.6 * up);
+      } else if (an === 'no') {              // lắc đầu + xoay người
+        pivot.rotation.y = Math.sin(p * Math.PI * 4) * 0.28;
+        if (head) head.rotateY(Math.sin(p * Math.PI * 4) * 0.5);
+      } else if (an === 'die') {             // ngã ngửa
+        const e = Math.min(1, p * 1.25);
+        pivot.rotation.x = -e * e * 1.45; pivot.position.z = e * 0.2;
+      }
       holder.updateMatrixWorld(true);
       items.push({ name: `${an}_${f}`, ...shoot(holder, bd, { shadow: false }) });
     }
   }
   OUT[`chr${k}`] = pack(items);
+  // chân dung (đầu + vai), nhìn thẳng
+  {
+    holder.rotation.set(0, 0.32, 0); pivot.position.set(0, 0, 0); pivot.rotation.set(0, 0, 0);
+    mixer.stopAllAction(); const act = mixer.clipAction(clips.Idle); act.reset().play(); mixer.setTime(0.4);
+    holder.updateMatrixWorld(true);
+    const hp = head ? head.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(0, 0.9, 0);
+    const scene = makeScene(holder, false);
+    const cam = new THREE.PerspectiveCamera(24, 1, 0.01, 100);
+    cam.position.set(hp.x + 0.12, hp.y + 0.04, hp.z + 0.95); cam.lookAt(hp.x, hp.y - 0.04, hp.z);
+    renderer.setSize(512, 512, false); renderer.render(scene, cam);
+    POR[k] = renderer.domElement.toDataURL('image/webp', 0.92);
+    scene.remove(holder);
+  }
   console.log('baked chr', k, items.length);
 }
+window.__POR = POR;
 window.__OUT = OUT;
 window.__META = { E, K };
 window.done = true;

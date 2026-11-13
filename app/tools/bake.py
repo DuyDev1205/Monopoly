@@ -38,6 +38,7 @@ def main():
             pg.wait_for_function('window.done === true', timeout=600000, polling=1000)
             out = pg.evaluate('window.__OUT')
             meta = pg.evaluate('window.__META')
+            por = pg.evaluate('window.__POR || {}')
             b.close()
     finally:
         srv.shutdown()
@@ -52,6 +53,10 @@ def main():
         (OUT / f'{name}.webp').write_bytes(raw)
         total += len(raw)
         index['sheets'][name] = {'file': f'{name}.webp', 'w': sh['w'], 'h': sh['h'], 'frames': sh['frames']}
+    chars = APP / 'skin' / 'chars'
+    chars.mkdir(exist_ok=True)
+    for k, url in por.items():
+        (chars / f'c{k}.webp').write_bytes(base64.b64decode(url.split(',', 1)[1]))
     (OUT / 'sprites.json').write_text(json.dumps(index, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
     print(f'xong: {len(out)} ảnh, {total / 1048576:.1f} MB -> {OUT}')
 

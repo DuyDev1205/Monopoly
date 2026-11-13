@@ -1,15 +1,10 @@
-Mô hình 3D dùng trong bản app
+Mô hình 3D dùng để dựng ảnh cho bản app (app/skin/models/pf/)
 
-- Nhà, cây, đồ trang trí (sub/, com/, nat/): Kenney — www.kenney.nl — CC0 1.0
-- Nhân vật (chr2/): Quaternius — quaternius.com (tải qua poly.pizza)
-    c0 Character Animated (Rogue)   — CC0
-    c1 Anne                          — CC0
-    c2 Animated Wizard               — CC-BY 3.0 (Quaternius) — https://poly.pizza/m/kttbFvCl2C
-    c3 Lis                           — CC0
-    c4 Pirate Captain                — CC0
-    c5 Characters Sam                — CC0
-    c6 Henry                         — CC0
-    c7 Characters Matt               — CC0
+Tất cả mô hình trong thư mục pf/ là của Polyfork — https://polyfork.dev — dùng theo giấy phép CC BY 4.0
+(https://creativecommons.org/licenses/by/4.0/). Một số mô hình đã được chỉnh sửa (đổi màu mái theo người chơi,
+ghép cảnh, thêm động tác). Mỗi file mang tên trang gốc: https://polyfork.dev/asset/<tên file không có .glb>
+Ví dụ: Farmer by Polyfork (https://polyfork.dev/asset/farmer-base), CC BY 4.0.
 
-Ảnh 2D trong app/skin/sprites/ được dựng từ các mô hình trên bằng app/tools/bake.py.
-PixiJS (MIT) — app/skin/vendor/pixi/LICENSE
+Ảnh 2D trong app/skin/sprites/ và chân dung app/skin/chars/ được dựng từ các mô hình trên bằng app/tools/bake.py.
+Cổng Festival, cờ chủ đất, biển HOTEL và xúc xắc vẽ bằng code (app/skin/scene3d.js).
+PixiJS (MIT) — app/skin/vendor/pixi/LICENSE · three.js (MIT) — app/skin/vendor/three/LICENSE

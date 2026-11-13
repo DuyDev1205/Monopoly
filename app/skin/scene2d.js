@@ -451,7 +451,7 @@ function updateGates(t, now) {
 const SLOTS = [[0], [-0.2, 0.2], [-0.27, 0, 0.27], [-0.33, -0.11, 0.11, 0.33]];
 const FPS = { idle: 8, walkF: 12, walkB: 12, jump: 14, yes: 12, no: 12, die: 12 };
 const NF = { idle: 10, walkF: 8, walkB: 8, jump: 10, yes: 10, no: 10, die: 10 };
-const SCALE_CH = 1.3;
+const SCALE_CH = 1.25;
 export async function setTokens(players) {
   tokens.forEach((tk) => tk.node.destroy({ children: true }));
   tokens = players.map((p, pid) => {
@@ -606,10 +606,10 @@ export function clearPile() { if (pile) { pile.destroy({ children: true }); pile
 
 // ======================= cảnh nền: đảo nổi + cây cối theo theme =======================
 const SCENE = {
-  midnight: { ground: '#2c3d73', rim: '#1d2852', dirt: '#141b3d', trees: 5, tints: 1, small: 6, lamps: true, fx: 'fireflies', water: false },
-  wood: { ground: '#a8c45e', rim: '#86a24a', dirt: '#7a5634', trees: 5, tints: 1, small: 7, fx: 'leaves', water: false },
-  ocean: { ground: '#f2dda4', rim: '#e1c47f', dirt: '#c9a464', trees: 4, tints: 1, small: 5, fx: 'sparkles', water: true },
-  sakura: { ground: '#b7e39a', rim: '#93c77a', dirt: '#8a6b5a', trees: 4, tints: 3, small: 7, fx: 'petals', water: false },
+  midnight: { ground: '#2c3d73', rim: '#1d2852', dirt: '#141b3d', trees: 4, tints: 1, small: 5, lamps: true, fx: 'fireflies', water: false },
+  wood: { ground: '#a8c45e', rim: '#86a24a', dirt: '#7a5634', trees: 4, tints: 1, small: 7, fx: 'leaves', water: false },
+  ocean: { ground: '#f2dda4', rim: '#e1c47f', dirt: '#c9a464', trees: 4, tints: 1, small: 6, fx: 'sparkles', water: true },
+  sakura: { ground: '#b7e39a', rim: '#93c77a', dirt: '#8a6b5a', trees: 4, tints: 1, small: 6, fx: 'petals', water: false },
 };
 let scenery = null, particles = [];
 function buildScenery() {
@@ -658,6 +658,9 @@ function buildScenery() {
     s.scale.set((rnd2() < 0.5 ? -1 : 1) * sc / K, sc / K);
     const node = new Container(); node.addChild(s); node.isDecor = true; node.sway = tall ? rnd2() * 6 : null; node.spr = s;
     const [sx, sy] = px(x, top, z); node.position.set(sx, sy); node.zIndex = depth(x, z) - 100000;
+    // thảm cánh hoa dưới gốc (ảnh riêng, nằm ở lớp mặt đất)
+    const cp = tall ? spr(sheet, name + 'c') : null;
+    if (cp) { cp.scale.set(s.scale.x, s.scale.y); cp.position.set(sx, sy); scenery.addChild(cp); }
     // bóng mềm dưới gốc (nằm ở lớp mặt đất, dưới bàn cờ)
     const r = (tall ? 0.75 : 0.35) * sc, shd = new Sprite(radialTex([[0, 'rgba(30,15,45,.38)'], [0.6, 'rgba(30,15,45,.16)'], [1, 'rgba(30,15,45,0)']]));
     shd.anchor.set(0.5); shd.width = r * 2.6; shd.height = r * 2.6 * SIN; shd.position.set(sx + r * 0.45, sy - r * 0.12); scenery.addChild(shd);
