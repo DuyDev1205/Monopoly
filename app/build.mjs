@@ -1,7 +1,7 @@
 // Đóng gói bản web thành thư mục app/dist cho Tauri, rồi gắn giao diện riêng của bản app (skin "td").
 // Bản web (index.html, css/, js/ ở gốc repo) KHÔNG bị sửa — skin chỉ có trong app/dist.
 import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -14,7 +14,10 @@ for (const f of readdirSync(dist)) rmSync(join(dist, f), { recursive: true, forc
 for (const p of ['css', 'js', 'assets', 'manifest.webmanifest']) {
   if (existsSync(join(root, p))) cpSync(join(root, p), join(dist, p), { recursive: true });
 }
-cpSync(join(here, 'skin'), join(dist, 'skin'), { recursive: true });
+// mô hình 3D + Three.js chỉ cần khi dựng ảnh (BAKE=1 node build.mjs); bản đóng gói chỉ chở ảnh đã dựng
+const BAKE = process.env.BAKE === '1';
+const SKIP = BAKE ? [] : ['models', join('vendor', 'three'), 'scene3d.js'].map((p) => join(here, 'skin', p));
+cpSync(join(here, 'skin'), join(dist, 'skin'), { recursive: true, filter: (src) => !SKIP.some((s) => src === s || src.startsWith(s + sep)) });
 
 
 let html = readFileSync(join(root, 'index.html'), 'utf8');
@@ -30,7 +33,7 @@ html = html
   .replace(/<link href="https:\/\/fonts\.googleapis\.com[^>]*>\n?/, '')
   .replace('<link rel="stylesheet" href="css/style.css">', `<link rel="stylesheet" href="css/style.css">\n<link rel="stylesheet" href="skin/skin-td.css">\n${theme}`)
   .replace('<script type="module" src="js/app.js"></script>',
-    '<script type="importmap">{"imports":{"three":"./skin/vendor/three/three.module.js","three/addons/":"./skin/vendor/three/addons/"}}</script>\n' +
+    (BAKE ? '<script type="importmap">{"imports":{"three":"./skin/vendor/three/three.module.js","three/addons/":"./skin/vendor/three/addons/"}}</script>\n' : '') +
     '<script type="module" src="skin/skin-td.js"></script>\n<script type="module" src="js/app.js"></script>');
 writeFileSync(join(dist, 'index.html'), html);
 console.log(`app/dist sẵn sàng (v${pkg.version})`);

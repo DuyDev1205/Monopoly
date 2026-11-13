@@ -1,0 +1,255 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Dựng ảnh 2D (sprite) cho bản app PixiJS từ các mô hình 3D. Chạy bằng app/tools/bake.py, kết quả ghi vào app/skin/sprites/. -->
+<script type="importmap">{"imports":{"three":"./skin/vendor/three/three.module.js","three/addons/":"./skin/vendor/three/addons/"}}</script>
+</head><body style="margin:0;background:#333">
+<script type="module">
+import { __bake as B } from './skin/scene3d.js';
+const { THREE } = B;
+const PLAYER_COLORS = ['#e5383b', '#2f6fde', '#2a9d5c', '#f2a516'];
+
+// ---------- góc nhìn isometric dùng chung với bản PixiJS ----------
+const E = 0.72;                 // góc ngẩng camera (rad)
+const K = 200;                  // điểm ảnh / 1 đơn vị thế giới
+const C = Math.SQRT1_2;
+const DIR = new THREE.Vector3(Math.cos(E) * C, Math.sin(E), Math.cos(E) * C);
+const R = new THREE.Vector3(C, 0, -C);                                  // trục ngang màn hình
+const U = new THREE.Vector3(-C * Math.sin(E), Math.cos(E), -C * Math.sin(E));   // trục dọc màn hình (lên)
+const LIGHT = new THREE.Vector3(-4, 9, 5).normalize();                  // hướng tới mặt trời
+const OUTLINE = 2.6;            // độ dày viền (px)
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setClearColor(0x000000, 0);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.08;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+function makeScene(obj, shadow) {
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight('#ffffff', '#8a7f99', 1.35));
+  const sun = new THREE.DirectionalLight('#fff1dc', 2.3);
+  sun.position.copy(LIGHT).multiplyScalar(20); sun.castShadow = shadow;
+  sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.02;
+  Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: 1, far: 50 });
+  scene.add(sun, sun.target);
+  const fill = new THREE.DirectionalLight('#cfe0ff', 0.6); fill.position.set(6, 3, 2); scene.add(fill);
+  if (shadow) {
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.ShadowMaterial({ color: '#2a1d3a', opacity: 0.32 }));
+    plane.rotation.x = -Math.PI / 2; plane.receiveShadow = true; scene.add(plane);
+  }
+  scene.add(obj);
+  return scene;
+}
+function prep(obj) {
+  obj.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false;
+    (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if ('metalness' in m) m.metalness = 0; });
+  });
+}
+// khung chiếu (đơn vị thế giới) của một tập điểm
+function bounds(pts) {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  pts.forEach((p) => { const x = p.dot(R), y = p.dot(U); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); });
+  return { x0, x1, y0, y1 };
+}
+function boxPts(box) {
+  const pts = [];
+  for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) pts.push(new THREE.Vector3(x, y, z));
+  return pts;
+}
+function shadowPts(box) { return boxPts(box).map((p) => p.clone().addScaledVector(LIGHT, -p.y / LIGHT.y)); }
+function worldBox(obj) {
+  obj.updateMatrixWorld(true);
+  const box = new THREE.Box3(), b = new THREE.Box3();
+  obj.traverse((c) => {
+    if (!(c.isMesh || c.isSprite)) return;
+    for (let p = c; p; p = p.parent) if (!p.visible) return;
+    if (c.isSkinnedMesh) { c.computeBoundingBox?.(); b.copy(c.boundingBox).applyMatrix4(c.matrixWorld); } else b.setFromObject(c);
+    box.union(b);
+  });
+  return box;
+}
+function cam(bd) {
+  const c = new THREE.OrthographicCamera(bd.x0, bd.x1, bd.y1, bd.y0, 0.1, 200);
+  c.position.copy(DIR).multiplyScalar(60); c.up.set(0, 1, 0); c.lookAt(0, 0, 0); c.updateMatrixWorld();
+  return c;
+}
+// chụp 1 khung -> canvas (có viền tối quanh hình, bóng đổ không có viền)
+function shoot(obj, bd, { shadow = true, outline = OUTLINE } = {}) {
+  const w = Math.ceil((bd.x1 - bd.x0) * K), h = Math.ceil((bd.y1 - bd.y0) * K);
+  renderer.setSize(w, h, false);
+  const camera = cam(bd);
+  // lượt 1: chỉ vật thể (để lấy hình bóng làm viền)
+  const sceneA = makeScene(obj, false);
+  renderer.render(sceneA, camera);
+  const sil = document.createElement('canvas'); sil.width = w; sil.height = h; sil.getContext('2d').drawImage(renderer.domElement, 0, 0);
+  sceneA.remove(obj);
+  // lượt 2: có bóng đổ
+  let col = sil;
+  if (shadow) {
+    const sceneB = makeScene(obj, true);
+    renderer.render(sceneB, camera);
+    col = document.createElement('canvas'); col.width = w; col.height = h; col.getContext('2d').drawImage(renderer.domElement, 0, 0);
+    sceneB.remove(obj);
+  }
+  const P = Math.ceil(outline) + 1;
+  const out = document.createElement('canvas'); out.width = w + P * 2; out.height = h + P * 2;
+  const g = out.getContext('2d');
+  if (shadow) g.drawImage(col, P, P);              // bóng đổ (lớp dưới)
+  if (outline > 0) {
+    const tint = document.createElement('canvas'); tint.width = w; tint.height = h;
+    const tg = tint.getContext('2d'); tg.drawImage(sil, 0, 0); tg.globalCompositeOperation = 'source-in'; tg.fillStyle = 'rgba(38,24,52,0.92)'; tg.fillRect(0, 0, w, h);
+    for (let a = 0; a < 16; a++) { const r = (a / 16) * Math.PI * 2; g.drawImage(tint, P + Math.cos(r) * outline, P + Math.sin(r) * outline); }
+  }
+  g.drawImage(sil, P, P);                          // vật thể (không lẫn bóng)
+  return { canvas: out, ax: (0 - bd.x0) * K + P, ay: (bd.y1 - 0) * K + P };
+}
+function pad(bd, m) { return { x0: bd.x0 - m, x1: bd.x1 + m, y0: bd.y0 - m, y1: bd.y1 + m }; }
+function bakeStatic(obj, { shadow = true, margin = 0.04 } = {}) {
+  prep(obj);
+  const box = worldBox(obj);
+  const pts = boxPts(box); if (shadow) pts.push(...shadowPts(box));
+  return shoot(obj, pad(bounds(pts), margin), { shadow });
+}
+
+// ---------- đóng gói nhiều khung vào 1 ảnh (atlas) ----------
+function pack(items, maxW = 2048) {
+  let x = 0, y = 0, rowH = 0, W = 0;
+  const pos = items.map((it) => {
+    const w = it.canvas.width, h = it.canvas.height;
+    if (x + w > maxW) { x = 0; y += rowH + 2; rowH = 0; }
+    const p = [x, y]; x += w + 2; rowH = Math.max(rowH, h); W = Math.max(W, x);
+    return p;
+  });
+  const H = y + rowH;
+  const atlas = document.createElement('canvas'); atlas.width = W; atlas.height = H;
+  const g = atlas.getContext('2d');
+  const frames = {};
+  items.forEach((it, k) => {
+    g.drawImage(it.canvas, pos[k][0], pos[k][1]);
+    frames[it.name] = [pos[k][0], pos[k][1], it.canvas.width, it.canvas.height, +it.ax.toFixed(1), +it.ay.toFixed(1)];
+  });
+  return { data: atlas.toDataURL('image/webp', 0.9), w: W, h: H, frames };
+}
+const OUT = {};
+function emit(name, items) { OUT[name] = pack(items); console.log('baked', name, items.length); }
+
+// ================= 1) nhà / khách sạn / khu du lịch / cờ chủ đất =================
+await B.loadKit();
+{
+  const items = [];
+  const rots = [0, Math.PI / 2];        // 0: cạnh dưới/trên, 1: cạnh trái/phải
+  for (let o = 0; o < 4; o++) {
+    const color = PLAYER_COLORS[o];
+    for (let lvl = 1; lvl <= 4; lvl++) rots.forEach((ry, r) => {
+      const m = B.kitModel('city', lvl, o, color); m.rotation.y = ry; m.scale.setScalar(1.0);
+      items.push({ name: `b${lvl}_${o}_${r}`, ...bakeStatic(m) });
+    });
+    rots.forEach((ry, r) => { const m = B.kitModel('resort', 0, o, color); m.rotation.y = ry; items.push({ name: `r_${o}_${r}`, ...bakeStatic(m) }); });
+    const f = B.ownerFlag(color); items.push({ name: `f_${o}`, ...bakeStatic(f) });
+  }
+  emit('bld', items);
+}
+// ================= 2) cổng FESTIVAL =================
+{
+  const items = [];
+  [0, Math.PI / 2].forEach((ry, r) => { const g = B.buildGate(); g.rotation.y = ry; items.push({ name: `gate_${r}`, ...bakeStatic(g) }); });
+  emit('gate', items);
+}
+// ================= 3) cây cối, đồ trang trí theo theme =================
+for (const [key, P] of Object.entries(B.TD_SCENES)) {
+  const items = [];
+  P.trees.forEach((n, k) => {
+    const tints = P.leaf2 || (P.leaf ? [P.leaf] : [null]);
+    tints.forEach((tint, j) => {
+      const m = B.kit(n, { h: 2.4 }); if (!m) return;
+      if (tint) B.tintLeaves(m, tint);
+      items.push({ name: `t${k}_${j}`, ...bakeStatic(m, { shadow: false }) });
+    });
+  });
+  P.small.forEach((n, k) => { const m = B.kit(n, { fit: 0.7 }); if (m) items.push({ name: `s${k}`, ...bakeStatic(m, { shadow: false }) }); });
+  if (P.lamps) items.push({ name: 'lamp', ...bakeStatic(B.lampPost()) });
+  emit(`nat_${key}`, items);
+}
+// ================= 4) xúc xắc: 6 mặt cuối + khung lăn =================
+{
+  const mats = B.FACE_N.map((n) => new THREE.MeshStandardMaterial({ map: B.pipTex(n), roughness: 0.35 }));
+  const geo = new B.RoundedBoxGeometry(0.62, 0.62, 0.62, 4, 0.1);
+  const items = [];
+  const mk = (q) => { const m = new THREE.Mesh(geo, mats); m.quaternion.copy(q); m.position.y = 0.31; return m; };
+  for (let n = 1; n <= 6; n++) items.push({ name: `d${n}`, ...bakeStatic(mk(B.quatFor(n, Math.PI / 4)), { margin: 0.06 }) });
+  for (let k = 0; k < 16; k++) {
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(k * 1.7 + 0.3, k * 2.3 + 0.9, k * 0.9 + 0.2));
+    items.push({ name: `dr${k}`, ...bakeStatic(mk(q), { margin: 0.06, shadow: false }) });
+  }
+  emit('dice', items);
+}
+// ================= 5) tiền: xấp tiền, thỏi vàng, đồng xu =================
+{
+  const gold = new THREE.MeshStandardMaterial({ color: '#ffcc33', metalness: 0, roughness: 0.3, emissive: '#5a3a00', emissiveIntensity: 0.15 });
+  const cashTex = (() => { const c = document.createElement('canvas'); c.width = 256; c.height = 128; const g = c.getContext('2d'); g.fillStyle = '#7ddb7a'; g.fillRect(0, 0, 256, 128); g.fillStyle = '#ffe27a'; g.fillRect(96, 0, 64, 128); g.strokeStyle = '#3f9d4b'; g.lineWidth = 8; g.strokeRect(4, 4, 248, 120); g.fillStyle = '#2f7a3a'; g.font = '900 46px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('₫', 50, 64); g.fillText('₫', 206, 64); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+  const side = new THREE.MeshStandardMaterial({ color: '#49a956' }), top = new THREE.MeshStandardMaterial({ map: cashTex, roughness: 0.8 });
+  const cash = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.14, 0.34), [side, side, top, side, side, side]); cash.position.y = 0.07;
+  const bg = new THREE.CylinderGeometry(0.2, 0.26, 0.17, 4, 1); bg.rotateY(Math.PI / 4); bg.scale(1.6, 1, 0.72);
+  const bar = new THREE.Mesh(bg, gold); bar.position.y = 0.085;
+  const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.055, 28), gold); coin.position.y = 0.028;
+  emit('money', [{ name: 'cash', ...bakeStatic(cash, { shadow: false }) }, { name: 'bar', ...bakeStatic(bar, { shadow: false }) }, { name: 'coin', ...bakeStatic(coin, { shadow: false }) }]);
+}
+// ================= 6) nhân vật: các khung hoạt ảnh =================
+const ANIMS = [   // [tên, các khoá clip, số khung, hướng]
+  ['idle', ['idle'], 10, 'cam'],
+  ['walkF', ['walk', 'run'], 8, 'front'],
+  ['walkB', ['walk', 'run'], 8, 'back'],
+  ['jump', ['jump', 'roll', 'run'], 10, 'cam'],
+  ['yes', ['yes', 'wave', 'pickup', 'spell1', 'jump'], 10, 'cam'],
+  ['no', ['no', 'hitreact', 'recievehit'], 10, 'cam'],
+  ['die', ['death'], 10, 'cam'],
+];
+const FACE = { cam: Math.PI / 4, front: 0, back: -Math.PI / 2 };
+const CH = 1.0;      // chiều cao nhân vật (đơn vị thế giới)
+for (let k = 0; k < B.CHAR3D.length; k++) {
+  const name = `chr2/${B.CHAR3D[k]}`;
+  const src = B.KIT.tpl[name];
+  const o = src;      // dùng thẳng bản gốc (mỗi nhân vật chỉ dựng 1 lần)
+  o.traverse((c) => { if (c !== o && B.HIDE_PROPS.test(c.name || '')) c.visible = false; });
+  o.rotation.set(0, 0, 0); o.position.set(0, 0, 0); o.scale.setScalar(1);
+  o.updateMatrixWorld(true);
+  const box0 = B.visibleBox(o);
+  if (k === 2) B.addNonLa(o, box0);
+  const s = CH / (box0.max.y - box0.min.y);
+  const holder = new THREE.Group(); holder.add(o);
+  o.scale.setScalar(s); o.position.y = -box0.min.y * s;
+  prep(holder);
+  const mixer = new THREE.AnimationMixer(o);
+  const clips = {};
+  (B.KIT.anim[name] || []).forEach((c) => { const key = B.clipKey(c.name); if (key && !clips[key]) clips[key] = c; });
+  // khung chung cho mọi tư thế: lấy rộng theo nhân vật
+  const bd = pad(bounds([
+    new THREE.Vector3(-0.55, 0, -0.55), new THREE.Vector3(0.55, 0, 0.55), new THREE.Vector3(0.55, 0, -0.55), new THREE.Vector3(-0.55, 0, 0.55),
+    new THREE.Vector3(-0.55, CH * 1.25, -0.55), new THREE.Vector3(0.55, CH * 1.25, 0.55), new THREE.Vector3(0.55, CH * 1.25, -0.55), new THREE.Vector3(-0.55, CH * 1.25, 0.55),
+  ]), 0.02);
+  const items = [];
+  for (const [an, keys, n, face] of ANIMS) {
+    const clip = keys.map((x) => clips[x]).find(Boolean);
+    holder.rotation.y = FACE[face];
+    mixer.stopAllAction();
+    const act = clip ? mixer.clipAction(clip) : null;
+    if (act) { act.reset(); act.setLoop(THREE.LoopRepeat, Infinity); act.play(); }
+    for (let f = 0; f < n; f++) {
+      if (act) { const T = an === 'die' ? clip.duration * Math.min(1, f / (n - 1)) * 0.999 : clip.duration * f / n; mixer.setTime(T); }
+      holder.updateMatrixWorld(true);
+      items.push({ name: `${an}_${f}`, ...shoot(holder, bd, { shadow: false }) });
+    }
+  }
+  OUT[`chr${k}`] = pack(items);
+  console.log('baked chr', k, items.length);
+}
+window.__OUT = OUT;
+window.__META = { E, K };
+window.done = true;
+</script></body></html>

@@ -1170,3 +1170,6 @@ export function pickTile(x, y) {
   return hit ? hit.object.userData.tile : -1;
 }
 export { W as BOARD_W };
+
+// ======================= dùng cho app/tools/bake.html (dựng ảnh 2D cho bản PixiJS) =======================
+export const __bake = { THREE, RoundedBoxGeometry, loadKit, KIT, kit, kitModel, tintLeaves, lampPost, TD_SCENES, CHAR3D, HIDE_PROPS, clipKey, visibleBox, addNonLa, buildGate, quatFor, FACE_N, pipTex, ownerFlag };

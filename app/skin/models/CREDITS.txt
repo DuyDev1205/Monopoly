@@ -10,3 +10,6 @@ Mô hình 3D dùng trong bản app
     c5 Characters Sam                — CC0
     c6 Henry                         — CC0
     c7 Characters Matt               — CC0
+
+Ảnh 2D trong app/skin/sprites/ được dựng từ các mô hình trên bằng app/tools/bake.py.
+PixiJS (MIT) — app/skin/vendor/pixi/LICENSE
