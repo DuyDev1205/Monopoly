@@ -18,7 +18,7 @@ const THEMES := {
 	},
 	"wood": {
 		"grass_a": "#93b85a", "grass_b": "#6f9a45", "dry": "#c9b46a", "bank": "#7a6248", "petal": "#e8923a", "petal_amt": 0.25,
-		"blade_base": "#3f6428", "blade_tip": "#b4cf6a", "fall": "#e8a040",
+		"blade_base": "#5a6a2c", "blade_tip": "#cfc46a", "fall": "#e8a040",
 		"tree": "pf/maple-tree-65fa12", "accent": "pf/broadleaf-oak-997c22", "pine": "pf/tall-pine-tree-ab4108",
 		"bush": "pf/round-bush-cd2ac0", "pond": true, "torii": false, "pagoda": false,
 	},
@@ -26,7 +26,7 @@ const THEMES := {
 		"grass_a": "#e8d7a0", "grass_b": "#dcc88a", "dry": "#f2e6be", "bank": "#c9a464", "petal": "#ffffff", "petal_amt": 0.0,
 		"blade_base": "#6f8f4a", "blade_tip": "#c9d98a", "fall": "",
 		"tree": "pf/palm-tree-a307da", "accent": "pf/palm-sapling-ef7ae4", "pine": "pf/tamarisk-bush-ba4337",
-		"bush": "pf/marram-grass-tuft-8c7a99", "pond": true, "torii": false, "pagoda": false, "sand": true,
+		"bush": "pf/marram-grass-tuft-8c7a99", "pond": false, "torii": false, "pagoda": false, "sand": true,
 	},
 	"midnight": {
 		"grass_a": "#4f7a4a", "grass_b": "#3b5a3a", "dry": "#5d7650", "bank": "#3a3040", "petal": "#cfe0ff", "petal_amt": 0.0,
@@ -70,6 +70,7 @@ func set_theme(name: String) -> void:
 	theme = name if THEMES.has(name) else "sakura"
 	if root:
 		root.queue_free()
+	boats.clear()
 	root = Node3D.new()
 	root.name = "scene_" + theme
 	add_child(root)
@@ -80,6 +81,8 @@ func set_theme(name: String) -> void:
 	_build_ground(P)
 	if P.get("pond"):
 		_build_pond(P)
+	if P.get("sand"):
+		_build_sea()
 	if P.get("torii"):
 		_build_torii()
 	_build_landmarks(P)
@@ -120,7 +123,10 @@ func _height(x: float, z: float) -> float:
 	var r := Vector2(x, z).length()
 	# nhấp nhô nhẹ ở xa, gò đồi ngoài rìa
 	h += (sin(x * 0.21) * cos(z * 0.17) + sin(x * 0.07 + z * 0.11) * 1.5) * 0.12 * smoothstep(9.0, 16.0, r)
-	h += smoothstep(22.0, 30.0, r) * 2.5
+	if THEMES[theme].get("sand"):
+		h -= smoothstep(11.0, 14.5, r) * 1.1      # bãi cát thoải dần xuống biển
+	else:
+		h += smoothstep(22.0, 30.0, r) * 2.5
 	# lòng hồ
 	if THEMES[theme].get("pond"):
 		var d := Vector2(x, z).distance_to(pond_c) / _pond_radius(Vector2(x, z))
@@ -143,6 +149,8 @@ func _build_ground(P: Dictionary) -> void:
 			var x := -EXTENT + i * res
 			var z := -EXTENT + j * res
 			var wet := 0.0
+			if P.get("sand"):
+				wet = smoothstep(11.6, 12.8, Vector2(x, z).length())
 			if P.get("pond"):
 				var d := Vector2(x, z).distance_to(pond_c) / _pond_radius(Vector2(x, z))
 				wet = smoothstep(1.35, 0.95, d)
@@ -201,6 +209,49 @@ func _build_pond(P: Dictionary) -> void:
 		_place("pf/cattail-reed-6abbb3", Vector3(p.x, TOP - 0.1, p.y), {"fit": 0.35, "hmax": 0.75 + rng.randf() * 0.3})
 	# cầu gỗ bắc ngang hồ
 	_place("pf/moat-bridge-4fbcd9", Vector3(pond_c.x, TOP - 0.02, pond_c.y), {"fit": pond_r * 2.3, "hmax": 0.9, "ry": PI / 4})
+
+
+# ======================= biển quanh đảo cát + thuyền =======================
+var boats: Array = []
+
+
+func _build_sea() -> void:
+	var wm := ShaderMaterial.new()
+	wm.shader = load("res://scripts/water.gdshader")
+	wm.set_shader_parameter("noise", noise_tex)
+	wm.set_shader_parameter("deep", Color("#0a7fa0"))
+	wm.set_shader_parameter("shallow", Color("#58d6d0"))
+	wm.set_shader_parameter("flow", Vector2(0.12, 0.08))
+	var sea := MeshUtil.mesh(MeshUtil.cyl(90, 90, 0.001, 96), wm, Vector3(0, TOP - 0.38, 0), false)
+	root.add_child(sea)
+	for k in 3:
+		var b := MeshUtil.kit("pf/small-fishing-boat-4ac0e3", 2.2)
+		if b:
+			root.add_child(b)
+			boats.append({"n": b, "r": 16.0 + k * 3.0, "sp": 0.05 if k % 2 == 0 else -0.04, "a": k * 2.2})
+	# dừa + phi lao dọc bãi
+	for k in 22:
+		var a := TAU * k / 22 + rng.randf() * 0.15
+		var r := 9.0 + rng.randf() * 2.6
+		var p := Vector3(cos(a) * r, 0, sin(a) * r)
+		p.y = TOP + _height(p.x, p.z)
+		if not _free(p.x, p.z, 0.4):
+			continue
+		if p.x + p.z > 2.0:     # phía gần camera: chỉ đồ thấp để không che bàn cờ
+			_place(["pf/marram-grass-tuft-8c7a99", "pf/driftwood-log-89a68f", "pf/garden-rock-2d3b51"][k % 3], p, {"fit": 0.6 + rng.randf() * 0.4, "hmax": 0.4, "occupy": 0.4})
+		else:
+			_put_tree("pf/palm-tree-a307da" if k % 3 else "pf/palm-sapling-ef7ae4", p, 2.2 + rng.randf() * 1.2)
+
+
+func _process(dt: float) -> void:
+	var t := Time.get_ticks_msec() / 1000.0
+	for b in boats:
+		b.a += b.sp * dt
+		var n: Node3D = b.n
+		if not is_instance_valid(n):
+			continue
+		n.position = Vector3(cos(b.a) * b.r, TOP - 0.42 + sin(t * 1.5 + b.r) * 0.05, sin(b.a) * b.r)
+		n.rotation = Vector3(0, -b.a - (PI / 2 if b.sp > 0 else -PI / 2), sin(t * 1.2 + b.r) * 0.04)
 
 
 # ======================= cổng torii + lối đá + đèn đá (dưới-trái) =======================
@@ -272,17 +323,17 @@ func _tree(name: String) -> Node3D:
 				Foliage.apply(t, {"pred": Foliage.is_pink, "kind": "cluster", "count": 6500, "size_k": 0.15, "palette": Foliage.SAKURA, "darken": 0.55, "seed": 3})
 			"pf/japanese-maple-d2fb29":
 				var pal: Array = Foliage.JMAPLE if theme != "sakura" else ["#7fb04a", "#93c25a", "#6a9a3c", "#a6cc6a"]
-				Foliage.apply(t, {"pred": func(c: Color): return Foliage.is_green(c) or (c.r > 0.12 and c.r > c.g * 1.4), "count": 2600, "palette": pal})
+				Foliage.apply(t, {"pred": func(c: Color): return Foliage.is_green(c) or (c.r > 0.12 and c.r > c.g * 1.4), "kind": "leafcluster", "count": 4500, "size_k": 0.12, "palette": pal, "darken": 0.5})
 			"pf/maple-tree-65fa12":
-				Foliage.apply(t, {"pred": Foliage.is_maple, "count": 2400, "palette": Foliage.AUTUMN})
+				Foliage.apply(t, {"pred": Foliage.is_maple, "kind": "leafcluster", "count": 5000, "size_k": 0.12, "palette": Foliage.AUTUMN, "darken": 0.5})
 			"pf/broadleaf-oak-997c22":
-				Foliage.apply(t, {"count": 2400})
+				Foliage.apply(t, {"kind": "leafcluster", "count": 5000, "size_k": 0.12, "darken": 0.5})
 			"pf/birch-tree-181b33":
-				Foliage.apply(t, {"count": 1800, "size_k": 0.03})
+				Foliage.apply(t, {"kind": "leafcluster", "count": 3500, "size_k": 0.1, "darken": 0.5})
 			"pf/tall-pine-tree-ab4108", "pf/sculpted-pine-e45d4f":
-				Foliage.apply(t, {"kind": "needle", "count": 2600, "size_k": 0.04})
+				Foliage.apply(t, {"kind": "needle", "count": 6000, "size_k": 0.06, "darken": 0.55})
 			"pf/young-pine-0d7695":
-				Foliage.apply(t, {"kind": "needle", "count": 1800, "size_k": 0.045})
+				Foliage.apply(t, {"kind": "needle", "count": 4500, "size_k": 0.065, "darken": 0.55})
 		tree_tpl[name] = t
 	var n: Node3D = tree_tpl[name].duplicate(7)   # không dựng lại từ scene gốc (giữ tán đã chỉnh màu)
 	return n
@@ -310,7 +361,7 @@ func _build_trees(P: Dictionary) -> void:
 	for k in spots.size():
 		var s: Array = spots[k]
 		var p := at(s[0], s[1])
-		if not _free(p.x, p.z, 0.3):
+		if not _free(p.x, p.z, 0.3) or (P.get("sand") and Vector2(p.x, p.z).length() > 11.5):
 			continue
 		var name: String = P.tree
 		if k % 5 == 3:
@@ -324,7 +375,7 @@ func _build_trees(P: Dictionary) -> void:
 		var r := 17.0 + rng.randf() * 5.0
 		var p := Vector3(cos(a) * r, 0, sin(a) * r)
 		p.y = TOP + _height(p.x, p.z)
-		if _free(p.x, p.z, 0.5):
+		if _free(p.x, p.z, 0.5) and not P.get("sand"):
 			_put_tree([P.tree, P.pine, P.tree, P.accent][k % 4], p, 2.6 + rng.randf() * 1.4)
 	# bụi hoa, bụi cây thấp quanh mép bàn
 	for k in 34:

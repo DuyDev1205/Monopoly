@@ -4,6 +4,7 @@ extends Node3D
 
 var board: Board
 var scenery: Scenery
+var pieces: Pieces
 var env: Environment
 var sun: DirectionalLight3D
 var cam: Camera3D
@@ -30,6 +31,8 @@ func _ready() -> void:
 	add_child(board)
 	scenery = Scenery.new()
 	add_child(scenery)
+	pieces = Pieces.new()
+	add_child(pieces)
 	set_theme(theme)
 	cam = Camera3D.new()
 	cam.fov = 32
@@ -186,6 +189,22 @@ func _demo_state() -> void:
 	board.update_tile(13, {"owned": Data.PLAYER_COLORS[1], "price": "90tr"})
 	board.update_tile(27, {"owned": Data.PLAYER_COLORS[2], "price": "1,6 tỷ", "fest": true})
 	board.set_target(10)
+	pieces.set_tokens([{"char": 0, "color": Data.PLAYER_COLORS[0], "mine": true}, {"char": 5, "color": Data.PLAYER_COLORS[1]},
+		{"char": 7, "color": Data.PLAYER_COLORS[2]}, {"char": 10, "color": Data.PLAYER_COLORS[3]}])
+	pieces.place_token(0, {"tile": 0, "k": 0, "n": 2})
+	pieces.place_token(1, {"tile": 0, "k": 1, "n": 2})
+	pieces.place_token(2, {"tile": 13, "k": 0, "n": 1})
+	pieces.place_token(3, {"tile": 27, "k": 0, "n": 1})
+	pieces.set_current(0)
+	var lv := [1, 2, 3, 4]
+	for k in 4:
+		pieces.set_building([1, 2, 3, 5][k], {"owner": 0, "color": Data.PLAYER_COLORS[0], "lvl": lv[k], "type": "city", "style": k})
+	pieces.set_building(13, {"owner": 1, "color": Data.PLAYER_COLORS[1], "lvl": 3, "type": "city", "style": 1})
+	pieces.set_building(27, {"owner": 2, "color": Data.PLAYER_COLORS[2], "lvl": 4, "type": "city", "style": 0, "festMult": 3})
+	pieces.set_building(4, {"owner": 0, "color": Data.PLAYER_COLORS[0], "lvl": 0, "type": "resort"})
+	pieces.set_fest_gates([10, 21])
+	pieces.set_target(10, "7")
+	pieces.set_dice_skin(args.get("dice", "classic"))
 
 
 func _process(_dt: float) -> void:

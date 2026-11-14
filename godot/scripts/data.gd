@@ -38,6 +38,47 @@ const ICONS := {
 	"🌳": "tree", "🏆": "trophy", "🎲": "die", "💥": "boom", "🔥": "fire",
 }
 
+const CARDS := [
+	{"text": "Về thẳng Xuất Phát, nhận lương 200tr.", "kind": "move", "to": 0},
+	{"text": "Bay ra Hà Nội dự hội nghị. Qua Xuất Phát được nhận lương.", "kind": "move", "to": 31},
+	{"text": "Du lịch phố cổ Hội An. Qua Xuất Phát được nhận lương.", "kind": "move", "to": 17},
+	{"text": "Ra Sân Bay — lượt sau được bay tới ô bất kỳ.", "kind": "move", "to": 24},
+	{"text": "Đi tới Lễ Hội. Qua Xuất Phát được nhận lương.", "kind": "move", "to": 16},
+	{"text": "Tổ chức Lễ Hội ngay tại một thành phố của bạn.", "kind": "hostFest"},
+	{"text": "Phá nhà! Chọn một nhà của đối thủ để phá bỏ (không áp dụng với khách sạn).", "kind": "demolish"},
+	{"text": "Đốt nhà! Chọn một nhà của đối thủ, nhà bị giảm 1 cấp (không áp dụng với khách sạn).", "kind": "burn"},
+	{"text": "Đi nghỉ ở khu du lịch gần nhất.", "kind": "nearestResort"},
+	{"text": "Kẹt xe, lùi lại 3 ô.", "kind": "moveBy", "n": -3},
+	{"text": "Lạc đường ra Đảo Hoang! Không qua Xuất Phát.", "kind": "island"},
+	{"text": "Thẻ cứu hộ: rời Đảo Hoang miễn phí (giữ lại dùng sau).", "kind": "freeCard"},
+	{"text": "Trúng xổ số kiến thiết, nhận 150tr.", "kind": "money", "amount": 150},
+	{"text": "Thưởng Tết cuối năm, nhận 100tr.", "kind": "money", "amount": 100},
+	{"text": "Được mùa sầu riêng, nhận 100tr.", "kind": "money", "amount": 100},
+	{"text": "Ngân hàng trả cổ tức, nhận 50tr.", "kind": "money", "amount": 50},
+	{"text": "Lì xì Tết! Mỗi người mừng tuổi bạn 20tr.", "kind": "collectEach", "amount": 20},
+	{"text": "Được bầu làm trưởng thôn, khao mỗi người 30tr.", "kind": "payEach", "amount": 30},
+	{"text": "Chạy quá tốc độ trên cao tốc, phạt 30tr.", "kind": "money", "amount": -30},
+	{"text": "Đóng viện phí, trả 100tr.", "kind": "money", "amount": -100},
+	{"text": "Đóng học phí cho con, trả 50tr.", "kind": "money", "amount": -50},
+	{"text": "Ủng hộ đồng bào vùng lũ, trả 60tr.", "kind": "money", "amount": -60},
+	{"text": "Sửa sang nhà cửa: 20tr mỗi nhà, 80tr mỗi khách sạn.", "kind": "repairs", "house": 20, "landmark": 80},
+]
+const PLAYER_TOKENS := ["🛵", "🐃", "🚤", "🐓"]
+const WIN_LABEL := {
+	"last": "Người trụ lại cuối cùng",
+	"groups": "Độc quyền 3 vùng",
+	"side": "Độc chiếm một cạnh bàn cờ",
+	"resorts": "Độc quyền 4 khu du lịch",
+	"time": "Giàu nhất khi hết giờ",
+}
+var SIDES: Array = []
+
+
+func level_cost(t: Dictionary, lvl: int) -> int:
+	var h: int = GROUPS[t.group].house
+	return h * 3 if lvl == 4 else h
+
+
 var BOARD: Array = []
 var GROUP_TILES := {}
 var RESORTS: Array = []
@@ -96,6 +137,12 @@ func _init() -> void:
 			GROUP_TILES[t.group].append(i)
 		elif t.type == "resort":
 			RESORTS.append(i)
+	for sd in 4:
+		var out := []
+		for i in range(sd * 8 + 1, sd * 8 + 8):
+			if BOARD[i].type == "city":
+				out.append(i)
+		SIDES.append(out)
 
 
 ## Tiền: 1500 -> "1,5 tỷ", 200 -> "200tr"

@@ -40,15 +40,15 @@ static func shape(kind: String) -> ArrayMesh:
 						var v: Vector2 = q
 						st.set_uv(Vector2(v.length(), 0))
 						st.add_vertex(Vector3(v.x, v.y, v.length_squared() * 0.35))
-		"cluster":
-			# chùm 7 bông hoa 5 cánh trong một khối cầu nhỏ (phủ tán dày mà ít instance)
+		"cluster", "leafcluster":
+			# chùm 7 bông hoa (hoặc 9 chiếc lá) trong một khối cầu nhỏ (phủ tán dày mà ít instance)
 			var r := RandomNumberGenerator.new()
 			r.seed = 11
-			var flower := shape("flower")
+			var flower := shape("flower" if kind == "cluster" else "leaf")
 			var farr: Array = flower.surface_get_arrays(0)
 			var fv: PackedVector3Array = farr[Mesh.ARRAY_VERTEX]
 			var fnm: PackedVector3Array = farr[Mesh.ARRAY_NORMAL]
-			for k in 7:
+			for k in (7 if kind == "cluster" else 9):
 				var c := Vector3(r.randf() - 0.5, r.randf() - 0.5, r.randf() * 0.5) * 0.9
 				var d := (c + Vector3(0, 0, 0.6)).normalized()
 				var b := _basis_from_z(d) * Basis(Vector3.BACK, r.randf() * TAU)
