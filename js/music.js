@@ -165,7 +165,7 @@ export const TRACKS = [
   { file: 'town-theme-rpg', title: 'Town Theme', by: 'cynicmusic' },
   { file: 'flowerbed-fields-loop', title: 'Flowerbed Fields', by: 'Zane Little Music' },
 ];
-const TRACK_VOL = 0.32;      // nhạc nền nằm dưới tiếng hiệu ứng
+const TRACK_VOL = 0.15;      // nhạc nền nhỏ, để nghe rõ tiếng hiệu ứng
 const XFADE = 3;             // giây chuyển bài
 const BASE = new URL('../assets/music/', import.meta.url).href;
 

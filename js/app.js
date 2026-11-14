@@ -36,8 +36,10 @@ function audioCtx() {
   try { actx ||= new (window.AudioContext || window.webkitAudioContext)(); } catch {}
   return actx;
 }
+const SFX_GAIN = 2.2;   // hiệu ứng to hơn nhạc nền
 function beep(freq, dur = 0.06, type = 'square', vol = 0.04) {
   if (!soundOn) return;
+  vol = Math.min(0.3, vol * SFX_GAIN);
   try {
     if (!audioCtx()) return;
     const o = actx.createOscillator(), g = actx.createGain();
