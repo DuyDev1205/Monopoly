@@ -13,31 +13,22 @@ func _ready() -> void:
 		var wh: PackedStringArray = args.size.split("x")
 		get_window().mode = Window.MODE_WINDOWED
 		get_window().size = Vector2i(int(wh[0]), int(wh[1]))
-	var we := WorldEnvironment.new()
-	var env := Environment.new()
-	env.background_mode = Environment.BG_CANVAS
-	env.glow_enabled = not args.has("noglow")
-	env.glow_intensity = 0.45
-	env.glow_bloom = 0.12
-	env.glow_hdr_threshold = 0.85
-	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
-	we.environment = env
-	add_child(we)
 	var cam := Camera2D.new()
 	add_child(cam)
 	var sc := Scenery2D.new()
 	add_child(sc)
 	sc.set_theme(args.get("theme", "sakura"))
-	# khung bàn cờ tạm (hình thoi)
-	var d := Polygon2D.new()
-	var W := 10.3
-	d.polygon = PackedVector2Array([Iso.p(-W / 2, -W / 2), Iso.p(W / 2, -W / 2), Iso.p(W / 2, W / 2), Iso.p(-W / 2, W / 2)])
-	d.color = Color(1, 0.97, 0.98)
-	add_child(d)
+	var b := Board2D.new()
+	b.theme = args.get("theme", "sakura")
+	add_child(b)
+	b.update_tile(1, {"owned": Data.PLAYER_COLORS[0], "price": "30tr"})
+	b.update_tile(3, {"owned": Data.PLAYER_COLORS[0], "price": "40tr", "mono": true})
+	b.update_tile(13, {"owned": Data.PLAYER_COLORS[1], "price": "90tr"})
+	b.set_target(10)
 	await get_tree().process_frame
 	var vs := get_viewport_rect().size
-	cam.zoom = Vector2.ONE * minf(vs.x / 1920.0, vs.y / 1300.0)
-	cam.position = Vector2(0, -110)
+	cam.zoom = Vector2.ONE * minf(vs.x / 1500.0, vs.y / 860.0)
+	cam.position = Vector2(0, 0)
 
 
 func _process(_dt: float) -> void:

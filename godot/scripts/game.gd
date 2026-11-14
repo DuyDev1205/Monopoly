@@ -9,7 +9,7 @@ const SAVE_PATH := "user://save.json"
 const SETTINGS_PATH := "user://settings.json"
 const VERSION := "2.0.0"
 
-var main: Node3D
+var main: Node
 var audio: GameAudio
 var net = null                  # chơi online (net.gd), null khi chơi trên máy
 var settings := {
@@ -1755,7 +1755,7 @@ func _pile(amount: int, dur: int) -> void:
 	l.add_theme_color_override("font_outline_color", Color("#6a3b00"))
 	l.add_theme_constant_override("outline_size", 10)
 	hud.add_child(l)
-	var sp: Vector2 = main.cam.unproject_position(Vector3(0, 1.4, 0))
+	var sp: Vector2 = main.screen_of(Vector3(0, 1.4, 0))
 	l.reset_size()
 	l.position = sp - l.size / 2
 	l.pivot_offset = l.size / 2

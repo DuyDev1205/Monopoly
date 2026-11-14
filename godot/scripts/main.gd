@@ -304,6 +304,10 @@ func _unhandled_input(e: InputEvent) -> void:
 			tile_clicked.emit(int(hit.collider.get_meta("tile")))
 
 
+func screen_of(w: Vector3) -> Vector2:
+	return cam.unproject_position(w)
+
+
 func tile_screen(i: int) -> Vector2:
 	return cam.unproject_position(Board.tp(i, 0, 0.5, Board.TH + 0.2))
 

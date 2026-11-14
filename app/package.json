@@ -1,7 +1,7 @@
 {
   "name": "co-ty-phu-app",
   "private": true,
-  "version": "1.8.1",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "build:web": "node build.mjs",
