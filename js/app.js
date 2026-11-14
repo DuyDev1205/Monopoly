@@ -1654,6 +1654,11 @@ function paintMusic() {
 }
 function syncMusic() { if (musicOn && !document.hidden) music.start(); else music.stop(); }
 function toggleMusic() { musicOn = !musicOn; store.set('ctp_music', musicOn); paintMusic(); syncMusic(); }
+music.onTrack((t) => {
+  $('#btnMusic').title = t ? `Nhạc nền: ${t.title} — ${t.by} (CC0) · chuột phải: bài khác` : 'Nhạc nền';
+  if (t && musicOn && !document.hidden) toast(`🎵 ${t.title} — ${t.by}`, 2200);
+});
+$('#btnMusic').oncontextmenu = (e) => { e.preventDefault(); music.skip(); };
 $('#btnMusic').onclick = toggleMusic;
 $('#btnMusicHome').onclick = toggleMusic;
 document.addEventListener('visibilitychange', syncMusic);

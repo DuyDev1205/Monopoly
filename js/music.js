@@ -1,5 +1,7 @@
-// Nhạc nền tổng hợp bằng WebAudio: không dùng file, không vướng bản quyền.
-// Bài vui tươi kiểu game giải trí: đàn chuông (marimba) chơi giai điệu, rải hợp âm,
+// Nhạc nền: danh sách bài thật (CC0, xem assets/music/CREDITS.txt) phát xáo trộn, chuyển bài mượt.
+// Nếu không tải được file thì quay về nhạc tổng hợp bằng WebAudio bên dưới.
+//
+// Nhạc tổng hợp: bài vui tươi kiểu game giải trí: đàn chuông (marimba) chơi giai điệu, rải hợp âm,
 // bè trầm, pad nền, trống nhẹ (kick, clap, shaker) và tiếng vang (reverb).
 // 16 ô nhịp (đoạn A + đoạn B) lặp lại, khoảng 37 giây một vòng.
 
@@ -31,7 +33,7 @@ const CHORDS = [
 ];
 const BARS = MELODY.length;
 
-export function createMusic(getCtx) {
+function createSynth(getCtx) {
   let on = false, timer = null, next = 0, step = 0;
   let ctx = null, bus = null, master = null, noise = null;
 
@@ -151,5 +153,98 @@ export function createMusic(getCtx) {
         master.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
       } catch {}
     },
+  };
+}
+
+// ===== Danh sách bài (CC0 — OpenGameArt.org) =====
+export const TRACKS = [
+  { file: 'apple-cider', title: 'Apple Cider', by: 'Zane Little Music' },
+  { file: 'happy-lofi-day', title: 'Happy Lofi Day', by: 'Tarush Singhal' },
+  { file: 'shop-theme', title: 'Buy Something!', by: 'Cleyton Kauffman' },
+  { file: 'chill-lofi-inspired', title: 'Chill Lofi Inspired', by: 'omfgdude' },
+  { file: 'town-theme-rpg', title: 'Town Theme', by: 'cynicmusic' },
+  { file: 'flowerbed-fields-loop', title: 'Flowerbed Fields', by: 'Zane Little Music' },
+];
+const TRACK_VOL = 0.32;      // nhạc nền nằm dưới tiếng hiệu ứng
+const XFADE = 3;             // giây chuyển bài
+const BASE = new URL('../assets/music/', import.meta.url).href;
+
+export function createMusic(getCtx) {
+  const synth = createSynth(getCtx);
+  let on = false, useSynth = false, fails = 0, timer = null, listener = null;
+  let order = [], pos = -1, cur = null;
+  const decks = [];            // 2 máy phát luân phiên để chuyển bài mượt
+
+  function deck() {
+    const a = new Audio(); a.preload = 'auto'; a.crossOrigin = 'anonymous';
+    const d = { a, g: null, vol: 0, target: 0 };
+    // đi qua WebAudio để chỉnh âm lượng được cả trên iPhone (ở đó audio.volume bị khoá)
+    try { const ctx = getCtx(); if (ctx) { d.g = ctx.createGain(); d.g.gain.value = 0; ctx.createMediaElementSource(a).connect(d.g).connect(ctx.destination); } } catch { d.g = null; }
+    a.addEventListener('error', () => { if (d === cur && on && !useSynth) { if (++fails >= 2) toSynth(); else next(); } });
+    a.addEventListener('playing', () => { if (d === cur) fails = 0; });
+    a.addEventListener('ended', () => { if (d === cur && on) next(); });
+    return d;
+  }
+  const setVol = (d, v) => { d.vol = v; if (d.g) d.g.gain.value = v; else d.a.volume = Math.min(1, v); };
+
+  function shuffle() {
+    const last = order[order.length - 1];
+    order = TRACKS.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+    if (order.length > 1 && order[0] === last) [order[0], order[1]] = [order[1], order[0]];   // không lặp lại bài vừa nghe
+    pos = -1;
+  }
+  function next() {
+    if (pos + 1 >= order.length) shuffle();
+    const t = TRACKS[order[++pos]];
+    if (!decks.length) decks.push(deck(), deck());
+    const old = cur;
+    cur = decks[0] === old ? decks[1] : decks[0];
+    if (old) old.target = 0;
+    cur.a.src = BASE + t.file + '.mp3';
+    cur.target = TRACK_VOL; setVol(cur, 0);
+    cur.a.play().catch(() => {});
+    listener?.(t);
+  }
+  // mỗi 100 ms: kéo âm lượng về đích, gần hết bài thì chuyển sang bài kế
+  function tick() {
+    const step = (TRACK_VOL / XFADE) * 0.1;
+    for (const d of decks) {
+      const v = d.vol < d.target ? Math.min(d.target, d.vol + step) : Math.max(d.target, d.vol - step * (on ? 1.5 : 5));
+      if (v !== d.vol) setVol(d, v);
+      if ((d !== cur || !on) && d.vol <= 0 && !d.a.paused) d.a.pause();
+    }
+    const a = cur?.a;
+    if (on && a && a.duration && !a.paused && a.duration - a.currentTime < XFADE) next();
+  }
+  function toSynth() {
+    useSynth = true;
+    decks.forEach((d) => { d.target = 0; d.a.pause(); });
+    if (on) synth.start();
+    listener?.(null);
+  }
+
+  return {
+    get playing() { return on; },
+    /** gọi lại khi đổi bài: fn({ title, by }) hoặc fn(null) khi dùng nhạc tổng hợp */
+    onTrack(fn) { listener = fn; },
+    start() {
+      if (on) return;
+      on = true;
+      if (useSynth) return synth.start();
+      try {
+        getCtx()?.resume?.()?.catch?.(() => {});
+        if (!cur) next();
+        else { cur.target = TRACK_VOL; cur.a.play().catch(() => {}); }
+        timer ??= setInterval(tick, 100);
+      } catch { toSynth(); }
+    },
+    stop() {
+      if (!on) return;
+      on = false;
+      if (useSynth) return synth.stop();
+      decks.forEach((d) => { d.target = 0; });   // tắt dần (~0,6 s) rồi tạm dừng; bật lại nghe tiếp đúng chỗ
+    },
+    skip() { if (on && !useSynth) next(); },
   };
 }

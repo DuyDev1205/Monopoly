@@ -74,7 +74,7 @@ js/data.js        bàn cờ, thẻ Cơ Hội, bảng giá
 js/engine.js      luật chơi
 assets/logo.svg   logo (đồng xu TD); icon PNG cho iPhone/Android trong assets/
 js/characters.js  8 nhân vật: 4 chibi + 4 doanh nhân (ảnh trong assets/chars, 5 trạng thái: thường, chớp mắt, hào hứng, chiến thắng, sốc)
-js/music.js       nhạc nền tổng hợp bằng WebAudio (không dùng file nhạc)
+js/music.js       nhạc nền: 6 bài CC0 (assets/music, ghi công trong CREDITS.txt) phát xáo trộn; dự phòng nhạc tổng hợp WebAudio
 js/bot.js         máy chơi
 js/room.js        phòng online (chạy ở máy chủ phòng)
 js/net.js         kết nối online: nối thẳng WebRTC + tự chuyển đường dự phòng
