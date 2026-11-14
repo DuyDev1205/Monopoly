@@ -1,4 +1,6 @@
 extends Node3D
+
+signal tile_clicked(i: int)
 ## Cảnh chính: môi trường (bầu trời, ánh sáng toàn cục, bóng mềm, phát sáng, chiều sâu), camera, bàn cờ, cảnh nền.
 ## Chạy kèm tham số (sau dấu --) để chụp ảnh kiểm tra:  --shot=duong_dan.png --theme=sakura --frames=90 --cam=x,y,z
 
@@ -12,6 +14,14 @@ var cam_attr: CameraAttributesPractical
 var theme := "sakura"
 var args := {}
 var frame := 0
+var mode := "home"              # home: camera quay quanh cảnh; game: nhìn bàn cờ
+var follow_on := true
+var follow_pid := -1
+var follow_until := 0
+var cam_dist := 25.0
+var cam_f := 1.0
+var cam_t := Vector2.ZERO
+var game: Game
 
 const CAM_DIR := Vector3(0.4926, 0.7174, 0.4926)   # như bản Three.js: cos(.8)/√2, sin(.8), cos(.8)/√2
 
@@ -47,6 +57,10 @@ func _ready() -> void:
 	fit_camera()
 	if args.has("demo"):
 		_demo_state()
+		mode = "demo"
+	elif not args.has("nogui"):
+		game = Game.new()
+		add_child(game)
 
 
 func _build_env() -> void:
@@ -125,6 +139,8 @@ func set_theme(name: String) -> void:
 	sun.light_color = Color(L.sun)
 	sun.light_energy = L.sun_e
 	env.ambient_light_energy = L.amb
+	env.ambient_light_color = Color(L.get("amb_col", "#fff4ee"))
+	env.ambient_light_sky_contribution = 0.55
 	env.fog_light_color = Color(L.fog)
 	env.tonemap_exposure = L.exp
 	board.set_theme(theme)
@@ -177,6 +193,7 @@ func fit_camera() -> void:
 	cam.v_offset = -(c.y - want.y) * world_per_px
 	if args.has("debug"):
 		print("fit vs=", vs, " D=", D, " c=", c, " want=", want, " off=", Vector2(cam.h_offset, cam.v_offset))
+	cam_dist = D
 	cam_attr.dof_blur_far_distance = D + 9
 	cam_attr.dof_blur_far_transition = 14
 
@@ -207,11 +224,74 @@ func _demo_state() -> void:
 	pieces.set_dice_skin(args.get("dice", "classic"))
 
 
-func _process(_dt: float) -> void:
+func set_mode(m: String) -> void:
+	mode = m
+	if m == "game":
+		fit_camera()
+
+
+## camera bám theo quân đang đi (khoảng 1 giây) rồi lùi về toàn cảnh
+func follow(pid: int) -> void:
+	follow_pid = pid
+	follow_until = Time.get_ticks_msec() + 1600
+
+
+func _update_camera(dt: float) -> void:
+	if args.has("cam"):
+		return
+	var t := Time.get_ticks_msec() / 1000.0
+	if mode == "home":
+		var a := t * 0.06
+		cam.h_offset = 0
+		cam.v_offset = 0
+		cam.position = Vector3(cos(a) * 26, 13, sin(a) * 26)
+		cam.look_at(Vector3(0, -0.5, 0))
+		cam_attr.dof_blur_far_distance = 40
+		return
+	if mode != "game":
+		return
+	var tf := 1.0
+	var tx := Vector2.ZERO
+	var now := Time.get_ticks_msec()
+	if follow_on and follow_pid >= 0 and now < follow_until and follow_pid < pieces.tokens.size() and pieces.tokens[follow_pid].from != null:
+		follow_until = now + 900
+	if follow_on and follow_pid >= 0 and now < follow_until and follow_pid < pieces.tokens.size() and game and game.picks.is_empty():
+		var p: Vector3 = pieces.tokens[follow_pid].grp.position
+		tf = 0.74
+		tx = Vector2(p.x, p.z) * 0.5
+	tf -= pieces.punch
+	var k := 1.0 - exp(-dt * 2.6)
+	cam_f += (tf - cam_f) * k
+	cam_t += (tx - cam_t) * k
+	cam.position = CAM_DIR * cam_dist * cam_f + Vector3(cam_t.x, 0, cam_t.y)
+	cam.look_at(Vector3(cam_t.x, 0, cam_t.y))
+	cam_attr.dof_blur_far_distance = cam_dist * cam_f + 9
+
+
+func _unhandled_input(e: InputEvent) -> void:
+	if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT and mode == "game":
+		var from := cam.project_ray_origin(e.position)
+		var to := from + cam.project_ray_normal(e.position) * 200
+		var q := PhysicsRayQueryParameters3D.create(from, to)
+		var hit := get_world_3d().direct_space_state.intersect_ray(q)
+		if hit and hit.collider.has_meta("tile"):
+			tile_clicked.emit(int(hit.collider.get_meta("tile")))
+
+
+func tile_screen(i: int) -> Vector2:
+	return cam.unproject_position(Board.tp(i, 0, 0.5, Board.TH + 0.2))
+
+
+func _process(dt: float) -> void:
 	frame += 1
+	_update_camera(dt)
 	if args.has("debug") and frame == 5:
 		var E := Board.W / 2 + 0.45
 		print("frame5 vs=", get_viewport().get_visible_rect().size, " win=", get_window().size, " near=", cam.unproject_position(Vector3(E, -0.35, E)), " far=", cam.unproject_position(Vector3(-E, 0.6, -E)), " cur=", cam.current, " campos=", cam.global_position)
+	if args.has("shots") and frame % int(args.get("every", "300")) == 0:
+		get_viewport().get_texture().get_image().save_png("%s_%04d.png" % [args.shots, frame])
+		if frame >= int(args.get("frames", "3000")):
+			get_tree().quit()
 	if args.has("shot") and frame == int(args.get("frames", "120")):
 		var img := get_viewport().get_texture().get_image()
 		img.save_png(args.shot)

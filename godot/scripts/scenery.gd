@@ -11,8 +11,8 @@ const EXTENT := 30.0                # nửa cạnh vùng đất có cỏ
 
 const THEMES := {
 	"sakura": {
-		"grass_a": "#9cc46e", "grass_b": "#77a85a", "dry": "#c6c98a", "bank": "#8a7666", "petal": "#ffd3e2", "petal_amt": 0.35,
-		"blade_base": "#4a7a3c", "blade_tip": "#b5d68a", "fall": "#ffc6da",
+		"grass_a": "#93c95e", "grass_b": "#6aa84a", "dry": "#cfd97a", "bank": "#8a7666", "petal": "#ffd3e2", "petal_amt": 0.35,
+		"blade_base": "#4f8f3a", "blade_tip": "#a8dc6e", "fall": "#ffc6da",
 		"tree": "pf/cherry-blossom-tree-3f7ab7", "accent": "pf/japanese-maple-d2fb29", "pine": "pf/sculpted-pine-e45d4f",
 		"bush": "pf/azalea-bush-7bb14d", "pond": true, "torii": true, "pagoda": true,
 	},
@@ -305,7 +305,7 @@ func _build_landmarks(P: Dictionary) -> void:
 	for k in 6:
 		var p := at(9.2 + rng.randf() * 4.0, -7.5 + rng.randf() * 3.0)
 		if _free(p.x, p.z, 0.2):
-			_place(P.bush, p, {"fit": 0.6 + rng.randf() * 0.4, "hmax": 0.7, "occupy": 0.4})
+			_put_bush(P.bush, p, 0.5 + rng.randf() * 0.35)
 	var sl := _place("pf/stone-lantern-d56d0a", at(12.0, -5.8), {"h": 0.9, "occupy": 0.4})
 	_lamp(sl, Vector3(0, 0.62, 0), 0.6)
 	var lp := _place("pf/lantern-post-f47665", at(8.3, -6.4), {"h": 1.5, "occupy": 0.4})
@@ -320,20 +320,24 @@ func _tree(name: String) -> Node3D:
 			return null
 		match name:
 			"pf/cherry-blossom-tree-3f7ab7":
-				Foliage.apply(t, {"pred": Foliage.is_pink, "kind": "cluster", "count": 6500, "size_k": 0.15, "palette": Foliage.SAKURA, "darken": 0.55, "seed": 3})
+				Foliage.fluffy(t, {"pred": Foliage.is_pink, "leaf": "blossom", "cards": 1100, "card_k": 0.16, "palette": Foliage.SAKURA, "darken": 0.55, "seed": 3})
 			"pf/japanese-maple-d2fb29":
 				var pal: Array = Foliage.JMAPLE if theme != "sakura" else ["#7fb04a", "#93c25a", "#6a9a3c", "#a6cc6a"]
-				Foliage.apply(t, {"pred": func(c: Color): return Foliage.is_green(c) or (c.r > 0.12 and c.r > c.g * 1.4), "kind": "leafcluster", "count": 4500, "size_k": 0.12, "palette": pal, "darken": 0.5})
+				Foliage.fluffy(t, {"pred": func(c: Color): return Foliage.is_green(c) or (c.r > 0.12 and c.r > c.g * 1.4), "cards": 900, "card_k": 0.15, "palette": pal})
 			"pf/maple-tree-65fa12":
-				Foliage.apply(t, {"pred": Foliage.is_maple, "kind": "leafcluster", "count": 5000, "size_k": 0.12, "palette": Foliage.AUTUMN, "darken": 0.5})
+				Foliage.fluffy(t, {"pred": Foliage.is_maple, "cards": 1000, "card_k": 0.15, "palette": Foliage.AUTUMN})
 			"pf/broadleaf-oak-997c22":
-				Foliage.apply(t, {"kind": "leafcluster", "count": 5000, "size_k": 0.12, "darken": 0.5})
+				Foliage.fluffy(t, {"cards": 1000, "card_k": 0.15, "palette": ["#5f9a3a", "#6fae44", "#4f8a30", "#7dbb4f"]})
 			"pf/birch-tree-181b33":
-				Foliage.apply(t, {"kind": "leafcluster", "count": 3500, "size_k": 0.1, "darken": 0.5})
+				Foliage.fluffy(t, {"cards": 800, "card_k": 0.13, "palette": ["#8cc152", "#a0d060", "#7ab040", "#b5d96a"]})
 			"pf/tall-pine-tree-ab4108", "pf/sculpted-pine-e45d4f":
-				Foliage.apply(t, {"kind": "needle", "count": 6000, "size_k": 0.06, "darken": 0.55})
+				Foliage.fluffy(t, {"leaf": "needle", "cards": 1100, "card_k": 0.11, "palette": ["#2f6b3a", "#3a7d45", "#285e33", "#478a4f"]})
+			"pf/azalea-bush-7bb14d":
+				Foliage.fluffy(t, {"pred": func(c: Color): return true, "leaf": "blossom", "cards": 420, "card_k": 0.3, "palette": ["#ff6fa8", "#ff8fbd", "#f2558f", "#5f9a3a", "#6fae44", "#ff9cc4"], "darken": 0.5})
+			"pf/round-bush-cd2ac0", "pf/tamarisk-bush-ba4337":
+				Foliage.fluffy(t, {"pred": func(c: Color): return true, "cards": 380, "card_k": 0.3, "palette": ["#5f9a3a", "#6fae44", "#4f8a30", "#7dbb4f"], "darken": 0.5})
 			"pf/young-pine-0d7695":
-				Foliage.apply(t, {"kind": "needle", "count": 4500, "size_k": 0.065, "darken": 0.55})
+				Foliage.fluffy(t, {"leaf": "needle", "cards": 800, "card_k": 0.12, "palette": ["#356f3d", "#41824a", "#2c6236"]})
 		tree_tpl[name] = t
 	var n: Node3D = tree_tpl[name].duplicate(7)   # không dựng lại từ scene gốc (giữ tán đã chỉnh màu)
 	return n
@@ -348,6 +352,20 @@ func _put_tree(name: String, p: Vector3, height: float) -> void:
 	t.rotation.y = rng.randf() * TAU
 	root.add_child(t)
 	_occupy(p, 0.5 + height * 0.12)
+
+
+func _put_bush(name: String, p: Vector3, height: float) -> void:
+	if not name.contains("bush"):
+		_place(name, p, {"fit": height, "hmax": height, "occupy": 0.35})
+		return
+	var t := _tree(name)
+	if t == null:
+		return
+	t.scale = Vector3.ONE * height
+	t.position = p
+	t.rotation.y = rng.randf() * TAU
+	root.add_child(t)
+	_occupy(p, 0.35)
 
 
 func _build_trees(P: Dictionary) -> void:
@@ -384,27 +402,36 @@ func _build_trees(P: Dictionary) -> void:
 		var p := Vector3(cos(a) * r, 0, sin(a) * r)
 		p.y = TOP + _height(p.x, p.z)
 		if _free(p.x, p.z, 0.3):
-			_place(P.bush, p, {"fit": 0.5 + rng.randf() * 0.5, "hmax": 0.6, "occupy": 0.35})
+			_put_bush(P.bush, p, 0.45 + rng.randf() * 0.35)
 
 
 # ======================= thảm cỏ (hàng chục nghìn ngọn) =======================
 func _blade_mesh() -> ArrayMesh:
+	# ngọn cỏ cong 4 đoạn, thon dần về ngọn
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var pts := [[-0.5, 0.0], [0.5, 0.0], [-0.35, 0.45], [0.32, 0.5], [0.05, 1.0]]
-	var tri := [[0, 1, 2], [1, 3, 2], [2, 3, 4]]
-	for t in tri:
-		for i in t:
-			st.set_uv(Vector2(pts[i][0] + 0.5, pts[i][1]))
-			st.set_normal(Vector3(0, 0.3, 1).normalized())
-			st.add_vertex(Vector3(pts[i][0] * 0.03, pts[i][1], pts[i][1] * pts[i][1] * 0.08))
+	var segs := 4
+	var rows := []
+	for k in segs + 1:
+		var h := float(k) / segs
+		var w := 0.5 * (1.0 - pow(h, 1.6)) + 0.02
+		var bend := h * h * 0.22
+		rows.append([Vector3(-w * 0.04, h, bend), Vector3(w * 0.04, h, bend), h])
+	for k in segs:
+		var r0: Array = rows[k]
+		var r1: Array = rows[k + 1]
+		for tri in [[r0[0], r0[1], r1[0], r0[2], r0[2], r1[2]], [r0[1], r1[1], r1[0], r0[2], r1[2], r1[2]]]:
+			for j in 3:
+				st.set_uv(Vector2(0.5, tri[3 + j]))
+				st.set_normal(Vector3(0, 0.3, 1).normalized())
+				st.add_vertex(tri[j])
 	return st.commit()
 
 
 func _build_grass(P: Dictionary) -> void:
 	if P.get("sand") or "--nograss" in OS.get_cmdline_user_args():
 		return
-	var count := 70000
+	var count := 130000
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_custom_data = true
@@ -415,14 +442,16 @@ func _build_grass(P: Dictionary) -> void:
 	while xf.size() < count and tries < count * 3:
 		tries += 1
 		# dày ở vùng nhìn thấy quanh bàn, thưa dần ra xa
-		var r := Board.W / 2 + 0.6 + pow(rng.randf(), 1.4) * 17.0
+		var r := Board.W / 2 + 0.6 + pow(rng.randf(), 1.25) * 16.0
 		var a := rng.randf() * TAU
 		var x := cos(a) * r
 		var z := sin(a) * r
 		if not _free(x, z, 0.05):
 			continue
-		var h := 0.14 + rng.randf() * 0.16
-		var b := Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.RIGHT, (rng.randf() - 0.5) * 0.45) * Basis.from_scale(Vector3(1.0 + rng.randf(), h, 1.0))
+		# cao thấp theo mảng: sát bàn cờ cỏ ngắn, ra xa cao hơn
+		var near := smoothstep(Board.W / 2 + 0.6, Board.W / 2 + 4.0, maxf(absf(x), absf(z)))
+		var h := (0.085 + rng.randf() * 0.07) * (0.8 + 0.45 * near) * (0.85 + 0.35 * noise_tex.noise.get_noise_2d(x * 6, z * 6))
+		var b := Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.RIGHT, (rng.randf() - 0.5) * 0.35) * Basis.from_scale(Vector3(1.3 + rng.randf() * 0.8, h, 1.0))
 		xf.append(Transform3D(b, Vector3(x, TOP + _height(x, z) - 0.01, z)))
 		var v := 0.85 + rng.randf() * 0.3
 		cd.append(Color(v * (0.95 + rng.randf() * 0.1), v, v * (0.9 + rng.randf() * 0.1)))
@@ -437,9 +466,57 @@ func _build_grass(P: Dictionary) -> void:
 	gm.set_shader_parameter("noise", noise_tex)
 	gm.set_shader_parameter("base_col", Color(P.blade_base))
 	gm.set_shader_parameter("tip_col", Color(P.blade_tip))
+	gm.set_shader_parameter("dry_col", Color(P.dry))
+	gm.set_shader_parameter("deep_col", Color(P.grass_b).darkened(0.25))
 	mmi.material_override = gm
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(mmi)
+	_build_flowers(P)
+
+
+func _build_flowers(P: Dictionary) -> void:
+	if "--noflowers" in OS.get_cmdline_user_args():
+		return
+	var cols: Array = P.get("flowers", ["#ffffff", "#ffe066", "#ff9ec4", "#b9a3ff", "#ffb84d", "#ff6f91"])
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = Foliage.shape("flower")
+	var xf: Array[Transform3D] = []
+	var cc: Array[Color] = []
+	for patch in 70:
+		var a := rng.randf() * TAU
+		var r := Board.W / 2 + 1.0 + pow(rng.randf(), 1.2) * 13.0
+		var cx := cos(a) * r
+		var cz := sin(a) * r
+		var c1 := Color(cols[patch % cols.size()])
+		var c2 := Color(cols[(patch + 2) % cols.size()])
+		for k in 40 + rng.randi() % 40:
+			var col := c1 if rng.randf() < 0.75 else c2
+			var x := cx + rng.randfn(0, 0.55)
+			var z := cz + rng.randfn(0, 0.55)
+			if not _free(x, z, 0.1):
+				continue
+			var sz := rng.randf_range(0.035, 0.06)
+			var b := Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.RIGHT, -PI / 2 + rng.randf_range(-0.7, 0.7))
+			xf.append(Transform3D(b.scaled(Vector3.ONE * sz), Vector3(x, TOP + _height(x, z) + rng.randf_range(0.09, 0.16), z)))
+			cc.append(col * rng.randf_range(0.9, 1.1))
+	mm.instance_count = xf.size()
+	for i in xf.size():
+		mm.set_instance_transform(i, xf[i])
+		mm.set_instance_color(i, cc[i])
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.roughness = 0.6
+	m.emission_enabled = true
+	m.emission = Color(1, 1, 1)
+	m.emission_energy_multiplier = 0.05
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(mi)
 
 
 # ======================= cánh hoa / lá rơi =======================
