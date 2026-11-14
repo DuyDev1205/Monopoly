@@ -31,6 +31,9 @@ jobs:
           mkdir -p "$APPDATA/Godot/export_templates/$TPL_DIR"
           cp tpl/templates/windows_* tpl/templates/version.txt "$APPDATA/Godot/export_templates/$TPL_DIR/"
 
+      - name: Cài NSIS
+        run: choco install nsis -y --no-progress
+
       - name: Xuất game + dựng bộ cài
         shell: bash
         run: |
@@ -40,7 +43,9 @@ jobs:
           "$G" --headless --path godot --import || true
           "$G" --headless --path godot --export-release "Windows Desktop" ../build/win/CoTyPhu.exe
           ls -la build/win
-          "/c/Program Files (x86)/NSIS/makensis.exe" -DVERSION="$VER" godot/installer/cotyphu.nsi
+          MK="/c/Program Files (x86)/NSIS/makensis.exe"
+          [ -x "$MK" ] || MK="$(command -v makensis)"
+          "$MK" -DVERSION="$VER" godot/installer/cotyphu.nsi
           ls -la build/win
 
       - uses: actions/setup-node@v4
@@ -89,7 +94,7 @@ jobs:
           mkdir -p dmg
           mv "$APP" dmg/CoTyPhu.app
           xattr -cr dmg/CoTyPhu.app || true
-          codesign --force --deep -s - dmg/CoTyPhu.app
+          codesign --verify dmg/CoTyPhu.app && echo "đã ký ad-hoc" || echo "chưa ký"
           tar -czf CoTyPhu_universal.app.tar.gz -C dmg CoTyPhu.app
           ln -s /Applications dmg/Applications
           hdiutil create -volname "Co Ty Phu" -srcfolder dmg -ov -format UDZO "CoTyPhu_${VER}_universal.dmg"
