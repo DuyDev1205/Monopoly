@@ -51,6 +51,8 @@ var music_btn: Button
 var sound_btn: Button
 var cam_btn: Button
 var home_mode := "local"
+var updater: Updater
+var update_ver := ""
 
 
 func _ready() -> void:
@@ -69,7 +71,18 @@ func _ready() -> void:
 	main.pieces.set_dice_skin(settings.dice)
 	main.set_theme(settings.theme)
 	main.follow_on = settings.follow
+	main.apply_quality(int(settings.get("quality", 2)))
 	_build_overlays()
+	updater = Updater.new()
+	add_child(updater)
+	updater.found.connect(func(v, _n):
+		update_ver = v
+		if home and mode == "":
+			show_home())
+	updater.progress.connect(func(p): toast("Đang tải bản cập nhật… %d%%" % int(p * 100), 0.4))
+	updater.failed.connect(func(m): toast(m))
+	if not OS.has_feature("editor") and not main.args.has("noupdate"):
+		updater.check(VERSION)
 	show_home()
 	if settings.music:
 		audio.set_music(true)
@@ -515,6 +528,12 @@ func _home_right() -> Control:
 	if home_mode == "online":
 		_online_form(v)
 		return p
+	if update_ver != "":
+		var ub := UiKit.button("⬆ Có bản mới v%s — Cập nhật ngay" % update_ver, "green", 16)
+		ub.pressed.connect(func():
+			toast("Đang tải bản cập nhật…")
+			updater.install())
+		v.add_child(ub)
 	var saved = _saved_game()
 	if saved:
 		var rb := UiKit.button("▶ Chơi tiếp ván đã lưu (vòng %d)" % int(saved.round), "ghost", 16)
@@ -927,6 +946,16 @@ func open_menu() -> void:
 		close_modal()
 		apply_theme(nx))
 	v.add_child(b2)
+	var qn := ["Thấp", "Vừa", "Cao"]
+	var nq := (int(settings.get("quality", 2)) + 2) % 3
+	var bq := UiKit.button("🖥 Đồ hoạ: %s (đổi sang %s)" % [qn[int(settings.get("quality", 2))], qn[nq]], "normal", 17)
+	bq.pressed.connect(func():
+		settings.quality = nq
+		save_settings()
+		main.apply_quality(nq)
+		close_modal()
+		toast("Đồ hoạ: " + qn[nq]))
+	v.add_child(bq)
 	var b5 := UiKit.button("📜 Luật chơi", "normal", 17)
 	b5.pressed.connect(open_rules)
 	v.add_child(b5)
@@ -1038,7 +1067,23 @@ func act(a: Dictionary) -> void:
 		net.send({"t": "act", "action": a})
 
 
+## tự hạ chất lượng nếu máy chạy chậm (một lần cho mỗi mức)
+func _auto_quality() -> void:
+	await get_tree().create_timer(6.0).timeout
+	var sum := 0.0
+	for k in 8:
+		await get_tree().create_timer(1.0).timeout
+		sum += Engine.get_frames_per_second()
+	if sum / 8 < 40 and main.quality > 0 and hud:
+		settings.quality = main.quality - 1
+		save_settings()
+		main.apply_quality(settings.quality)
+		toast("Máy hơi chậm — đã giảm đồ hoạ xuống mức %s (đổi lại trong Menu)" % ["Thấp", "Vừa", "Cao"][settings.quality], 4.0)
+
+
 func enter_game(state: Dictionary) -> void:
+	if not main.args.has("shot") and not main.args.has("shots"):
+		_auto_quality()
 	S = state
 	win_shown = state.phase == "over"
 	queue.clear()

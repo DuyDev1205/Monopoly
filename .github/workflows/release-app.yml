@@ -1,5 +1,6 @@
-# Build bản app (Tauri) cho Windows (.exe) và macOS (.dmg universal) rồi đăng lên GitHub Releases.
-# Chạy khi đẩy tag dạng v1.2.3 (version phải trùng app/package.json), hoặc bấm tay trong tab Actions.
+# Build bản app (Godot 4) cho Windows (bộ cài .exe) và macOS (.dmg universal) rồi đăng lên GitHub Releases.
+# Chạy khi đẩy tag dạng v2.0.0 (version phải trùng godot/project.godot), hoặc bấm tay trong tab Actions.
+# latest.json + chữ ký giữ đúng định dạng của bản Tauri cũ nên người dùng bản cũ tự cập nhật sang được.
 name: Release app
 
 on:
@@ -10,63 +11,152 @@ on:
 permissions:
   contents: write
 
+env:
+  GODOT: 4.7.2-stable
+  TPL_DIR: 4.7.2.stable
+
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows-latest
-            args: ''
-          - platform: macos-latest
-            args: '--target universal-apple-darwin'
-    runs-on: ${{ matrix.platform }}
+  windows:
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Tải Godot + export template
+        shell: bash
+        run: |
+          curl -sL -o g.zip "https://github.com/godotengine/godot/releases/download/$GODOT/Godot_v${GODOT}_win64.exe.zip"
+          unzip -q g.zip -d godot-bin
+          curl -sL -o t.tpz "https://github.com/godotengine/godot/releases/download/$GODOT/Godot_v${GODOT}_export_templates.tpz"
+          unzip -q t.tpz -d tpl
+          mkdir -p "$APPDATA/Godot/export_templates/$TPL_DIR"
+          cp tpl/templates/windows_* tpl/templates/version.txt "$APPDATA/Godot/export_templates/$TPL_DIR/"
+
+      - name: Xuất game + dựng bộ cài
+        shell: bash
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          G="./godot-bin/Godot_v${GODOT}_win64_console.exe"
+          mkdir -p build/win
+          "$G" --headless --path godot --import || true
+          "$G" --headless --path godot --export-release "Windows Desktop" ../build/win/CoTyPhu.exe
+          ls -la build/win
+          "/c/Program Files (x86)/NSIS/makensis.exe" -DVERSION="$VER" godot/installer/cotyphu.nsi
+          ls -la build/win
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: app/package-lock.json
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-
-      - uses: swatinem/rust-cache@v2
-        with:
-          workspaces: app/src-tauri -> target
-
-      - name: Cài Tauri CLI
-        working-directory: app
-        run: npm ci
-
-      - uses: tauri-apps/tauri-action@v0
+      - name: Ký bản cập nhật
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # khoá ký bản cập nhật (app chỉ cài bản có chữ ký khớp khoá công khai trong tauri.conf.json)
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          npx -y @tauri-apps/cli@2 signer sign "build/win/CoTyPhu_${VER}_x64-setup.exe"
+
+      - uses: actions/upload-artifact@v4
         with:
-          includeUpdaterJson: true
-          updaterJsonPreferNsis: true
-          projectPath: app
-          tauriScript: npx tauri
-          tagName: v__VERSION__
-          releaseName: 'Cờ Tỷ Phú v__VERSION__'
-          releaseBody: |
-            ## Cờ Tỷ Phú Việt Nam — bản cài đặt
+          name: win
+          path: build/win/CoTyPhu_*_x64-setup.exe*
 
-            | Hệ điều hành | Tệp |
-            |---|---|
-            | Windows 10/11 | `CoTyPhu_x.y.z_x64-setup.exe` — chạy để cài. Nếu SmartScreen cảnh báo: *More info → Run anyway* |
-            | macOS (M1/M2/M3… và Intel) | `CoTyPhu_x.y.z_universal.dmg` — mở .dmg, kéo **CoTyPhu** vào Applications |
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
 
-            > macOS: ứng dụng chưa được Apple ký, lần đầu mở hãy **chuột phải → Open**.
-            > Nếu báo "app is damaged", chạy: `xattr -cr "/Applications/CoTyPhu.app"`
+      - name: Tải Godot + export template
+        run: |
+          curl -sL -o g.zip "https://github.com/godotengine/godot/releases/download/$GODOT/Godot_v${GODOT}_macos.universal.zip"
+          unzip -q g.zip -d godot-bin
+          curl -sL -o t.tpz "https://github.com/godotengine/godot/releases/download/$GODOT/Godot_v${GODOT}_export_templates.tpz"
+          unzip -q t.tpz -d tpl
+          D="$HOME/Library/Application Support/Godot/export_templates/$TPL_DIR"
+          mkdir -p "$D"
+          cp tpl/templates/macos.zip tpl/templates/version.txt "$D/"
 
-            Chơi online được với cả người dùng bản web: https://duydev1205.github.io/Monopoly/
-          releaseDraft: false
-          prerelease: false
-          args: ${{ matrix.args }}
+      - name: Xuất game + dựng .dmg và gói cập nhật
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          G="godot-bin/Godot.app/Contents/MacOS/Godot"
+          mkdir -p build/mac
+          "$G" --headless --path godot --import || true
+          "$G" --headless --path godot --export-release "macOS" ../build/mac/CoTyPhu.zip
+          cd build/mac
+          unzip -q CoTyPhu.zip -d out
+          APP="$(find out -maxdepth 1 -name '*.app' | head -1)"
+          mkdir -p dmg
+          mv "$APP" dmg/CoTyPhu.app
+          xattr -cr dmg/CoTyPhu.app || true
+          codesign --force --deep -s - dmg/CoTyPhu.app
+          tar -czf CoTyPhu_universal.app.tar.gz -C dmg CoTyPhu.app
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname "Co Ty Phu" -srcfolder dmg -ov -format UDZO "CoTyPhu_${VER}_universal.dmg"
+          ls -la
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Ký bản cập nhật
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx -y @tauri-apps/cli@2 signer sign build/mac/CoTyPhu_universal.app.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: |
+            build/mac/CoTyPhu_*_universal.dmg
+            build/mac/CoTyPhu_universal.app.tar.gz*
+
+  release:
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Tạo latest.json + đăng bản phát hành
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          cd dist
+          ls -la
+          BASE="https://github.com/$REPO/releases/download/v$VER"
+          WIN="CoTyPhu_${VER}_x64-setup.exe"
+          MAC="CoTyPhu_universal.app.tar.gz"
+          python3 - "$VER" "$BASE" "$WIN" "$MAC" <<'PY'
+          import json, sys, datetime
+          ver, base, win, mac = sys.argv[1:5]
+          ws = open(win + '.sig').read().strip()
+          ms = open(mac + '.sig').read().strip()
+          w = {'signature': ws, 'url': f'{base}/{win}'}
+          m = {'signature': ms, 'url': f'{base}/{mac}'}
+          d = {'version': ver, 'notes': f'Cờ Tỷ Phú Việt Nam v{ver}',
+               'pub_date': datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+               'platforms': {'windows-x86_64': w, 'windows-x86_64-nsis': w, 'darwin-aarch64': m, 'darwin-x86_64': m,
+                             'darwin-aarch64-app': m, 'darwin-x86_64-app': m}}
+          json.dump(d, open('latest.json', 'w'), ensure_ascii=False, indent=2)
+          PY
+          cat > notes.md <<EOF
+          ## Cờ Tỷ Phú Việt Nam — bản cài đặt
+
+          | Hệ điều hành | Tệp |
+          |---|---|
+          | Windows 10/11 | \`CoTyPhu_${VER}_x64-setup.exe\` — chạy để cài. Nếu SmartScreen cảnh báo: *More info → Run anyway* |
+          | macOS (M1/M2/M3… và Intel) | \`CoTyPhu_${VER}_universal.dmg\` — mở .dmg, kéo **CoTyPhu** vào Applications |
+
+          > macOS: ứng dụng chưa được Apple ký, lần đầu mở hãy **chuột phải → Open**.
+          > Nếu báo "app is damaged", chạy: \`xattr -cr "/Applications/CoTyPhu.app"\`
+
+          Chơi online được với cả người dùng bản web: https://duydev1205.github.io/Monopoly/
+          EOF
+          gh release create "v$VER" --repo "$REPO" --title "Cờ Tỷ Phú v$VER" --notes-file notes.md \
+            "$WIN" "$WIN.sig" "CoTyPhu_${VER}_universal.dmg" "$MAC" "$MAC.sig" latest.json

@@ -23,8 +23,8 @@ const TILE_BG := {
 static var TILE: Array = []   # khung toạ độ từng ô
 var tiles: Array = []         # {grp, body, top, mat, labels, st}
 var theme := "sakura"
-var font_title: FontFile
-var font_body: FontFile
+var font_title: Font
+var font_body: Font
 
 var base_top: StandardMaterial3D
 var base_side: StandardMaterial3D
@@ -89,15 +89,16 @@ static func flat_basis(i: int) -> Basis:
 
 
 func _ready() -> void:
-	font_title = _font("res://assets/fonts/BeVietnamPro-Black.ttf")
-	font_body = _font("res://assets/fonts/BeVietnamPro-ExtraBold.ttf")
+	font_title = _font("res://assets/fonts/Montserrat-ExtraBold.ttf")
+	font_body = _font("res://assets/fonts/Montserrat-Bold.ttf")
 	_build_base()
 	_build_tiles()
 	_build_arena()
 	set_theme(theme)
 
 
-func _font(path: String) -> FontFile:
+## font MSDF (nét ở mọi góc nhìn)
+func _font(path: String) -> Font:
 	var f: FontFile = load(path).duplicate()
 	f.multichannel_signed_distance_field = true
 	f.msdf_pixel_range = 14
@@ -118,6 +119,7 @@ func _label(text: String, font: Font, size: int, color: Color, px: float) -> Lab
 	l.alpha_cut = Label3D.ALPHA_CUT_DISCARD
 	l.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	l.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	l.scale = Vector3(1.0, 1.15, 1.0)		  # camera nhìn chéo: giãn nhẹ chữ theo chiều sâu cho khỏi dẹt
 	return l
 
 
@@ -238,16 +240,16 @@ func _tile_labels(i: int, info: Dictionary, corner: bool) -> Dictionary:
 	var B := flat_basis(i)
 	const PX := 0.0021        # 1 px chữ = 0.0021 đơn vị
 	var width := (CORNER if corner else 1.0) - 0.12
-	var ink := Color("#2b2118")
+	var ink := Color("#1c140d")
 	if corner:
-		var nl := _label(info.name, font_title, 150, Color("#3a2a1a"), PX)
-		nl.font_size = _fit_size(info.name, font_title, 150, width / PX)
+		var nl := _label(info.name, font_title, 120, Color("#3a2a1a"), PX)
+		nl.font_size = _fit_size(info.name, font_title, 120, width / PX)
 		nl.position = tp(i, 0, 0.66, TH + 0.004)
 		nl.basis = B
 		out["name"] = nl
 		var sub := Data.tile_sub(info)
-		var sl := _label(sub, font_body, 86, Color("#5b4630"), PX)
-		sl.font_size = _fit_size(sub, font_body, 86, width / PX)
+		var sl := _label(sub, font_body, 72, Color("#5b4630"), PX)
+		sl.font_size = _fit_size(sub, font_body, 72, width / PX)
 		sl.position = tp(i, 0, 0.83, TH + 0.004)
 		sl.basis = B
 		out["sub"] = sl
@@ -257,20 +259,20 @@ func _tile_labels(i: int, info: Dictionary, corner: bool) -> Dictionary:
 	else:
 		# ưu tiên 1 dòng (co chữ tới 96px), dài quá mới xuống 2 dòng
 		var lines := PackedStringArray([info.name])
-		var size := _fit_size(info.name, font_body, 128, width / PX)
-		if size < 96:
-			lines = _wrap(info.name, font_body, 108, width / PX)
-			size = 108
+		var size := _fit_size(info.name, font_body, 100, width / PX)
+		if size < 80:
+			lines = _wrap(info.name, font_body, 90, width / PX)
+			size = 90
 			for ln in lines:
 				size = mini(size, _fit_size(ln, font_body, size, width / PX))
 		var nl := _label("\n".join(lines), font_body, size, ink, PX)
 		nl.line_spacing = -size * 0.18
-		nl.position = tp(i, 0, 0.6 if lines.size() == 1 else 0.56, TH + 0.004)
+		nl.position = tp(i, 0, 0.64 if lines.size() == 1 else 0.61, TH + 0.004)
 		nl.basis = B
 		out["name"] = nl
-		var pl := _label(Data.tile_sub(info), font_title, 140, Color("#4a3d2e"), PX)
-		pl.font_size = _fit_size(pl.text, font_title, 140, width / PX)
-		pl.position = tp(i, 0, 0.86, TH + 0.004)
+		var pl := _label(Data.tile_sub(info), font_title, 112, Color("#2e2418"), PX)
+		pl.font_size = _fit_size(pl.text, font_title, 112, width / PX)
+		pl.position = tp(i, 0, 0.875, TH + 0.004)
 		pl.basis = B
 		out["price"] = pl
 		if info.type != "city" and info.type != "resort":
@@ -307,7 +309,7 @@ func update_tile(i: int, u: Dictionary) -> void:
 		pl.text = st.price
 		pl.modulate = (Color(oc) * 0.75) if oc != null else Color("#4a3d2e")
 		pl.modulate.a = 1
-		pl.font_size = _fit_size(pl.text, font_title, 150 if oc != null else 140, 0.88 / 0.0021)
+		pl.font_size = _fit_size(pl.text, font_title, 118 if oc != null else 112, 0.88 / 0.0021)
 
 
 func set_picks(list) -> void:

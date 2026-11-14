@@ -481,7 +481,7 @@ func set_building(i: int, info) -> Dictionary:
 	var root := Node3D.new()
 	var model := _house_model(info.type, info.lvl, info.get("style", i), Color(info.color))
 	root.add_child(model)
-	var p := Board.tp(i, 0, 0.32 if info.type == "resort" else 0.3, TH)
+	var p := Board.tp(i, 0, 0.3 if info.type == "resort" else 0.27, TH)
 	root.position = p
 	root.rotation.y = atan2(-T.far.x, -T.far.z)    # mặt tiền quay ra mép gần (phía chữ)
 	var up := pk.size() > 1 and pk[0] == str(info.owner) and int(pk[1]) < int(info.lvl)

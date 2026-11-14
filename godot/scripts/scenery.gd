@@ -14,7 +14,8 @@ const THEMES := {
 		"grass_a": "#93c95e", "grass_b": "#6aa84a", "dry": "#cfd97a", "bank": "#8a7666", "petal": "#ffd3e2", "petal_amt": 0.35,
 		"blade_base": "#4f8f3a", "blade_tip": "#a8dc6e", "fall": "#ffc6da",
 		"tree": "pf/cherry-blossom-tree-3f7ab7", "accent": "pf/japanese-maple-d2fb29", "pine": "pf/sculpted-pine-e45d4f",
-		"bush": "pf/azalea-bush-7bb14d", "pond": true, "torii": true, "pagoda": true,
+		"bush": "pf/azalea-bush-7bb14d", "pond": true, "torii": true, "pagoda": true, "bushes": 80, "cherry_extra": true,
+		"flowers": ["#ff9ec4", "#ffffff", "#ff6f9f", "#ffd1e3", "#ff85b3"],
 	},
 	"wood": {
 		"grass_a": "#93b85a", "grass_b": "#6f9a45", "dry": "#c9b46a", "bank": "#7a6248", "petal": "#e8923a", "petal_amt": 0.25,
@@ -36,6 +37,7 @@ const THEMES := {
 	},
 }
 
+static var grass_scale := 1.0
 var theme := ""
 var root: Node3D
 var ground_mat: ShaderMaterial
@@ -320,7 +322,7 @@ func _tree(name: String) -> Node3D:
 			return null
 		match name:
 			"pf/cherry-blossom-tree-3f7ab7":
-				Foliage.fluffy(t, {"pred": Foliage.is_pink, "leaf": "blossom", "cards": 1100, "card_k": 0.16, "palette": Foliage.SAKURA, "darken": 0.55, "seed": 3})
+				Foliage.fluffy(t, {"pred": Foliage.is_pink, "leaf": "blossom", "cards": 1700, "card_k": 0.17, "palette": Foliage.SAKURA, "darken": 0.55, "seed": 3})
 			"pf/japanese-maple-d2fb29":
 				var pal: Array = Foliage.JMAPLE if theme != "sakura" else ["#7fb04a", "#93c25a", "#6a9a3c", "#a6cc6a"]
 				Foliage.fluffy(t, {"pred": func(c: Color): return Foliage.is_green(c) or (c.r > 0.12 and c.r > c.g * 1.4), "cards": 900, "card_k": 0.15, "palette": pal})
@@ -382,11 +384,20 @@ func _build_trees(P: Dictionary) -> void:
 		if not _free(p.x, p.z, 0.3) or (P.get("sand") and Vector2(p.x, p.z).length() > 11.5):
 			continue
 		var name: String = P.tree
-		if k % 5 == 3:
+		if k % 5 == 3 and not P.get("cherry_extra"):
 			name = P.accent
 		elif k % 7 == 6:
 			name = P.pine
 		_put_tree(name, p + Vector3(0, _height(p.x, p.z), 0), s[2] * (0.9 + rng.randf() * 0.2))
+	if P.get("cherry_extra"):
+		# thêm anh đào ở 4 tam giác nhìn thấy quanh bàn (thấp hơn ở phía gần camera)
+		var more := [[-12.5, 6.8], [-8.4, 7.6], [-14.6, 1.4], [-10.6, 2.6], [8.2, 7.4], [11.6, 6.2], [15.2, 6.0], [10.6, -0.4],
+			[-11.8, -2.4], [12.6, -3.6], [-15.0, -4.6], [15.4, -6.2], [-9.6, -8.6], [9.8, -9.4]]
+		for s2 in more:
+			var p := at(s2[0], s2[1])
+			if _free(p.x, p.z, 0.4):
+				var front: bool = s2[1] < -2.0
+				_put_tree(P.tree, p + Vector3(0, _height(p.x, p.z), 0), (1.9 if front else 2.6) + rng.randf() * 0.5)
 	# vòng cây bao ngoài (khi camera xoay ở màn chính)
 	for k in 26:
 		var a := TAU * k / 26 + rng.randf() * 0.1
@@ -396,9 +407,9 @@ func _build_trees(P: Dictionary) -> void:
 		if _free(p.x, p.z, 0.5) and not P.get("sand"):
 			_put_tree([P.tree, P.pine, P.tree, P.accent][k % 4], p, 2.6 + rng.randf() * 1.4)
 	# bụi hoa, bụi cây thấp quanh mép bàn
-	for k in 34:
+	for k in int(P.get("bushes", 34)):
 		var a := rng.randf() * TAU
-		var r := Board.W / 2 + 1.6 + rng.randf() * 7.0
+		var r := Board.W / 2 + 1.4 + rng.randf() * 7.0
 		var p := Vector3(cos(a) * r, 0, sin(a) * r)
 		p.y = TOP + _height(p.x, p.z)
 		if _free(p.x, p.z, 0.3):
@@ -431,7 +442,7 @@ func _blade_mesh() -> ArrayMesh:
 func _build_grass(P: Dictionary) -> void:
 	if P.get("sand") or "--nograss" in OS.get_cmdline_user_args():
 		return
-	var count := 130000
+	var count := int(130000 * grass_scale)
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_custom_data = true
@@ -450,10 +461,10 @@ func _build_grass(P: Dictionary) -> void:
 			continue
 		# cao thấp theo mảng: sát bàn cờ cỏ ngắn, ra xa cao hơn
 		var near := smoothstep(Board.W / 2 + 0.6, Board.W / 2 + 4.0, maxf(absf(x), absf(z)))
-		var h := (0.085 + rng.randf() * 0.07) * (0.8 + 0.45 * near) * (0.85 + 0.35 * noise_tex.noise.get_noise_2d(x * 6, z * 6))
-		var b := Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.RIGHT, (rng.randf() - 0.5) * 0.35) * Basis.from_scale(Vector3(1.3 + rng.randf() * 0.8, h, 1.0))
+		var h := (0.075 + rng.randf() * 0.045) * (0.85 + 0.35 * near) * (0.9 + 0.25 * noise_tex.noise.get_noise_2d(x * 6, z * 6))
+		var b := Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.RIGHT, (rng.randf() - 0.5) * 0.35) * Basis.from_scale(Vector3(2.4 + rng.randf() * 1.2, h, 1.0))
 		xf.append(Transform3D(b, Vector3(x, TOP + _height(x, z) - 0.01, z)))
-		var v := 0.85 + rng.randf() * 0.3
+		var v := 0.92 + rng.randf() * 0.14
 		cd.append(Color(v * (0.95 + rng.randf() * 0.1), v, v * (0.9 + rng.randf() * 0.1)))
 	mm.instance_count = xf.size()
 	for i in xf.size():

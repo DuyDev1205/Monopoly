@@ -224,6 +224,32 @@ func _demo_state() -> void:
 	pieces.set_dice_skin(args.get("dice", "classic"))
 
 
+## chất lượng đồ hoạ: 2 cao, 1 vừa, 0 thấp
+var quality := 2
+
+
+func apply_quality(q: int) -> void:
+	quality = clampi(q, 0, 2)
+	env.sdfgi_enabled = quality >= 2
+	env.ssil_enabled = quality >= 2
+	env.ssao_enabled = quality >= 1
+	env.glow_enabled = true
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if quality >= 1 else DirectionalLight3D.SHADOW_ORTHOGONAL
+	RenderingServer.directional_shadow_atlas_set_size([2048, 4096, 8192][quality], true)
+	var vp := get_viewport()
+	vp.msaa_3d = Viewport.MSAA_2X if quality >= 1 else Viewport.MSAA_DISABLED
+	vp.scaling_3d_scale = 1.0 if quality >= 1 else 0.8
+	vp.use_taa = quality >= 1 and not args.has("notaa")
+	var gs: float = [0.3, 0.55, 1.0][quality]
+	if gs == Scenery.grass_scale:
+		return
+	Scenery.grass_scale = gs
+	if scenery and scenery.theme != "":
+		var t := scenery.theme
+		scenery.theme = ""
+		scenery.set_theme(t)
+
+
 func set_mode(m: String) -> void:
 	mode = m
 	if m == "game":

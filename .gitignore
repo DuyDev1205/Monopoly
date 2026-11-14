@@ -4,3 +4,4 @@ node_modules/
 # bản app
 app/dist/
 app/src-tauri/target/
+build/

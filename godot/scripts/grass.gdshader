@@ -35,8 +35,8 @@ void fragment() {
 	float hh = clamp(hgt, 0.0, 1.0);
 	vec3 tip = mix(tip_col.rgb, dry_col.rgb, smoothstep(0.58, 0.8, pv.x) * 0.7);
 	tip = mix(tip, deep_col.rgb * 1.3, (1.0 - smoothstep(0.25, 0.42, pv.y)) * 0.45);
-	vec3 c = mix(base_col.rgb, tip, sqrt(max(hh, 0.0)) * 0.5 + hh * 0.5);
-	c *= tint * mix(0.6, 1.0, hh);
+	vec3 c = mix(mix(base_col.rgb, tip, 0.45), tip, sqrt(max(hh, 0.0)) * 0.5 + hh * 0.5);
+	c *= tint * mix(0.82, 1.0, hh);
 	c += vec3(0.08, 0.09, 0.03) * gust_v * hh;
 	ALBEDO = c;
 	ROUGHNESS = 0.95;
