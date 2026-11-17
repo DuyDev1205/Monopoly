@@ -12,6 +12,16 @@ const PIPS := {1: [[0.5, 0.5]], 2: [[0.27, 0.27], [0.73, 0.73]], 3: [[0.27, 0.27
 	4: [[0.27, 0.27], [0.73, 0.27], [0.27, 0.73], [0.73, 0.73]], 5: [[0.27, 0.27], [0.73, 0.27], [0.5, 0.5], [0.27, 0.73], [0.73, 0.73]],
 	6: [[0.27, 0.25], [0.73, 0.25], [0.27, 0.5], [0.73, 0.5], [0.27, 0.75], [0.73, 0.75]]}
 
+## bảng khung hình nhân vật (assets/chars2d/c<k>.png, chụp bằng tools/render_chars.tscn): [khung đầu, số khung, khung/giây, lặp]
+const FRAME := 240
+const FCOLS := 10
+const FOOT := Vector2(120, 183.6)          # điểm bàn chân trong mỗi khung
+const TOKEN_SC := 0.92
+const ANIMS := {
+	"idle": [0, 12, 9.0, true], "walk": [12, 10, 15.0, true], "jump": [22, 10, 0.0, false], "cheer": [32, 14, 10.0, false],
+	"hit": [46, 8, 12.0, false], "die": [54, 12, 14.0, false], "walk_u": [66, 10, 15.0, true], "jump_u": [76, 10, 0.0, false],
+}
+
 var tokens: Array = []
 var buildings: Array = []        # mỗi ô: {key, info, t0, anim, shake, burn} | null
 var gates := {}
@@ -33,6 +43,7 @@ var ready_at := 0
 var font: Font = preload("res://assets/fonts/Montserrat-ExtraBold.ttf")
 var blob: Texture2D
 var coin_tex: Texture2D
+var token_shader: Shader = preload("res://scripts2d/token.gdshader")
 
 
 func _ready() -> void:
@@ -55,14 +66,22 @@ func set_tokens(players: Array) -> void:
 	for p in players:
 		var n := Node2D.new()
 		var sp := Sprite2D.new()
-		sp.texture = UiKit.portrait(int(p.get("char", 0)))
-		sp.scale = Vector2.ONE * 92.0 / sp.texture.get_width()
-		sp.offset = Vector2(0, -sp.texture.get_height() / 2.0)
-		sp.position = Vector2(0, -6)
+		sp.texture = load("res://assets/chars2d/c%d.png" % posmod(int(p.get("char", 0)), 12))
+		sp.centered = false
+		sp.offset = -FOOT
+		sp.region_enabled = true
+		sp.region_rect = Rect2(0, 0, FRAME, FRAME)
+		sp.scale = Vector2.ONE * TOKEN_SC
+		sp.position = Vector2(0, -9)
+		sp.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		var m := ShaderMaterial.new()
+		m.shader = token_shader
+		sp.material = m
 		n.add_child(sp)
 		add_child(n)
 		tokens.append({"node": n, "sp": sp, "color": Color(p.color), "mine": p.get("mine", false), "pos": Vector2.ZERO,
-			"from": null, "to": null, "t0": 0, "dur": 0.0, "arc": 0.0, "cur": false, "emote": "", "et": 0.0, "out": false})
+			"from": null, "to": null, "t0": 0, "dur": 0.0, "arc": 0.0, "cur": false, "emote": "", "et": 0.0, "out": false,
+			"anim": "idle", "at": randf() * 1.3, "up": false, "fly": false, "lift": 0.0, "land": 9.0})
 
 
 func slot_pos(tile: int, k: int, n: int) -> Vector2:
@@ -89,8 +108,13 @@ func place_token(pid: int, place: Dictionary, opt := {}) -> void:
 	tk.t0 = Time.get_ticks_msec()
 	tk.dur = dur
 	tk.arc = opt.get("arc", 0.35) * 70.0
-	if absf(target_p.x - tk.pos.x) > 2:
-		tk.sp.flip_h = target_p.x < tk.pos.x
+	tk.fly = opt.get("arc", 0.35) > 1.0
+	# hình gốc quay mặt xuống-trái (hoặc quay lưng lên-trái): đi sang phải thì lật ngang
+	var dv := target_p - (tk.pos as Vector2)
+	if absf(dv.x) > 2:
+		tk.sp.flip_h = dv.x > 0
+	tk.up = dv.y < -2
+	tk.anim = ("jump" if tk.fly else "walk") + ("_u" if tk.up else "")
 
 
 func set_current(pid: int) -> void:
@@ -102,8 +126,12 @@ func set_current(pid: int) -> void:
 func emote(pid: int, e: String) -> void:
 	if pid >= tokens.size():
 		return
-	tokens[pid].emote = e
-	tokens[pid].et = 0.0
+	var tk: Dictionary = tokens[pid]
+	tk.emote = e
+	tk.et = 0.0
+	if tk.from == null:
+		tk.anim = {"victory": "cheer", "shock": "hit", "out": "die"}.get(e, "idle")
+		tk.at = 0.0
 
 
 # ======================= nhà / công trình =======================
@@ -336,28 +364,53 @@ func _process(dt: float) -> void:
 	pile_t += dt
 	var now := Time.get_ticks_msec()
 	for tk in tokens:
+		var frame := 0
+		tk.land += dt
 		if tk.from != null:
 			var k := minf(1.0, (now - tk.t0) / tk.dur)
 			var e := 2 * k * k if k < 0.5 else 1 - pow(-2 * k + 2, 2) / 2
 			tk.pos = (tk.from as Vector2).lerp(tk.to, e)
-			tk.sp.position.y = -6 - sin(k * PI) * tk.arc
+			tk.lift = sin(k * PI) * tk.arc
+			tk.at += dt
+			var A: Array = ANIMS[tk.anim] if ANIMS.has(tk.anim) else ANIMS.walk
+			if tk.fly:
+				# nhảy xa: khung hình đi theo tiến độ (nhún → bật → rơi → tiếp đất)
+				frame = A[0] + clampi(int((0.12 + k * 0.76) * A[1]), 0, A[1] - 1)
+			else:
+				frame = A[0] + int(tk.at * A[2]) % int(A[1])
 			if k >= 1:
 				tk.from = null
-				tk.sp.position.y = -6
+				tk.lift = 0.0
+				tk.land = 0.0
+				if tk.fly:
+					for q in 6:
+						var a := randf() * TAU
+						fx.append({"kind": "puff", "p": (tk.pos as Vector2) + Vector2(cos(a) * 14, sin(a) * 6), "v": Vector2(cos(a) * 46, sin(a) * 18 - 8),
+							"life": 0.45, "age": 0.0, "col": Color(1, 1, 1, 0.85), "s": randf_range(14, 22)})
+				tk.anim = {"victory": "cheer", "shock": "hit", "out": "die"}.get(tk.emote, "idle") if tk.et < 0.3 else "idle"
+				tk.at = 0.0
 		else:
-			var bob := absf(sin(t * 3.2)) * 5 if tk.cur else 0.0
-			tk.sp.position.y = -6 - bob
+			tk.lift = absf(sin(t * 3.2)) * 3.0 if tk.cur and tk.anim == "idle" else 0.0
+			tk.at += dt
+			var A: Array = ANIMS[tk.anim] if ANIMS.has(tk.anim) else ANIMS.idle
+			var fi := int(tk.at * A[2])
+			if A[3]:
+				frame = A[0] + fi % int(A[1])
+			elif fi >= A[1]:
+				if tk.anim == "die":
+					frame = A[0] + A[1] - 1                 # nằm luôn
+				else:
+					tk.anim = "idle"
+					tk.at = 0.0
+					frame = 0
+			else:
+				frame = A[0] + fi
 		tk.et += dt
-		var sc: Variant = 92.0 / tk.sp.texture.get_width()
-		tk.sp.rotation = 0
-		match tk.emote:
-			"victory":
-				tk.sp.position.y -= absf(sin(tk.et * 9)) * 14 * maxf(0, 1 - tk.et / 1.2)
-			"shock":
-				tk.sp.rotation = sin(tk.et * 30) * 0.12 * maxf(0, 1 - tk.et / 0.8)
-			"out":
-				tk.sp.rotation = minf(1.4, tk.et * 3)
-		tk.sp.scale = Vector2(sc, sc)
+		# nhún khi vừa tiếp đất
+		var sq := maxf(0.0, 1.0 - tk.land / 0.2)
+		tk.sp.scale = Vector2(TOKEN_SC * (1 + 0.12 * sq), TOKEN_SC * (1 - 0.16 * sq))
+		tk.sp.position.y = -9 - tk.lift
+		tk.sp.region_rect = Rect2((frame % FCOLS) * FRAME, (frame / FCOLS) * FRAME, FRAME, FRAME)
 		tk.node.position = tk.pos
 		tk.node.z_index = int(tk.pos.y / 4) + 600
 	var keep: Array = []
@@ -412,13 +465,25 @@ func _draw() -> void:
 		if tk.out:
 			continue
 		var p: Vector2 = tk.pos
-		draw_set_transform(p, 0, Vector2(1, 0.52))
-		draw_circle(Vector2(0, 4), 30, Color(0.2, 0.1, 0.25, 0.25))
-		draw_circle(Vector2.ZERO, 26, tk.color.darkened(0.25))
-		draw_circle(Vector2(0, -5), 26, tk.color)
-		draw_circle(Vector2(-6, -9), 9, Color(1, 1, 1, 0.35))
+		var col: Color = tk.color
+		var up: float = clampf(tk.lift / 150.0, 0, 1)
+		# quầng sáng quanh đế của người đang tới lượt
 		if tk.cur:
-			draw_arc(Vector2(0, -5), 36 + 4 * sin(t * 5), 0, TAU, 40, Color(tk.color.lightened(0.3), 0.8), 4, true)
+			var g := 0.5 + 0.5 * sin(t * 5)
+			draw_texture_rect(blob, Rect2(p - Vector2(70, 40) * (1 + 0.1 * g), Vector2(140, 80) * (1 + 0.1 * g)), false, Color(col.lightened(0.35), 0.55 + 0.25 * g))
+		draw_set_transform(p, 0, Vector2(1, 0.54))
+		draw_circle(Vector2(2, 9), 33, Color(0.2, 0.08, 0.22, 0.26))
+		# thân đế (dày) → mặt đế → vành sáng
+		draw_circle(Vector2(0, 5), 29, col.darkened(0.42))
+		draw_circle(Vector2(0, -1), 29, col.darkened(0.2))
+		draw_circle(Vector2(0, -8), 29, col)
+		draw_circle(Vector2(0, -8), 23.5, col.lightened(0.22))
+		draw_arc(Vector2(0, -8), 26.2, 0, TAU, 44, Color(1, 1, 1, 0.55), 2.2, true)
+		draw_arc(Vector2(0, -8), 23.5, PI * 1.05, PI * 1.6, 14, Color(1, 1, 1, 0.75), 3.0, true)
+		# bóng nhân vật trên mặt đế (nhỏ lại khi nhảy lên)
+		draw_circle(Vector2(0, -8), 15.0 * (1 - 0.5 * up), Color(0.15, 0.05, 0.2, 0.30 * (1 - 0.6 * up)))
+		if tk.cur:
+			draw_arc(Vector2(0, -8), 37 + 4 * sin(t * 5), 0, TAU, 44, Color(col.lightened(0.4), 0.9), 4, true)
 		draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 	# xúc xắc
 	if not dice_hidden:
@@ -462,6 +527,15 @@ func _draw() -> void:
 			"rocket":
 				var p: Vector2 = (f.p as Vector2).lerp(f.top, 1 - pow(1 - clampf(k, 0, 1), 3))
 				draw_texture_rect(blob, Rect2(p - Vector2(9, 9), Vector2(18, 18)), false, Color(1, 0.96, 0.8))
+	# mũi tên nhún phía trên đầu người đang tới lượt
+	for tk in tokens:
+		if tk.out or not tk.cur or tk.from != null:
+			continue
+		var ap: Vector2 = (tk.pos as Vector2) + Vector2(0, -142 - absf(sin(t * 4.2)) * 9)
+		var tri := PackedVector2Array([ap + Vector2(-13, -12), ap + Vector2(13, -12), ap + Vector2(0, 8)])
+		var tri2 := PackedVector2Array([ap + Vector2(-17, -15.5), ap + Vector2(17, -15.5), ap + Vector2(0, 13)])
+		draw_colored_polygon(tri2, Color.WHITE)
+		draw_colored_polygon(tri, tk.color)
 	# nhãn ô đích (trên cùng)
 	if target >= 0 and target_label != "":
 		var c := scr(Board.tp(target, 0, 0.5, TH)) + Vector2(0, -150 - absf(sin(t * 5)) * 10)
