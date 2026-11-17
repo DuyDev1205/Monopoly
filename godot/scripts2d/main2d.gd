@@ -49,6 +49,7 @@ func _ready() -> void:
 	board = Board2D.new()
 	add_child(board)
 	pieces = Pieces2D.new()
+	pieces.theme = args.get("theme", theme)
 	add_child(pieces)
 	get_viewport().size_changed.connect(fit_camera)
 	set_theme(args.get("theme", theme))
@@ -66,6 +67,10 @@ func set_theme(name: String) -> void:
 	theme = name
 	scenery.set_theme(name)
 	board.set_theme(name)
+	if pieces:
+		pieces.set_theme(name)
+	# bàn cờ nhận màu nắng của theme (đêm thì dịu xuống, không chói)
+	board.modulate = Color(Pieces2D.GRADE.get(name, Pieces2D.GRADE.sakura)[0])
 
 
 func apply_quality(q: int) -> void:

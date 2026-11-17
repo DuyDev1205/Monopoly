@@ -95,6 +95,9 @@ Deploy: push lên nhánh `main`, GitHub Pages tự cập nhật.
 Bản cài Windows / macOS dựng bằng **Godot 4.7** (2D tranh vẽ): nền phong cảnh phủ kín màn hình — trời chuyển màu,
 mây trôi, núi mờ sương, đồi hoa xa, mặt hồ gương gợn sóng lấp lánh, cánh hoa bay; bàn cờ isometric. Tranh nền của 4 theme
 (`godot/assets/art/`) vẽ bằng `python godot/tools/render_art.py` (Pillow + numpy + scipy), mặt hồ do `scripts2d/bg.gdshader` dựng.
+Quân cờ và công trình là hình 2D chụp từ mô hình 3D (KayKit, Polyfork) bằng `tools/render_chars.tscn`, `tools/render_builds.tscn`
+rồi xử lý bằng `python godot/tools/fix_chars.py`; quân cờ có hoạt ảnh (đứng, đi, nhảy, reo hò, ngã), nhà lợp mái theo màu chủ đất.
+Màu của nhà, quân cờ, bàn được hoà theo ánh sáng từng theme (`scripts2d/grade.gdshader`).
 Luật chơi (`godot/scripts/rules.gd`) và máy chơi (`bot.gd`) chép từ `js/engine.js`, `js/bot.js`;
 chơi online qua MQTT chung phòng với bản web (`godot/scripts/net.gd`).
 Phát hành: đẩy tag `vX.Y.Z` → `.github/workflows/release-app.yml` xuất game, dựng bộ cài NSIS + .dmg, ký và tạo `latest.json`

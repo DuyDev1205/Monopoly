@@ -36,7 +36,7 @@ func _ready() -> void:
 	env.background_mode = Environment.BG_CLEAR_COLOR
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color("#fff3f6")
-	env.ambient_light_energy = 0.85
+	env.ambient_light_energy = 0.98
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	we.environment = env
 	vp.add_child(we)
@@ -51,7 +51,7 @@ func _ready() -> void:
 	var key := DirectionalLight3D.new()            # nắng chính: từ trên, chếch trái-trước
 	vp.add_child(key)
 	key.look_at_from_position(Vector3(-0.2, 2.2, 1.6), Vector3.ZERO)
-	key.light_energy = 1.2
+	key.light_energy = 1.0
 	key.light_color = Color("#fff8ee")
 	var rim := DirectionalLight3D.new()            # ánh viền từ sau-phải
 	vp.add_child(rim)

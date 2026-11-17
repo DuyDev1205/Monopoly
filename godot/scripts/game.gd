@@ -7,7 +7,7 @@ const LVL_NAME := ["Chỉ mua đất", "Nhà cấp 1", "Nhà cấp 2", "Nhà c�
 const CHAR_NAMES := ["Hiệp Sĩ", "Phù Thủy", "Tráng Sĩ", "Lãng Khách", "Ninja", "Xương Giáp", "Xương Phép", "Bé Xương", "Xương Ninja", "Chàng Hiệp Sĩ", "Pháp Sư Trẻ", "Thợ Săn"]
 const SAVE_PATH := "user://save.json"
 const SETTINGS_PATH := "user://settings.json"
-const VERSION := "2.1.0"
+const VERSION := "2.2.0"
 
 var main: Node
 var audio: GameAudio
@@ -170,14 +170,21 @@ func _load_settings() -> void:
 				settings[k] = Rules.normalize(d[k])
 
 
+## chạy thử tự động (--shot / --shots) thì không ghi đè cài đặt và ván đã lưu của người dùng
+func _no_persist() -> bool:
+	return main != null and (main.args.has("shot") or main.args.has("shots"))
+
+
 func save_settings() -> void:
+	if _no_persist():
+		return
 	var f := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(settings))
 
 
 func _save_game() -> void:
-	if auth == null:
+	if auth == null or _no_persist():
 		return
 	if auth.phase == "over":
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))

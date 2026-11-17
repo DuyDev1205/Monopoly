@@ -22,6 +22,24 @@ const ANIMS := {
 	"hit": [46, 8, 12.0, false], "die": [54, 12, 14.0, false], "walk_u": [66, 10, 15.0, true], "jump_u": [76, 10, 0.0, false],
 }
 
+## bảng hình công trình (assets/build2d/houses.png, chụp bằng tools/render_builds.tscn): ô thứ (mô hình × 4 + màu người chơi)
+const BFW := 300
+const BFH := 375
+const BCOLS := 8
+const BANCHOR := Vector2(150, 275.8)       # điểm đặt (tâm chân công trình) trong mỗi ô hình
+const BSCALE := 0.628                      # px ảnh -> px bàn cờ
+const BUP := 73.9                          # px bàn cờ cho 1 đơn vị chiều cao của mô hình
+## chiều cao từng mô hình: 0 khu du lịch, 1–4 nhà cấp 1, 5–8 cấp 2, 9–10 cấp 3, 11–12 cấp 4 (khách sạn)
+const BHEIGHT := [0.62, 0.45, 0.48, 0.50, 0.42, 0.54, 0.74, 0.74, 0.58, 0.62, 1.00, 1.50, 1.05]
+
+## hoà màu vật thể vào cảnh nền từng theme: [màu nắng, màu bóng, độ nâng vùng tối, độ tươi, màu viền quân cờ]
+const GRADE := {
+	"sakura": ["#fff6f8", "#b89be4", 0.30, 1.0, "#6a4a8a"],
+	"wood": ["#fff0dc", "#d49a6a", 0.24, 1.0, "#5a3a2a"],
+	"ocean": ["#f6fdff", "#7fc6ea", 0.20, 1.04, "#1e4a70"],
+	"midnight": ["#b9bcf5", "#4a3fb0", 0.34, 0.92, "#0c0e2c"],
+}
+
 var tokens: Array = []
 var buildings: Array = []        # mỗi ô: {key, info, t0, anim, shake, burn} | null
 var gates := {}
@@ -43,6 +61,9 @@ var ready_at := 0
 var font: Font = preload("res://assets/fonts/Montserrat-ExtraBold.ttf")
 var blob: Texture2D
 var coin_tex: Texture2D
+var theme := "sakura"
+var grade_mat: ShaderMaterial
+var house_tex: Texture2D = preload("res://assets/build2d/houses.png")
 var token_shader: Shader = preload("res://scripts2d/token.gdshader")
 
 
@@ -50,11 +71,33 @@ func _ready() -> void:
 	buildings.resize(32)
 	blob = Painter.soft_blob(64, 0.1)
 	coin_tex = load("res://assets/icons/money.webp")
+	grade_mat = ShaderMaterial.new()
+	grade_mat.shader = load("res://scripts2d/grade.gdshader")
+	material = grade_mat
+	set_theme(theme)
 	z_index = 1
 
 
 static func scr(w: Vector3) -> Vector2:
 	return Iso.v(w)
+
+
+func _apply_grade(m: ShaderMaterial) -> void:
+	var G: Array = GRADE.get(theme, GRADE.sakura)
+	m.set_shader_parameter("light", Color(G[0]))
+	m.set_shader_parameter("shade", Color(G[1]))
+	m.set_shader_parameter("lift", G[2])
+	m.set_shader_parameter("sat", G[3])
+
+
+func set_theme(name: String) -> void:
+	theme = name
+	if grade_mat == null:
+		return
+	_apply_grade(grade_mat)
+	for tk in tokens:
+		_apply_grade(tk.sp.material)
+		tk.sp.material.set_shader_parameter("outline", Color(Color(GRADE.get(theme, GRADE.sakura)[4]), 0.7))
 
 
 # ======================= quân cờ =======================
@@ -76,6 +119,8 @@ func set_tokens(players: Array) -> void:
 		sp.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		var m := ShaderMaterial.new()
 		m.shader = token_shader
+		_apply_grade(m)
+		m.set_shader_parameter("outline", Color(Color(GRADE.get(theme, GRADE.sakura)[4]), 0.7))
 		sp.material = m
 		n.add_child(sp)
 		add_child(n)
@@ -544,49 +589,37 @@ func _draw() -> void:
 		draw_string(font, c + Vector2(-30, 10), target_label, HORIZONTAL_ALIGNMENT_CENTER, 60, 28, Color("#6a3b00"))
 
 
-func _poly_iso(pts: Array, base: Vector2, h: float) -> PackedVector2Array:
-	var o := PackedVector2Array()
-	for p in pts:
-		o.append(base + Iso.p(p.x, p.y, h) - Iso.p(0, 0, 0))
-	return o
 
 
-## hộp isometric: cạnh w (theo x), d (theo z), cao h, đáy ở cao y0 — vẽ 2 mặt bên nhìn thấy + mặt trên
-func _box(base: Vector2, w: float, d: float, y0: float, h: float, wall: Color, top: Color, win := 0) -> void:
-	var x := w / 2
-	var z := d / 2
-	var L := PackedVector2Array([base + Iso.p(-x, z, y0) , base + Iso.p(x, z, y0), base + Iso.p(x, z, y0 + h), base + Iso.p(-x, z, y0 + h)])
-	var R := PackedVector2Array([base + Iso.p(x, z, y0), base + Iso.p(x, -z, y0), base + Iso.p(x, -z, y0 + h), base + Iso.p(x, z, y0 + h)])
-	var T := PackedVector2Array([base + Iso.p(-x, -z, y0 + h), base + Iso.p(x, -z, y0 + h), base + Iso.p(x, z, y0 + h), base + Iso.p(-x, z, y0 + h)])
-	draw_colored_polygon(L, wall)
-	draw_colored_polygon(R, wall.darkened(0.16))
-	draw_colored_polygon(T, top)
-	if win > 0:
-		for row in win:
-			var yy := y0 + h * (row + 0.35) / win
-			for c in 2:
-				var u := -x + w * (c + 0.5) / 2
-				var p := base + Iso.p(u, z, yy)
-				draw_colored_polygon(PackedVector2Array([p + Vector2(-5, -3), p + Vector2(5, 3), p + Vector2(5, 11), p + Vector2(-5, 5)]), Color("#8fd0f0"))
-				var q := base + Iso.p(x, z - d * (c + 0.5) / 2, yy)
-				draw_colored_polygon(PackedVector2Array([q + Vector2(-5, 3), q + Vector2(5, -3), q + Vector2(5, 5), q + Vector2(-5, 11)]), Color("#7fbfe0"))
+## mô hình nào trong bảng hình ứng với công trình này
+static func build_model(info: Dictionary, i: int) -> int:
+	if info.type == "resort":
+		return 0
+	var lvl := clampi(int(info.lvl), 1, 4)
+	var st := posmod(int(info.get("style", i)), 4)
+	match lvl:
+		1:
+			return 1 + st
+		2:
+			return 5 + st
+		3:
+			return 9 + st % 2
+	return 11 + st % 2
 
 
-## mái chóp 4 mặt, mép cong nhẹ (kiểu Á Đông)
-func _roof(base: Vector2, w: float, d: float, y0: float, h: float, col: Color, flare := 1.18) -> void:
-	var x := w / 2 * flare
-	var z := d / 2 * flare
-	var apex := base + Iso.p(0, 0, y0 + h)
-	var c := [base + Iso.p(-x, -z, y0), base + Iso.p(x, -z, y0), base + Iso.p(x, z, y0), base + Iso.p(-x, z, y0)]
-	draw_colored_polygon(PackedVector2Array([c[3], c[2], apex]), col)
-	draw_colored_polygon(PackedVector2Array([c[2], c[1], apex]), col.darkened(0.2))
-	draw_polyline(PackedVector2Array([c[3], c[2], c[1]]), col.darkened(0.35), 2, true)
-	draw_line(c[2], apex, col.lightened(0.25), 1.5, true)
+func _flag(fp: Vector2, col: Color, h: float, ph: float) -> void:
+	draw_line(fp, fp + Vector2(0, -h), Color("#5b4630"), 2.6, true)
+	draw_circle(fp + Vector2(0, -h), 2.6, Color("#ffd98a"))
+	var wv := sin(t * 4 + ph) * 4
+	var top := fp + Vector2(0, -h + 2)
+	draw_colored_polygon(PackedVector2Array([top, top + Vector2(21, 6 + wv), top + Vector2(0, 15)]), col)
+	draw_polyline(PackedVector2Array([top, top + Vector2(21, 6 + wv), top + Vector2(0, 15)]), col.darkened(0.3), 1.2, true)
 
 
 func _draw_building(i: int, now: int) -> void:
 	var b: Dictionary = buildings[i]
 	var info: Dictionary = b.info
+	var T: Dictionary = Board.TILE[i]
 	var base := scr(Board.tp(i, 0, 0.3 if info.type == "resort" else 0.27, TH))
 	var col := Color(info.color)
 	var a: float = (now - b.t0) / 1000.0 if b.t0 else 9.0
@@ -599,77 +632,72 @@ func _draw_building(i: int, now: int) -> void:
 		"up":
 			var k := minf(1, a / 0.95)
 			base.y -= (1 - minf(1, k * 1.6)) * 80
+			var q := clampf((k - 0.62) / 0.38, 0, 1)
+			sy = 1.0 - 0.14 * sin(q * PI) * (1 - q)
+			sx = 1.0 + 0.10 * sin(q * PI) * (1 - q)
 		"crumble":
 			var k := minf(1, a / 0.6)
 			sy = maxf(0.01, 1 - k)
 			sx = 1 + k * 0.2
 	if b.shake and now < b.shake:
 		base.x += sin(now / 22.0) * 3
-	draw_set_transform(base, 0, Vector2(sx, sy))
-	var o := Vector2.ZERO
-	# sân nhà: đế màu chủ đất + cỏ
-	var pw := 0.62
-	draw_colored_polygon(PackedVector2Array([Iso.p(-pw / 2, -pw / 2), Iso.p(pw / 2, -pw / 2), Iso.p(pw / 2, pw / 2), Iso.p(-pw / 2, pw / 2)]), col)
-	var gw := pw - 0.1
-	draw_colored_polygon(PackedVector2Array([Iso.p(-gw / 2, -gw / 2, 0.02), Iso.p(gw / 2, -gw / 2, 0.02), Iso.p(gw / 2, gw / 2, 0.02), Iso.p(-gw / 2, gw / 2, 0.02)]), Color("#9fd889") if info.type != "resort" else Color("#f2dfa6"))
 	var lvl: int = int(info.lvl)
-	var wall := Color("#fff8ee")
-	var roof := col
-	if info.type == "resort":
-		_box(o, 0.3, 0.24, 0.04, 0.22, Color("#e2c27f"), Color("#d9a94e"))
-		_roof(o, 0.3, 0.24, 0.26, 0.2, Color("#d9a94e"))
-		var pt := Iso.p(0.2, 0.12, 0.04)
-		draw_line(pt, pt + Vector2(0, -44), Color("#6a4426"), 3)
-		draw_circle(pt + Vector2(0, -44), 16, Color(col, 0.9))
-	elif lvl == 0:
-		pass
-	elif lvl == 1:
-		_box(o, 0.32, 0.28, 0.04, 0.24, wall, wall.darkened(0.05), 1)
-		_roof(o, 0.32, 0.28, 0.28, 0.24, roof)
-	elif lvl == 2:
-		_box(o, 0.34, 0.3, 0.04, 0.44, wall, wall, 2)
-		_roof(o, 0.34, 0.3, 0.48, 0.22, roof.darkened(0.1), 1.12)
-		_roof(o, 0.34, 0.3, 0.26, 0.06, roof, 1.25)
-	elif lvl == 3:
-		_box(o + Iso.p(0.14, 0.08) - Iso.p(0, 0), 0.2, 0.2, 0.04, 0.26, wall, wall, 1)
-		_roof(o + Iso.p(0.14, 0.08) - Iso.p(0, 0), 0.2, 0.2, 0.3, 0.16, roof.darkened(0.12))
-		_box(o + Iso.p(-0.06, -0.06) - Iso.p(0, 0), 0.32, 0.3, 0.04, 0.62, wall, wall, 3)
-		_roof(o + Iso.p(-0.06, -0.06) - Iso.p(0, 0), 0.32, 0.3, 0.66, 0.24, roof)
+	var resort: bool = info.type == "resort"
+	# ô ở cạnh trái / phải bàn: lật ngang để mặt tiền vẫn quay ra phía chữ
+	var flip := -1.0 if (T.side == "l" or T.side == "r") else 1.0
+	var hgt := 0.0
+	if resort or lvl >= 1:
+		var m := build_model(info, i)
+		hgt = BHEIGHT[m]
+		var ci := maxi(0, Data.PLAYER_COLORS.find("#" + col.to_html(false)))
+		if ci == 0 and info.has("owner") and Color(Data.PLAYER_COLORS[0]) != col:
+			ci = posmod(int(info.owner), 4)
+		var idx := m * 4 + ci
+		# bóng đổ mềm trên mặt ô
+		draw_texture_rect(blob, Rect2(base + Vector2(-58 + 8 * flip, -26), Vector2(116, 62)), false, Color(0.2, 0.08, 0.22, 0.30))
+		draw_set_transform(base, 0, Vector2(sx * flip, sy))
+		draw_texture_rect_region(house_tex, Rect2(-BANCHOR * BSCALE, Vector2(BFW, BFH) * BSCALE),
+			Rect2((idx % BCOLS) * BFW, (idx / BCOLS) * BFH, BFW, BFH))
 	else:
-		# chùa tháp nhiều tầng = khách sạn
-		var y := 0.04
-		var sizes := [[0.4, 0.26], [0.34, 0.22], [0.28, 0.2], [0.22, 0.18]]
-		for k in sizes.size():
-			var s: Array = sizes[k]
-			_box(o, s[0], s[0], y, s[1], Color("#fff3e6"), Color("#f1e3d2"), 1)
-			_roof(o, s[0], s[0], y + s[1], 0.1 if k < 3 else 0.3, roof if k == 3 else roof.darkened(0.12), 1.32)
-			y += s[1] + 0.06
-		var tp := Iso.p(0, 0, y + 0.36)
-		draw_line(tp, tp + Vector2(0, -16), Color("#d4af37"), 3)
+		draw_set_transform(base, 0, Vector2(sx * flip, sy))
+	if resort:
+		_flag(Iso.p(0.3, -0.16, 0.0) + Vector2(0, -4), col, 34, i)
+	elif lvl == 0:
+		# mới mua đất, chưa xây: cắm cờ chủ đất
+		draw_set_transform(base, 0, Vector2(sx, sy))
+		draw_set_transform(base + Vector2(0, 4), 0, Vector2(sx, 0.55 * sy))
+		draw_circle(Vector2.ZERO, 11, Color(0.2, 0.08, 0.22, 0.22))
+		draw_circle(Vector2(0, -3), 7.5, col.darkened(0.15))
+		draw_set_transform(base, 0, Vector2(sx, sy))
+		_flag(Vector2(0, 2), col, 50, i)
+	elif lvl < 4:
+		_flag(Iso.p(0.34, -0.22, 0.0) + Vector2(0, -5), col, 40, i)
+	else:
+		# khách sạn: đèn báo nhấp nháy + biển HOTEL trên nóc
+		draw_set_transform(base, 0, Vector2(sx, sy))
+		var tp := Vector2(0, -(hgt + 0.075) * BUP - 6)
 		var bl := 0.5 + 0.5 * sin(t * 6)
-		draw_circle(tp + Vector2(0, -18), 5, Color(1, 0.25, 0.2).lerp(Color(1, 0.8, 0.7), bl))
-		var hp := tp + Vector2(0, -34)
-		draw_rect(Rect2(hp - Vector2(26, 10), Vector2(52, 18)), Color("#fff3b0"))
-		draw_rect(Rect2(hp - Vector2(26, 10), Vector2(52, 18)), col, false, 2)
-		draw_string(font, hp + Vector2(-26, 5), "HOTEL", HORIZONTAL_ALIGNMENT_CENTER, 52, 12, col.darkened(0.3))
-	# cờ chủ đất
-	if info.type == "city" and lvl < 4:
-		var fp := Iso.p(0.26, -0.2, 0.02)
-		draw_line(fp, fp + Vector2(0, -40), Color("#5b4630"), 2.5, true)
-		var wv := sin(t * 4 + i) * 4
-		draw_colored_polygon(PackedVector2Array([fp + Vector2(0, -40), fp + Vector2(18, -34 + wv), fp + Vector2(0, -27)]), col)
+		draw_texture_rect(blob, Rect2(tp - Vector2(13, 13), Vector2(26, 26)), false, Color(1, 0.3, 0.2, 0.7 * bl))
+		draw_circle(tp, 4.2, Color(1, 0.25, 0.2).lerp(Color(1, 0.85, 0.75), bl))
+		var hp := tp + Vector2(0, -22)
+		var sb := Rect2(hp - Vector2(30, 11), Vector2(60, 21))
+		draw_rect(Rect2(sb.position + Vector2(0, 2.5), sb.size), col.darkened(0.45))
+		draw_rect(sb, Color("#fff3b0"))
+		draw_rect(sb, col, false, 2.2)
+		draw_string(font, hp + Vector2(-30, 5), "HOTEL", HORIZONTAL_ALIGNMENT_CENTER, 60, 13, col.darkened(0.3))
 	draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 	if int(info.get("festMult", 0)):
-		var p := base + Vector2(0, -120)
+		var p := base + Vector2(0, -(hgt * BUP + (68 if lvl >= 4 else 40)))
 		var txt := "LỄ HỘI ×%d" % int(info.festMult)
 		var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x + 20
+		draw_rect(Rect2(p - Vector2(w / 2, 11.5), Vector2(w, 26)), Color("#c2317a"))
 		draw_rect(Rect2(p - Vector2(w / 2, 14), Vector2(w, 26)), Color("#ff5fa2"))
 		draw_string(font, p + Vector2(-w / 2 + 10, 6), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
 	if b.burn:
-		for k in 5:
-			var fp := base + Vector2(randf_range(-20, 20), randf_range(-60, -10))
-			var s := randf_range(18, 30)
-			draw_texture_rect(blob, Rect2(fp - Vector2(s, s * 1.3) / 2, Vector2(s, s * 1.3)), false, Color(1, randf_range(0.4, 0.7), 0.1, 0.8))
+		for k in 6:
+			var fp := base + Vector2(randf_range(-22, 22), randf_range(-14 - hgt * BUP * 0.8, -8))
+			var fs := randf_range(18, 32)
+			draw_texture_rect(blob, Rect2(fp - Vector2(fs, fs * 1.3) / 2, Vector2(fs, fs * 1.3)), false, Color(1, randf_range(0.4, 0.7), 0.1, 0.8))
 
 
 func _draw_gate(i: int, now: int) -> void:

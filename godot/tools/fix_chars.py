@@ -1,4 +1,4 @@
-# Xử lý bảng khung hình nhân vật sau khi chụp bằng tools/render_chars.tscn:
+# Xử lý bảng hình nhân vật / công trình sau khi chụp bằng tools/render_chars.tscn, tools/render_builds.tscn:
 # ảnh chụp từ viewport trong suốt của Godot là alpha nhân sẵn -> đổi về alpha thẳng, tăng nhẹ độ tươi, nén lại PNG.
 # Chạy: python godot/tools/fix_chars.py [k ...]
 import os, sys, glob
@@ -33,8 +33,9 @@ def fix(path):
 
 if __name__ == "__main__":
     only = sys.argv[1:]
-    for p in sorted(glob.glob(os.path.join(DIR, "c*.png"))):
+    files = sorted(glob.glob(os.path.join(DIR, "c*.png"))) + sorted(glob.glob(os.path.join(DIR, "..", "build2d", "*.png")))
+    for p in files:
         k = os.path.basename(p)[1:-4]
-        if only and k not in only:
+        if only and k not in only and os.path.basename(p)[:-4] not in only:
             continue
         print(os.path.basename(p), "đã sửa" if fix(p) else "bỏ qua (đã sửa rồi)", os.path.getsize(p) // 1024, "KB")
