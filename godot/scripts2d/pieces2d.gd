@@ -16,7 +16,7 @@ const PIPS := {1: [[0.5, 0.5]], 2: [[0.27, 0.27], [0.73, 0.73]], 3: [[0.27, 0.27
 const FRAME := 240
 const FCOLS := 10
 const FOOT := Vector2(120, 183.6)          # điểm bàn chân trong mỗi khung
-const TOKEN_SC := 0.92
+const TOKEN_SC := 0.80
 const ANIMS := {
 	"idle": [0, 12, 9.0, true], "walk": [12, 10, 15.0, true], "jump": [22, 10, 0.0, false], "cheer": [32, 14, 10.0, false],
 	"hit": [46, 8, 12.0, false], "die": [54, 12, 14.0, false], "walk_u": [66, 10, 15.0, true], "jump_u": [76, 10, 0.0, false],
@@ -27,8 +27,8 @@ const BFW := 300
 const BFH := 375
 const BCOLS := 8
 const BANCHOR := Vector2(150, 275.8)       # điểm đặt (tâm chân công trình) trong mỗi ô hình
-const BSCALE := 0.628                      # px ảnh -> px bàn cờ
-const BUP := 73.9                          # px bàn cờ cho 1 đơn vị chiều cao của mô hình
+const BSCALE := 0.70                       # px ảnh -> px bàn cờ (to hơn tỉ lệ thật ~11% cho nhà nổi rõ)
+const BUP := 82.4                          # px bàn cờ cho 1 đơn vị chiều cao của mô hình
 ## chiều cao từng mô hình: 0 khu du lịch, 1–4 nhà cấp 1, 5–8 cấp 2, 9–10 cấp 3, 11–12 cấp 4 (khách sạn)
 const BHEIGHT := [0.62, 0.45, 0.48, 0.50, 0.42, 0.54, 0.74, 0.74, 0.58, 0.62, 1.00, 1.50, 1.05]
 
@@ -115,7 +115,7 @@ func set_tokens(players: Array) -> void:
 		sp.region_enabled = true
 		sp.region_rect = Rect2(0, 0, FRAME, FRAME)
 		sp.scale = Vector2.ONE * TOKEN_SC
-		sp.position = Vector2(0, -9)
+		sp.position = Vector2(0, -8)
 		sp.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		var m := ShaderMaterial.new()
 		m.shader = token_shader
@@ -132,7 +132,7 @@ func set_tokens(players: Array) -> void:
 func slot_pos(tile: int, k: int, n: int) -> Vector2:
 	var arr: Array = SLOTS[mini(n, 4) - 1]
 	var a: float = arr[k] if k < arr.size() else 0.0
-	return scr(Board.tp(tile, a, 0.55 if tile % 8 == 0 else 0.55, TH))
+	return scr(Board.tp(tile, a, 0.56 if tile % 8 == 0 else 0.70, TH))
 
 
 func place_token(pid: int, place: Dictionary, opt := {}) -> void:
@@ -454,7 +454,7 @@ func _process(dt: float) -> void:
 		# nhún khi vừa tiếp đất
 		var sq := maxf(0.0, 1.0 - tk.land / 0.2)
 		tk.sp.scale = Vector2(TOKEN_SC * (1 + 0.12 * sq), TOKEN_SC * (1 - 0.16 * sq))
-		tk.sp.position.y = -9 - tk.lift
+		tk.sp.position.y = -8 - tk.lift
 		tk.sp.region_rect = Rect2((frame % FCOLS) * FRAME, (frame / FCOLS) * FRAME, FRAME, FRAME)
 		tk.node.position = tk.pos
 		tk.node.z_index = int(tk.pos.y / 4) + 600
@@ -515,8 +515,8 @@ func _draw() -> void:
 		# quầng sáng quanh đế của người đang tới lượt
 		if tk.cur:
 			var g := 0.5 + 0.5 * sin(t * 5)
-			draw_texture_rect(blob, Rect2(p - Vector2(70, 40) * (1 + 0.1 * g), Vector2(140, 80) * (1 + 0.1 * g)), false, Color(col.lightened(0.35), 0.55 + 0.25 * g))
-		draw_set_transform(p, 0, Vector2(1, 0.54))
+			draw_texture_rect(blob, Rect2(p - Vector2(60, 34) * (1 + 0.1 * g), Vector2(120, 68) * (1 + 0.1 * g)), false, Color(col.lightened(0.35), 0.55 + 0.25 * g))
+		draw_set_transform(p, 0, Vector2(0.86, 0.47))
 		draw_circle(Vector2(2, 9), 33, Color(0.2, 0.08, 0.22, 0.26))
 		# thân đế (dày) → mặt đế → vành sáng
 		draw_circle(Vector2(0, 5), 29, col.darkened(0.42))
@@ -576,7 +576,7 @@ func _draw() -> void:
 	for tk in tokens:
 		if tk.out or not tk.cur or tk.from != null:
 			continue
-		var ap: Vector2 = (tk.pos as Vector2) + Vector2(0, -142 - absf(sin(t * 4.2)) * 9)
+		var ap: Vector2 = (tk.pos as Vector2) + Vector2(0, -126 - absf(sin(t * 4.2)) * 9)
 		var tri := PackedVector2Array([ap + Vector2(-13, -12), ap + Vector2(13, -12), ap + Vector2(0, 8)])
 		var tri2 := PackedVector2Array([ap + Vector2(-17, -15.5), ap + Vector2(17, -15.5), ap + Vector2(0, 13)])
 		draw_colored_polygon(tri2, Color.WHITE)
@@ -654,7 +654,7 @@ func _draw_building(i: int, now: int) -> void:
 			ci = posmod(int(info.owner), 4)
 		var idx := m * 4 + ci
 		# bóng đổ mềm trên mặt ô
-		draw_texture_rect(blob, Rect2(base + Vector2(-58 + 8 * flip, -26), Vector2(116, 62)), false, Color(0.2, 0.08, 0.22, 0.30))
+		draw_texture_rect(blob, Rect2(base + Vector2(-64 + 8 * flip, -29), Vector2(128, 68)), false, Color(0.2, 0.08, 0.22, 0.30))
 		draw_set_transform(base, 0, Vector2(sx * flip, sy))
 		draw_texture_rect_region(house_tex, Rect2(-BANCHOR * BSCALE, Vector2(BFW, BFH) * BSCALE),
 			Rect2((idx % BCOLS) * BFW, (idx / BCOLS) * BFH, BFW, BFH))

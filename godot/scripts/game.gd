@@ -7,7 +7,7 @@ const LVL_NAME := ["Chỉ mua đất", "Nhà cấp 1", "Nhà cấp 2", "Nhà c�
 const CHAR_NAMES := ["Hiệp Sĩ", "Phù Thủy", "Tráng Sĩ", "Lãng Khách", "Ninja", "Xương Giáp", "Xương Phép", "Bé Xương", "Xương Ninja", "Chàng Hiệp Sĩ", "Pháp Sư Trẻ", "Thợ Săn"]
 const SAVE_PATH := "user://save.json"
 const SETTINGS_PATH := "user://settings.json"
-const VERSION := "2.2.0"
+const VERSION := "2.2.1"
 
 var main: Node
 var audio: GameAudio
