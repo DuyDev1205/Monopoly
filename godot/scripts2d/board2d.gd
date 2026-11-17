@@ -52,6 +52,10 @@ var tile_layer: Node2D
 var label_root: Node2D
 var top_layer: Node2D
 var order: Array = []         # thứ tự vẽ ô: xa trước, gần sau
+var fx_layer: Node2D
+var geo: Array = []           # hình học từng ô lúc nằm yên (bộ nhớ đệm)
+var act: Array = []           # ô nào đang chuyển động
+var dirty := true             # cần vẽ lại lớp ô đứng yên
 var blob: Texture2D
 var petal_tex: Texture2D
 
@@ -70,8 +74,12 @@ func _ready() -> void:
 			"dim": false, "pick": false, "chosen": false, "flash": 0.0, "step": 0.0})
 	order = range(32)
 	order.sort_custom(func(a, b): return Board.TILE[a].x + Board.TILE[a].z < Board.TILE[b].x + Board.TILE[b].z)
+	geo.resize(32)
+	act.resize(32)
+	act.fill(false)
 	base_layer = _layer(_draw_base)
-	tile_layer = _layer(_draw_tiles)
+	tile_layer = _layer(_draw_static)
+	fx_layer = _layer(_draw_fx)
 	label_root = Node2D.new()
 	add_child(label_root)
 	top_layer = _layer(_draw_top)
@@ -161,6 +169,7 @@ func set_theme(name: String) -> void:
 	if label_root:
 		_build_labels()
 		base_layer.queue_redraw()
+		dirty = true
 
 
 func update_tile(i: int, u: Dictionary) -> void:
@@ -170,17 +179,20 @@ func update_tile(i: int, u: Dictionary) -> void:
 	pl.text = st[i].price
 	var oc = st[i].owned
 	pl.add_theme_color_override("font_color", Color(oc).darkened(0.25) if oc != null else Color("#3b2a20"))
+	dirty = true
 
 
 func set_picks(list) -> void:
 	for i in 32:
 		st[i].pick = list != null and i in list
 		st[i].dim = list != null and list.size() > 0 and not (i in list)
+	dirty = true
 
 
 func set_chosen(list) -> void:
 	for i in 32:
 		st[i].chosen = list != null and i in list
+	dirty = true
 
 
 func step_flash(i: int) -> void:
@@ -276,7 +288,15 @@ func _process(dt: float) -> void:
 	for s in st:
 		s.step = maxf(0, s.step - dt * 2.2)
 		s.flash = maxf(0, s.flash - dt * 1.6)
-	tile_layer.queue_redraw()
+	for i in 32:
+		var a := _is_active(i)
+		if a != act[i]:
+			act[i] = a
+			dirty = true
+	if dirty:
+		dirty = false
+		tile_layer.queue_redraw()
+	fx_layer.queue_redraw()
 	top_layer.queue_redraw()
 
 
@@ -452,10 +472,71 @@ func _draw_motif(ci: CanvasItem, S: Dictionary) -> void:
 
 # ============================== lớp ô đất + đèn viền ==============================
 
-func _draw_tiles(ci: CanvasItem) -> void:
+## hình học của một ô ở độ nâng `lift` (lift = 0 thì lấy sẵn trong bộ nhớ đệm)
+func _geo(i: int, lift: float) -> Dictionary:
+	if lift == 0.0 and geo[i] != null:
+		return geo[i]
+	var info: Dictionary = Data.BOARD[i]
+	var T: Dictionary = Board.TILE[i]
+	var y: float = TH + lift
+	var g := {"y": y}
+	g.face = _shape(i, -0.5, 0.5, 0.0, 1.0, y)
+	var foot := _shape(i, -0.5, 0.5, 0.0, 1.0, lift)
+	var sh := _shape(i, -0.5, 0.5, 0.0, 1.0, 0.0)
+	for k in sh.size():
+		sh[k] += Vector2(1.5, 4.5 + lift * 60.0)
+	g.sh = sh
+	var both: PackedVector2Array = g.face.duplicate()
+	both.append_array(foot)
+	var hull := Geometry2D.convex_hull(both)
+	hull.resize(hull.size() - 1)
+	g.hull = hull
+	g.cx = scr(Board.tp(i, 0, 0.5, y)).x
+	g.hw = absf(scr(Board.tp(i, 0.5, 0.5, y)).x - scr(Board.tp(i, -0.5, 0.5, y)).x) + absf(scr(Board.tp(i, 0, 1.0, y)).x - scr(Board.tp(i, 0, 0.0, y)).x)
+	g.pf = scr(Board.tp(i, 0, 0.0, y))
+	g.pn = scr(Board.tp(i, 0, 1.0, y))
+	g.banded = info.type == "resort" or info.has("group")
+	if g.banded:
+		var bh := 0.2 if info.has("group") else 0.27
+		g.band = _shape(i, -0.5, 0.5, 0.0, bh, y, R, 0.0)
+		g.pb = scr(Board.tp(i, 0, bh, y))
+		g.gloss = _shape(i, -0.42, 0.42, 0.028, 0.062, y, 0.02, 0.02)
+		g.l0 = scr(Board.tp(i, -0.5, bh, y))
+		g.l1 = scr(Board.tp(i, 0.5, bh, y))
+		g.star = scr(Board.tp(i, 0, bh * 0.5, y))
+	else:
+		var pc := Board.tp(i, 0, 0.3, y)
+		g.plate = _circ(0.40 if T.side == "c" else 0.27, y, 28, Vector2(pc.x, pc.z))
+	g.in25 = _closed(_inset(i, 0.025, y))
+	g.in30 = _closed(_inset(i, 0.03, y))
+	g.in55 = _closed(_inset(i, 0.055, y))
+	g.name = scr(Board.tp(i, 0, 0.62 if T.side != "c" else 0.66, y))
+	g.price = scr(Board.tp(i, 0, 0.87 if T.side != "c" else 0.84, y))
+	if lift == 0.0:
+		geo[i] = g
+	return g
+
+
+func _lift(i: int) -> float:
+	var s: Dictionary = st[i]
+	return (0.06 + 0.04 * (0.5 + 0.5 * sin(t * 6)) if i == target else 0.0) + s.flash * 0.08 + s.step * 0.05
+
+
+## ô đang chuyển động (phải vẽ lại mỗi khung hình)
+func _is_active(i: int) -> bool:
+	var s: Dictionary = st[i]
+	return i == target or s.pick or s.step > 0 or s.flash > 0
+
+
+func _draw_static(ci: CanvasItem) -> void:
+	for i in order:
+		if not act[i]:
+			_draw_tile(ci, i, 0.0)
+
+
+func _draw_fx(ci: CanvasItem) -> void:
 	var S: Dictionary = STYLE[theme]
-	var W := Board.W
-	var E := W / 2 + 0.38
+	var E := Board.W / 2 + 0.38
 	# đèn chạy trong rãnh trên 2 mặt bên
 	var n := 22
 	var bulb := Color(S.bulb)
@@ -473,103 +554,89 @@ func _draw_tiles(ci: CanvasItem) -> void:
 			ci.draw_circle(pp, 5.6, off)
 			ci.draw_circle(pp, 4.5, off.lerp(bulb, v))
 			ci.draw_circle(pp + Vector2(-1.3, -1.4), 1.6, Color(1, 1, 1, 0.8 * v))
-	# ô đất: bóng → thân (mép dày) → mặt → dải màu → khung
-	var pulse := 0.5 + 0.5 * sin(t * 6)
-	var ts0 := Color(S.tile_side[0])
-	var ts1 := Color(S.tile_side[1])
 	for i in order:
-		var s: Dictionary = st[i]
-		var info: Dictionary = Data.BOARD[i]
-		var T: Dictionary = Board.TILE[i]
-		var lift: float = (0.06 + 0.04 * pulse if i == target else 0.0) + s.flash * 0.08 + s.step * 0.05
-		var y: float = TH + lift
-		var face := _shape(i, -0.5, 0.5, 0.0, 1.0, y)
-		var foot := _shape(i, -0.5, 0.5, 0.0, 1.0, lift)
-		# bóng đổ trên thảm
-		var sh := _shape(i, -0.5, 0.5, 0.0, 1.0, 0.0)
-		for k in sh.size():
-			sh[k] += Vector2(1.5, 4.5 + lift * 60.0)
-		ci.draw_colored_polygon(sh, Color(0.25, 0.08, 0.22, 0.20))
-		# thân ô: bao lồi của mặt trên và chân, sáng bên trái tối bên phải
-		var both := face.duplicate()
-		both.append_array(foot)
-		var hull := Geometry2D.convex_hull(both)
-		hull.resize(hull.size() - 1)
-		var cx := scr(Board.tp(i, 0, 0.5, y)).x
-		var hwid := absf(scr(Board.tp(i, 0.5, 0.5, y)).x - scr(Board.tp(i, -0.5, 0.5, y)).x) + absf(scr(Board.tp(i, 0, 1.0, y)).x - scr(Board.tp(i, 0, 0.0, y)).x)
-		var c_l := ts0.darkened(0.4) if s.dim else ts0
-		var c_r := ts1.darkened(0.4) if s.dim else ts1
-		ci.draw_polygon(hull, _grad(hull, Vector2(cx - hwid * 0.5, 0), Vector2(cx + hwid * 0.5, 0), c_l, c_r))
-		# mặt ô: chuyển màu từ mép xa tới mép gần
-		var pair: Array = TILE_BG.get(info.type, ["#ffffff", "#f4f4f4"])
-		var b0 := Color(pair[0])
-		var b1 := Color(pair[1])
-		if s.owned != null:
-			b0 = b0.lerp(Color(s.owned), 0.10)
-			b1 = b1.lerp(Color(s.owned), 0.20)
+		if act[i]:
+			_draw_tile(ci, i, _lift(i))
+
+
+## một ô đất: bóng → thân (mép dày) → mặt → dải màu → khung
+func _draw_tile(ci: CanvasItem, i: int, lift: float) -> void:
+	var S: Dictionary = STYLE[theme]
+	var s: Dictionary = st[i]
+	var info: Dictionary = Data.BOARD[i]
+	var g := _geo(i, lift)
+	var pulse := 0.5 + 0.5 * sin(t * 6)
+	# bóng đổ trên thảm
+	ci.draw_colored_polygon(g.sh, Color(0.25, 0.08, 0.22, 0.20))
+	# thân ô: bao lồi của mặt trên và chân, sáng bên trái tối bên phải
+	var c_l := Color(S.tile_side[0])
+	var c_r := Color(S.tile_side[1])
+	if s.dim:
+		c_l = c_l.darkened(0.4)
+		c_r = c_r.darkened(0.4)
+	ci.draw_polygon(g.hull, _grad(g.hull, Vector2(g.cx - g.hw * 0.5, 0), Vector2(g.cx + g.hw * 0.5, 0), c_l, c_r))
+	# mặt ô: chuyển màu từ mép xa tới mép gần
+	var pair: Array = TILE_BG.get(info.type, ["#ffffff", "#f4f4f4"])
+	var b0 := Color(pair[0])
+	var b1 := Color(pair[1])
+	if s.owned != null:
+		b0 = b0.lerp(Color(s.owned), 0.10)
+		b1 = b1.lerp(Color(s.owned), 0.20)
+	if s.dim:
+		b0 = b0.darkened(0.45)
+		b1 = b1.darkened(0.45)
+	b0 = b0.lightened(s.flash * 0.25)
+	b1 = b1.lightened(s.flash * 0.25)
+	ci.draw_polygon(g.face, _grad(g.face, g.pf, g.pn, b0, b1))
+	# dải màu nhóm / dải biển ở mép xa
+	if g.banded:
+		var bc := Color(Data.GROUPS[info.group].color) if info.has("group") else Color("#3fb4dc")
 		if s.dim:
-			b0 = b0.darkened(0.45)
-			b1 = b1.darkened(0.45)
-		b0 = b0.lightened(s.flash * 0.25)
-		b1 = b1.lightened(s.flash * 0.25)
-		var pf := scr(Board.tp(i, 0, 0.0, y))
-		var pn := scr(Board.tp(i, 0, 1.0, y))
-		ci.draw_polygon(face, _grad(face, pf, pn, b0, b1))
-		# dải màu nhóm / dải biển ở mép xa
-		if info.type == "resort" or info.has("group"):
-			var bh := 0.2 if info.has("group") else 0.27
-			var band := _shape(i, -0.5, 0.5, 0.0, bh, y, R, 0.0)
-			var bc := Color(Data.GROUPS[info.group].color) if info.has("group") else Color("#3fb4dc")
-			if s.dim:
-				bc = bc.darkened(0.35)
-			ci.draw_polygon(band, _grad(band, pf, scr(Board.tp(i, 0, bh, y)), bc.lightened(0.16), bc.darkened(0.06)))
-			ci.draw_colored_polygon(_shape(i, -0.42, 0.42, 0.028, 0.062, y, 0.02, 0.02), Color(1, 1, 1, 0.30))
-			ci.draw_line(scr(Board.tp(i, -0.5, bh, y)), scr(Board.tp(i, 0.5, bh, y)), Color(bc.darkened(0.3), 0.55), 1.6, true)
-			if s.mono:
-				var c := scr(Board.tp(i, 0, bh * 0.5, y))
-				ci.draw_string(font_b, c + Vector2(-8, 6), "★", HORIZONTAL_ALIGNMENT_CENTER, 16, 17, Color.WHITE)
-		else:
-			# ô đặc biệt: đĩa sáng làm nền cho icon
-			var corner: bool = T.side == "c"
-			var pc := Board.tp(i, 0, 0.3, y)
-			var rr := 0.40 if corner else 0.27
-			ci.draw_colored_polygon(_circ(rr, y, 28, Vector2(pc.x, pc.z)), Color(1, 1, 1, 0.20 if s.dim else 0.55))
-			ci.draw_polyline(_closed(_circ(rr, y, 28, Vector2(pc.x, pc.z))), Color(b1.darkened(0.18), 0.55), 1.4, true)
-		# viền sáng mảnh quanh mặt ô
-		if not s.dim:
-			ci.draw_polyline(_closed(_inset(i, 0.025, y)), Color(1, 1, 1, 0.75), 1.2, true)
-		# viền chủ đất
-		if s.owned != null:
-			ci.draw_polyline(_closed(_inset(i, 0.055, y)), Color(s.owned), 3.0, true)
-		# khung sáng: ô đích, ô chọn được, lễ hội
-		var fc = null
-		var fa := 0.0
-		if i == target:
-			fc = Color("#ffcf00")
-			fa = 0.75 + 0.25 * pulse
-		elif s.chosen:
-			fc = Color("#1f9d55")
-			fa = 1.0
-		elif s.pick:
-			fc = Color("#ffc800")
-			fa = 0.6 + 0.4 * pulse
-		elif s.fest:
-			fc = Color("#ff5fa2")
-			fa = 0.9
-		elif s.rfest:
-			fc = Color("#2fbf6c")
-			fa = 0.75
-		if s.step > 0:
-			fc = Color("#fff2a0")
-			fa = maxf(fa, s.step)
-		if fc != null:
-			ci.draw_polyline(_closed(_inset(i, 0.03, y)), Color(fc, fa), 4.0, true)
-		# chữ đi theo độ nâng của ô
-		var lb: Array = labels[i]
-		lb[0].get_parent().position = scr(Board.tp(i, 0, 0.62 if T.side != "c" else 0.66, y))
-		lb[1].get_parent().position = scr(Board.tp(i, 0, 0.87 if T.side != "c" else 0.84, y))
-		lb[0].get_parent().modulate.a = 0.45 if s.dim else 1.0
-		lb[1].get_parent().modulate.a = 0.45 if s.dim else 1.0
+			bc = bc.darkened(0.35)
+		ci.draw_polygon(g.band, _grad(g.band, g.pf, g.pb, bc.lightened(0.16), bc.darkened(0.06)))
+		ci.draw_colored_polygon(g.gloss, Color(1, 1, 1, 0.30))
+		ci.draw_line(g.l0, g.l1, Color(bc.darkened(0.3), 0.55), 1.6, true)
+		if s.mono:
+			ci.draw_string(font_b, g.star + Vector2(-8, 6), "★", HORIZONTAL_ALIGNMENT_CENTER, 16, 17, Color.WHITE)
+	else:
+		# ô đặc biệt: đĩa sáng làm nền cho icon
+		ci.draw_colored_polygon(g.plate, Color(1, 1, 1, 0.20 if s.dim else 0.55))
+		ci.draw_polyline(_closed(g.plate), Color(b1.darkened(0.18), 0.55), 1.4, true)
+	# viền sáng mảnh quanh mặt ô
+	if not s.dim:
+		ci.draw_polyline(g.in25, Color(1, 1, 1, 0.75), 1.2, true)
+	# viền chủ đất
+	if s.owned != null:
+		ci.draw_polyline(g.in55, Color(s.owned), 3.0, true)
+	# khung sáng: ô đích, ô chọn được, lễ hội
+	var fc = null
+	var fa := 0.0
+	if i == target:
+		fc = Color("#ffcf00")
+		fa = 0.75 + 0.25 * pulse
+	elif s.chosen:
+		fc = Color("#1f9d55")
+		fa = 1.0
+	elif s.pick:
+		fc = Color("#ffc800")
+		fa = 0.6 + 0.4 * pulse
+	elif s.fest:
+		fc = Color("#ff5fa2")
+		fa = 0.9
+	elif s.rfest:
+		fc = Color("#2fbf6c")
+		fa = 0.75
+	if s.step > 0:
+		fc = Color("#fff2a0")
+		fa = maxf(fa, s.step)
+	if fc != null:
+		ci.draw_polyline(g.in30, Color(fc, fa), 4.0, true)
+	# chữ đi theo độ nâng của ô
+	var lb: Array = labels[i]
+	lb[0].get_parent().position = g.name
+	lb[1].get_parent().position = g.price
+	lb[0].get_parent().modulate.a = 0.45 if s.dim else 1.0
+	lb[1].get_parent().modulate.a = 0.45 if s.dim else 1.0
 
 
 # ============================== lớp trên cùng: đèn lồng 4 góc ==============================
