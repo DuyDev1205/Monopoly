@@ -7,7 +7,7 @@ Unicode true
 !include "LogicLib.nsh"
 
 !ifndef VERSION
-  !define VERSION "2.0.0"
+  !define VERSION "2.1.0"
 !endif
 !define APPNAME "CoTyPhu"
 !define DISPLAY "Cờ Tỷ Phú Việt Nam"

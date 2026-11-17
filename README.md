@@ -92,8 +92,10 @@ Deploy: push lên nhánh `main`, GitHub Pages tự cập nhật.
 
 ## Bản app (Godot 4) — `godot/`
 
-Bản cài Windows / macOS dựng bằng **Godot 4.7** (2D tranh vẽ): trời mây, hồ gương, đảo anh đào đung đưa, cánh hoa bay;
-bàn cờ isometric. Luật chơi (`godot/scripts/rules.gd`) và máy chơi (`bot.gd`) chép từ `js/engine.js`, `js/bot.js`;
+Bản cài Windows / macOS dựng bằng **Godot 4.7** (2D tranh vẽ): nền phong cảnh phủ kín màn hình — trời chuyển màu,
+mây trôi, núi mờ sương, đồi hoa xa, mặt hồ gương gợn sóng lấp lánh, cánh hoa bay; bàn cờ isometric. Tranh nền của 4 theme
+(`godot/assets/art/`) vẽ bằng `python godot/tools/render_art.py` (Pillow + numpy + scipy), mặt hồ do `scripts2d/bg.gdshader` dựng.
+Luật chơi (`godot/scripts/rules.gd`) và máy chơi (`bot.gd`) chép từ `js/engine.js`, `js/bot.js`;
 chơi online qua MQTT chung phòng với bản web (`godot/scripts/net.gd`).
 Phát hành: đẩy tag `vX.Y.Z` → `.github/workflows/release-app.yml` xuất game, dựng bộ cài NSIS + .dmg, ký và tạo `latest.json`
 (bản cũ tự cập nhật sang được).

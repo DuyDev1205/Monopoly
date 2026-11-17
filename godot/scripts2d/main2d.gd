@@ -71,6 +71,7 @@ func set_theme(name: String) -> void:
 func apply_quality(q: int) -> void:
 	quality = clampi(q, 0, 2)
 	scenery.visible = true
+	scenery.set_quality(quality)
 
 
 ## bàn cờ vừa khung giữa màn hình (chừa 4 góc cho thẻ người chơi)
@@ -133,6 +134,7 @@ func _process(dt: float) -> void:
 		cam_t = cam_t.lerp(tp, k) if cam_t != Vector2.ZERO else tp
 		cam.zoom = Vector2.ONE * fit_zoom * cam_k
 		cam.position = cam_t
+	scenery.set_view((cam.position - fit_pos) * cam.zoom.x, cam.zoom.x / fit_zoom)
 	if args.has("shot") and frame == int(args.get("frames", "120")):
 		get_viewport().get_texture().get_image().save_png(args.shot)
 		print("đã chụp ", args.shot)
