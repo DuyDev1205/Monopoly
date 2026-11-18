@@ -1,55 +1,74 @@
 class_name Board2D
 extends Node2D
-## Bàn cờ 2D isometric: bệ 2 tầng đứng giữa hồ (có bóng soi nước), mặt bàn viền vát, sân giữa lát ca-rô + huy hiệu + cánh hoa
-## rụng, 32 ô đất bo góc có chiều dày (chữ in trên mặt ô, nghiêng theo bàn), đèn viền chạy, đèn lồng 4 góc.
-## Toạ độ ô dùng chung Board.TILE / Board.tp (bản 3D) rồi chiếu qua Iso.
-## Vẽ thành 3 lớp: nền (chỉ vẽ lại khi đổi theme) → ô đất + đèn viền (mỗi khung hình) → chữ / icon → đèn lồng.
+## Bàn cờ 2D isometric cao cấp: bệ đá 2 tầng giữa hồ gương (có sóng gợn quanh chân bệ & bóng soi nước),
+## sân giữa lát đá cẩm thạch 8×8 khảm huy hiệu trống đồng / hoa anh đào / la bàn mạ vàng (render_board.py),
+## 32 ô đất bo góc vát khối 3D rõ mặt sáng – mặt tối, dải sóng biển cát vàng cho khu du lịch,
+## tiểu cảnh 3D riêng cho 4 ô góc (Xuất Phát, Đảo Hoang, Lễ Hội, Sân Bay), chữ in sắc nét không tràn mép.
 
-const TH := 0.16
+const TH := 0.165
 const R := 0.085              # bán kính bo góc ô (đơn vị bàn)
 const STYLE := {
 	"sakura": {
-		"top": "#fff7fa", "mat": "#f3cfe0", "side": ["#f9dbe8", "#eab6cf"], "side2": ["#e6adc8", "#cf8db0"], "ped": ["#d795b8", "#b8749b"],
-		"trim": "#e8467c", "gold": "#ffd98a", "court": ["#fffbfd", "#fbe4ef"], "bulb": "#fff0f6", "ink": "#3b1f3f",
-		"tile_side": ["#f4e3ea", "#d3b3c3"], "lantern": "#ff7fa8", "post": "#8a5670", "motif": "flower",
-		"petals": ["#ffc2d6", "#ffd9e6", "#ffaecb", "#ffe6ef"], "refl": "#a884c4", "glow": "#ffffff",
+		"top": "#fff6fa", "mat": "#f2cce0", "side": ["#fae0ec", "#e8b2cc"], "side2": ["#e4a8c5", "#c985a8"], "ped": ["#d592b6", "#b36e95"],
+		"trim": "#e8467c", "gold": "#ffd98a", "court": ["#fcf1f6", "#f2d2e2"], "bulb": "#fff0f6", "ink": "#3b1f3f",
+		"tile_side": ["#fbf0f5", "#cfa9bc"], "lantern": "#ff7fa8", "post": "#8a5670",
+		"petals": ["#ffc2d6", "#ffd9e6", "#ffaecb", "#ffe6ef"], "refl": "#a884c4", "glow": "#ffeef6",
 	},
 	"wood": {
-		"top": "#f8ecd6", "mat": "#dfc291", "side": ["#e3bd7e", "#c9965a"], "side2": ["#b98248", "#93602f"], "ped": ["#8a5a2e", "#69421f"],
-		"trim": "#d8922a", "gold": "#ffd98a", "court": ["#f6e4c0", "#ebd0a0"], "bulb": "#ffe9b0", "ink": "#3e2a17",
-		"tile_side": ["#f1e4cb", "#c9b38c"], "lantern": "#ff8f3a", "post": "#5a3a20", "motif": "star",
+		"top": "#f8ecd6", "mat": "#dfc08e", "side": ["#e5bf80", "#c89456"], "side2": ["#b98248", "#915d2c"], "ped": ["#8a5a2e", "#663f1c"],
+		"trim": "#d8922a", "gold": "#ffd98a", "court": ["#f4e2c1", "#e4c596"], "bulb": "#ffe9b0", "ink": "#3e2a17",
+		"tile_side": ["#f7ecda", "#c4ac82"], "lantern": "#ff9844", "post": "#5a3a20",
 		"petals": ["#f5a742", "#e8742a", "#ffcf6a", "#d9481f"], "refl": "#8f6a66", "glow": "#fff3d0",
 	},
 	"ocean": {
-		"top": "#fffdf6", "mat": "#c4ebe6", "side": ["#3f80b0", "#2c5f8c"], "side2": ["#2a5a86", "#1c3a5e"], "ped": ["#1e4a70", "#14304d"],
-		"trim": "#ffb703", "gold": "#ffe08a", "court": ["#fff8e6", "#d8f5f0"], "bulb": "#fff6c8", "ink": "#123250",
-		"tile_side": ["#f0ead9", "#c3cbc2"], "lantern": "#ffd166", "post": "#1e3a5f", "motif": "star",
-		"petals": [], "refl": "#2f86ad", "glow": "#ffffff",
+		"top": "#fdfeff", "mat": "#cde5f7", "side": ["#2d6cdf", "#1a4bb3"], "side2": ["#1d4399", "#0f2866"], "ped": ["#15317a", "#0b1c48"],
+		"trim": "#ffb703", "gold": "#ffe08a", "court": ["#fdfbf7", "#dceef8"], "bulb": "#fff6c8", "ink": "#0f2942",
+		"tile_side": ["#f4f8fc", "#aec4dc"], "lantern": "#ffd166", "post": "#15317a",
+		"petals": [], "refl": "#2672b5", "glow": "#e8f6ff",
 	},
 	"midnight": {
-		"top": "#2c3569", "mat": "#1a2150", "side": ["#27306a", "#1a2147"], "side2": ["#161c40", "#0d122e"], "ped": ["#10153a", "#080b20"],
-		"trim": "#8a72ff", "gold": "#c9b8ff", "court": ["#252d5a", "#1e254c"], "bulb": "#d6c8ff", "ink": "#eef1ff",
-		"tile_side": ["#d3d7f2", "#979dca"], "lantern": "#b9a3ff", "post": "#0c1030", "motif": "star",
-		"petals": ["#c9b8ff", "#8f86e0", "#e3dbff"], "refl": "#221f5c", "glow": "#8a72ff",
+		"top": "#303a74", "mat": "#1c2456", "side": ["#2b3574", "#1c234d"], "side2": ["#192048", "#0f1433"], "ped": ["#121840", "#090c24"],
+		"trim": "#947eff", "gold": "#d8c8ff", "court": ["#283164", "#1d244e"], "bulb": "#e0d4ff", "ink": "#eef1ff",
+		"tile_side": ["#dcdff7", "#9097c9"], "lantern": "#c2aeff", "post": "#0c1030",
+		"petals": ["#c9b8ff", "#8f86e0", "#e3dbff"], "refl": "#252263", "glow": "#8a72ff",
+	},
+	"cosmos": {
+		"top": "#16204a", "mat": "#0c1330", "side": ["#182657", "#0d1638"], "side2": ["#0f193f", "#070c24"], "ped": ["#0a1130", "#040717"],
+		"trim": "#2ce6ff", "gold": "#ffd46b", "court": ["#131b3f", "#0b1029"], "bulb": "#9bf8ff", "ink": "#ecf6ff",
+		"tile_side": ["#d6e8ff", "#7c98c9"], "lantern": "#38f6ff", "post": "#080e28",
+		"petals": ["#7df9ff", "#e879f9", "#ffd46b"], "refl": "#0e3566", "glow": "#2ce6ff",
 	},
 }
 ## màu mặt ô: [mép xa, mép gần]
 const TILE_BG := {
-	"city": ["#ffffff", "#f7f1f4"], "resort": ["#fff7de", "#fde6b0"], "chance": ["#fff1f6", "#ffcfe0"], "tax": ["#f8f8f8", "#dcdcdc"],
-	"start": ["#fff6c4", "#ffd35f"], "island": ["#defcff", "#8fdcea"], "festival": ["#ffe6f3", "#ff9ccb"], "airport": ["#e8f1ff", "#a2c5ff"],
+	"city": ["#ffffff", "#f6eff3"], "resort": ["#fff9e6", "#fce6b2"], "chance": ["#fff2f7", "#ffd2e2"], "tax": ["#fafafa", "#e0e2e8"],
+	"start": ["#fff8cc", "#ffd666"], "island": ["#e2fdff", "#96e0ee"], "festival": ["#ffe8f4", "#ffa4cf"], "airport": ["#eaf2ff", "#a8c9ff"],
+}
+const CORNER_TEX := {
+	0: preload("res://assets/props2d/corner_start.png"),
+	8: preload("res://assets/props2d/corner_island.png"),
+	16: preload("res://assets/props2d/corner_festival.png"),
+	24: preload("res://assets/props2d/corner_airport.png"),
+}
+const COURT_TEX := {
+	"sakura": preload("res://assets/board2d/court_sakura.png"),
+	"wood": preload("res://assets/board2d/court_wood.png"),
+	"ocean": preload("res://assets/board2d/court_ocean.png"),
+	"midnight": preload("res://assets/board2d/court_midnight.png"),
+	"cosmos": preload("res://assets/board2d/court_cosmos.png"),
 }
 
-var theme := "sakura"
+var theme := "ocean"
 var st: Array = []            # trạng thái từng ô
 var labels: Array = []        # [name Label, price Label]
 var font_b: FontFile
 var font_sb: FontFile
-var ring_font: Font = preload("res://assets/fonts/Montserrat-ExtraBold.ttf")
 var t := 0.0
 var target := -1
 var base_layer: Node2D
 var tile_layer: Node2D
 var label_root: Node2D
+var prop_layer: Node2D
 var top_layer: Node2D
 var order: Array = []         # thứ tự vẽ ô: xa trước, gần sau
 var fx_layer: Node2D
@@ -58,6 +77,11 @@ var act: Array = []           # ô nào đang chuyển động
 var dirty := true             # cần vẽ lại lớp ô đứng yên
 var blob: Texture2D
 var petal_tex: Texture2D
+var paper_tex: Texture2D = preload("res://assets/board2d/paper.png")
+var side_tex: Texture2D = preload("res://assets/board2d/side.png")
+var plinth_tex: Texture2D = preload("res://assets/board2d/plinth.png")
+var lamp_tex: Texture2D = preload("res://assets/props2d/andon.png")
+const LAMP_SC := 0.70
 
 
 static func scr(w: Vector3) -> Vector2:
@@ -82,7 +106,11 @@ func _ready() -> void:
 	fx_layer = _layer(_draw_fx)
 	label_root = Node2D.new()
 	add_child(label_root)
+	prop_layer = _layer(_draw_corner_props)
 	top_layer = _layer(_draw_top)
+	for n in [base_layer, tile_layer, fx_layer, prop_layer, top_layer]:
+		n.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		n.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	_build_labels()
 
 
@@ -101,23 +129,55 @@ func _msdf(path: String) -> FontFile:
 	return f
 
 
-## khung toạ độ trên mặt ô: trục a (dọc chữ), trục s (từ mép xa tới mép gần), đổi sang màn hình
 func _tile_xf(i: int, a: float, s: float) -> Transform2D:
 	var T: Dictionary = Board.TILE[i]
 	var o := scr(Board.tp(i, a, s, TH))
-	var ax := scr(Board.tp(i, a + 0.5, s, TH)) - scr(Board.tp(i, a - 0.5, s, TH))      # 1 đơn vị dọc chữ
-	var sy := scr(Board.tp(i, a, s + 0.5, TH)) - scr(Board.tp(i, a, s - 0.5, TH))       # 1 đơn vị về phía gần
-	var alen: float = T.alen
-	var dlen: float = T.dlen
-	return Transform2D(ax / alen, sy / dlen, o)
+	var ax := scr(Board.tp(i, a + 0.5, s, TH)) - scr(Board.tp(i, a - 0.5, s, TH))
+	var sy := scr(Board.tp(i, a, s + 0.5, TH)) - scr(Board.tp(i, a, s - 0.5, TH))
+	return Transform2D(ax / float(T.alen), sy / float(T.dlen), o)
 
 
-func _mk_label(text: String, font: Font, size: int, col: Color) -> Label:
+func _fit_font_size(text: String, font: Font, base_sz: int, max_w: float, min_sz := 11) -> int:
+	var lines := text.split("\n")
+	var sz := base_sz
+	while sz > min_sz:
+		var w := 0.0
+		for ln in lines:
+			w = maxf(w, font.get_string_size(ln, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x)
+		if w <= max_w:
+			break
+		sz -= 1
+	return sz
+
+
+func _smart_wrap(text: String, font: Font, base_sz: int, max_w: float) -> String:
+	if font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, base_sz).x <= max_w:
+		return text
+	var words := text.split(" ", false)
+	if words.size() <= 1:
+		return text
+	var best := text
+	var best_w := INF
+	for k in range(1, words.size()):
+		var l1 := " ".join(words.slice(0, k))
+		var l2 := " ".join(words.slice(k))
+		var w := maxf(font.get_string_size(l1, HORIZONTAL_ALIGNMENT_LEFT, -1, base_sz).x,
+			font.get_string_size(l2, HORIZONTAL_ALIGNMENT_LEFT, -1, base_sz).x)
+		if w < best_w:
+			best_w = w
+			best = l1 + "\n" + l2
+	return best
+
+
+func _mk_label(text: String, font: Font, size: int, col: Color, outline_a := 0.82) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.add_theme_font_override("font", font)
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", col)
+	if outline_a > 0.0:
+		l.add_theme_color_override("font_outline_color", Color(1, 1, 1, outline_a))
+		l.add_theme_constant_override("outline_size", 3)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -131,41 +191,54 @@ func _build_labels() -> void:
 	for i in 32:
 		var info: Dictionary = Data.BOARD[i]
 		var corner: bool = Board.TILE[i].side == "c"
-		var wpx := 96.0 if not corner else 136.0          # bề rộng chữ (px trong toạ độ ô ×100)
+		var wpx := 88.0 if not corner else 138.0
+		var raw_name: String = info.name
+		var base_nsz := 20 if corner else 18
+		var wrapped := raw_name if corner else _smart_wrap(raw_name, font_b, base_nsz, wpx)
+		if corner and font_b.get_string_size(raw_name, HORIZONTAL_ALIGNMENT_LEFT, -1, base_nsz).x > wpx:
+			wrapped = _smart_wrap(raw_name, font_b, base_nsz, wpx)
+		var nsz := _fit_font_size(wrapped, font_b, base_nsz, wpx, 12)
+
+		var s_name := (0.69 if corner else (0.61 if wrapped.contains("\n") else 0.63))
 		var holder := Node2D.new()
-		holder.transform = _tile_xf(i, 0, 0.62 if not corner else 0.66)
+		holder.transform = _tile_xf(i, 0, s_name)
 		holder.scale *= 0.01
 		label_root.add_child(holder)
-		var name := _mk_label(info.name, font_b, 24 if corner else 19, Color("#2a1e22"))
-		name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		name.size = Vector2(wpx, 52)
-		name.position = Vector2(-wpx / 2, -26)
-		name.add_theme_constant_override("line_spacing", -4)
-		holder.add_child(name)
+		var name_lbl := _mk_label(wrapped, font_b, nsz, Color("#261822"))
+		name_lbl.size = Vector2(wpx + 12, 54)
+		name_lbl.position = Vector2(-(wpx + 12) * 0.5, -27)
+		name_lbl.add_theme_constant_override("line_spacing", -1 if corner else -3)
+		holder.add_child(name_lbl)
+
+		var s_price := 0.86 if corner else 0.865
 		var holder2 := Node2D.new()
-		holder2.transform = _tile_xf(i, 0, 0.87 if not corner else 0.84)
+		holder2.transform = _tile_xf(i, 0, s_price)
 		holder2.scale *= 0.01
 		label_root.add_child(holder2)
-		var price := _mk_label(st[i].price, font_b if not corner else font_sb, 22 if not corner else 15, Color("#3b2a20"))
-		price.size = Vector2(wpx, 30)
-		price.position = Vector2(-wpx / 2, -15)
-		holder2.add_child(price)
-		# icon ô đặc biệt: hình đứng thẳng (không nghiêng) cho rõ
-		if info.type != "city" and info.type != "resort":
+		var pfont := font_b if not corner else font_sb
+		var base_psz := 19 if not corner else 15
+		var psz := _fit_font_size(st[i].price, pfont, base_psz, wpx, 11)
+		var price_lbl := _mk_label(st[i].price, pfont, psz, Color("#3b2820"))
+		price_lbl.size = Vector2(wpx + 12, 30)
+		price_lbl.position = Vector2(-(wpx + 12) * 0.5, -15)
+		holder2.add_child(price_lbl)
+
+		# Icon ô Cơ Hội / Thuế (4 ô góc đã có tiểu cảnh 3D riêng ở prop_layer)
+		if not corner and info.type != "city" and info.type != "resort":
 			var ip := Data.icon_path(info)
 			if ip != "":
 				var sp := Sprite2D.new()
 				sp.texture = load(ip)
-				var sz := 62.0 if corner else 38.0
+				var sz := 36.0
 				sp.scale = Vector2.ONE * sz / sp.texture.get_width()
-				sp.position = scr(Board.tp(i, 0, 0.3, TH)) + Vector2(0, -sz * 0.25)
+				sp.position = scr(Board.tp(i, 0, 0.30, TH)) + Vector2(0, -sz * 0.24)
 				label_root.add_child(sp)
-		labels.append([name, price])
+		labels.append([name_lbl, price_lbl, s_name, s_price])
 		update_tile(i, {})
 
 
 func set_theme(name: String) -> void:
-	theme = name if STYLE.has(name) else "sakura"
+	theme = name if STYLE.has(name) else "ocean"
 	if label_root:
 		_build_labels()
 		base_layer.queue_redraw()
@@ -175,10 +248,15 @@ func set_theme(name: String) -> void:
 func update_tile(i: int, u: Dictionary) -> void:
 	for k in u:
 		st[i][k] = u[k]
+	var corner: bool = Board.TILE[i].side == "c"
+	var wpx := 88.0 if not corner else 128.0
+	var pfont := font_b if not corner else font_sb
+	var base_psz := 19 if not corner else 15
 	var pl: Label = labels[i][1]
 	pl.text = st[i].price
+	pl.add_theme_font_size_override("font_size", _fit_font_size(pl.text, pfont, base_psz, wpx, 11))
 	var oc = st[i].owned
-	pl.add_theme_color_override("font_color", Color(oc).darkened(0.25) if oc != null else Color("#3b2a20"))
+	pl.add_theme_color_override("font_color", Color(oc).darkened(0.28) if oc != null else Color("#3b2820"))
 	dirty = true
 
 
@@ -207,7 +285,6 @@ func set_target(i: int) -> void:
 	target = i
 
 
-## ô dưới điểm màn hình (toạ độ của Board2D)
 func tile_at(p: Vector2) -> int:
 	for i in 32:
 		if Geometry2D.is_point_in_polygon(p, _tile_poly(i, 0.0)):
@@ -224,7 +301,6 @@ func _tile_poly(i: int, inset: float, y := TH) -> PackedVector2Array:
 	return PackedVector2Array([Iso.p(x - hw, z - hd, y), Iso.p(x + hw, z - hd, y), Iso.p(x + hw, z + hd, y), Iso.p(x - hw, z + hd, y)])
 
 
-## hình chữ nhật bo góc trên mặt ô (khung a: -0.5..0.5 dọc chữ, s: 0 mép xa..1 mép gần); rf / rn = bán kính bo ở mép xa / gần
 func _shape(i: int, a0: float, a1: float, s0: float, s1: float, y: float, rf := R, rn := R) -> PackedVector2Array:
 	var T: Dictionary = Board.TILE[i]
 	var al: float = T.alen
@@ -257,7 +333,6 @@ func _closed(p: PackedVector2Array) -> PackedVector2Array:
 	return o
 
 
-## màu từng đỉnh: chuyển từ c0 (tại điểm p0) sang c1 (tại p1)
 func _grad(pts: PackedVector2Array, p0: Vector2, p1: Vector2, c0: Color, c1: Color) -> PackedColorArray:
 	var d := p1 - p0
 	var l2 := maxf(d.length_squared(), 0.001)
@@ -265,6 +340,35 @@ func _grad(pts: PackedVector2Array, p0: Vector2, p1: Vector2, c0: Color, c1: Col
 	for p in pts:
 		out.append(c0.lerp(c1, clampf((p - p0).dot(d) / l2, 0, 1)))
 	return out
+
+
+func _tquad(ci: CanvasItem, a: Vector2, b: Vector2, c: Vector2, d: Vector2, tex: Texture2D, c_top: Color, c_bot: Color, u1 := 1.0) -> void:
+	ci.draw_polygon(PackedVector2Array([a, b, c, d]), PackedColorArray([c_top, c_top, c_bot, c_bot]),
+		PackedVector2Array([Vector2(0, 0), Vector2(u1, 0), Vector2(u1, 1), Vector2(0, 1)]), tex)
+
+
+func _uv(pts: PackedVector2Array, k: float) -> PackedVector2Array:
+	var o := PackedVector2Array()
+	for p in pts:
+		o.append(p / k)
+	return o
+
+
+func _lamp(ci: CanvasItem, b: Vector2, S: Dictionary, glow: float) -> void:
+	var lan := Color(S.lantern)
+	var night := theme in ["midnight", "cosmos"]
+	var sz := Vector2(lamp_tex.get_size()) * LAMP_SC
+	var anc := Vector2(lamp_tex.get_width() * 0.5, lamp_tex.get_height() * 0.88) * LAMP_SC
+	var c := b + Vector2(0, -54 * LAMP_SC)
+	# Bóng chân đèn
+	ci.draw_texture_rect(blob, Rect2(b - Vector2(36, 14), Vector2(72, 28)), false, Color(0.16, 0.06, 0.20, 0.30))
+	# Quầng sáng ấm toả ra từ đèn lồng
+	ci.draw_texture_rect(blob, Rect2(c - Vector2(76, 72), Vector2(152, 144)), false,
+		Color(lan.lightened(0.45), (0.62 if night else 0.36) * glow))
+	ci.draw_texture_rect(lamp_tex, Rect2(b - anc, sz), false)
+	# Lõi sáng bên trong ô giấy của đèn
+	var core_col := Color(0.75, 0.97, 1.0, 0.66 * glow) if theme == "cosmos" else Color(1.0, 0.92, 0.68, (0.62 if night else 0.42) * glow)
+	ci.draw_texture_rect(blob, Rect2(c - Vector2(22, 26), Vector2(44, 52)), false, core_col)
 
 
 func _quad(ci: CanvasItem, a: Vector2, b: Vector2, c: Vector2, d: Vector2, c_top: Color, c_bot: Color) -> void:
@@ -275,7 +379,7 @@ func _sq(h: float, y: float) -> PackedVector2Array:
 	return PackedVector2Array([Iso.p(-h, -h, y), Iso.p(h, -h, y), Iso.p(h, h, y), Iso.p(-h, h, y)])
 
 
-func _circ(r: float, y: float, n := 72, c := Vector2.ZERO) -> PackedVector2Array:
+func _circ(r: float, y: float, n := 56, c := Vector2.ZERO) -> PackedVector2Array:
 	var ring := PackedVector2Array()
 	for k in n:
 		var an := TAU * k / n
@@ -297,182 +401,109 @@ func _process(dt: float) -> void:
 		dirty = false
 		tile_layer.queue_redraw()
 	fx_layer.queue_redraw()
+	prop_layer.queue_redraw()
 	top_layer.queue_redraw()
 
 
-# ============================== lớp nền (bệ, mặt bàn, sân giữa) ==============================
+# ============================== lớp nền (bệ đá 2 tầng, mặt bàn, sân cẩm thạch + huy hiệu) ==============================
 
 func _draw_base(ci: CanvasItem) -> void:
 	var S: Dictionary = STYLE[theme]
 	var W := Board.W
-	var E := W / 2 + 0.38                 # nửa cạnh đế chính
-	var E2 := E + 0.46                    # nửa cạnh bệ dưới
-	var y1 := -0.86                       # đáy đế chính = mặt bệ dưới
-	var y2 := -1.36                       # đáy bệ dưới = mặt nước
+	var E := W / 2 + 0.38
+	var E2 := E + 0.46
+	var y1 := -0.86
+	var y2 := -1.36
 	var trim := Color(S.trim)
 	var gold := Color(S.gold)
-	# bóng đổ mềm trên mặt nước
+
+	# Bóng đổ mềm trên mặt hồ
 	var c0 := Iso.p(0, 0, y2)
-	ci.draw_texture_rect(blob, Rect2(c0 - Vector2(E2 * Iso.A * 1.42, E2 * Iso.B * 1.3) + Vector2(0, 30), Vector2(E2 * Iso.A * 2.84, E2 * Iso.B * 2.75)),
-		false, Color(Color(S.refl).darkened(0.55), 0.36))
-	# bóng soi của bệ xuống nước (mờ dần)
+	ci.draw_texture_rect(blob, Rect2(c0 - Vector2(E2 * Iso.A * 1.44, E2 * Iso.B * 1.32) + Vector2(0, 32),
+		Vector2(E2 * Iso.A * 2.88, E2 * Iso.B * 2.80)), false, Color(Color(S.refl).darkened(0.55), 0.38))
+
+	# Bóng soi của bệ đá xuống mặt nước
 	var rc := Color(S.refl)
-	var rh := 1.7
-	_quad(ci, Iso.p(-E2, E2, y2), Iso.p(E2, E2, y2), Iso.p(E2, E2, y2 - rh), Iso.p(-E2, E2, y2 - rh), Color(rc.lightened(0.12), 0.50), Color(rc, 0.0))
-	_quad(ci, Iso.p(E2, E2, y2), Iso.p(E2, -E2, y2), Iso.p(E2, -E2, y2 - rh), Iso.p(E2, E2, y2 - rh), Color(rc.darkened(0.12), 0.50), Color(rc, 0.0))
-	# bệ dưới
+	var rh := 1.75
+	_quad(ci, Iso.p(-E2, E2, y2), Iso.p(E2, E2, y2), Iso.p(E2, E2, y2 - rh), Iso.p(-E2, E2, y2 - rh),
+		Color(rc.lightened(0.14), 0.52), Color(rc, 0.0))
+	_quad(ci, Iso.p(E2, E2, y2), Iso.p(E2, -E2, y2), Iso.p(E2, -E2, y2 - rh), Iso.p(E2, E2, y2 - rh),
+		Color(rc.darkened(0.10), 0.52), Color(rc, 0.0))
+
+	# Bệ đá dưới (tầng sát mặt nước)
 	var pl := Color(S.ped[0])
 	var pr := Color(S.ped[1])
-	_quad(ci, Iso.p(-E2, E2, y1), Iso.p(E2, E2, y1), Iso.p(E2, E2, y2), Iso.p(-E2, E2, y2), pl, pl.darkened(0.22))
-	_quad(ci, Iso.p(E2, E2, y1), Iso.p(E2, -E2, y1), Iso.p(E2, -E2, y2), Iso.p(E2, E2, y2), pr, pr.darkened(0.25))
+	_tquad(ci, Iso.p(-E2, E2, y1), Iso.p(E2, E2, y1), Iso.p(E2, E2, y2), Iso.p(-E2, E2, y2), plinth_tex, pl.lightened(0.08), pl.darkened(0.16))
+	_tquad(ci, Iso.p(E2, E2, y1), Iso.p(E2, -E2, y1), Iso.p(E2, -E2, y2), Iso.p(E2, E2, y2), plinth_tex, pr, pr.darkened(0.20))
 	ci.draw_colored_polygon(_sq(E2, y1), pl.lightened(0.28))
-	ci.draw_polyline(PackedVector2Array([Iso.p(-E2, E2, y1), Iso.p(E2, E2, y1), Iso.p(E2, -E2, y1)]), Color(1, 1, 1, 0.35), 1.5, true)
-	ci.draw_polyline(PackedVector2Array([Iso.p(-E2, E2, y2), Iso.p(E2, E2, y2), Iso.p(E2, -E2, y2)]), Color(1, 1, 1, 0.45), 2.0, true)
-	ci.draw_polyline(PackedVector2Array([Iso.p(-E2, E2, y1 - 0.13), Iso.p(E2, E2, y1 - 0.13), Iso.p(E2, -E2, y1 - 0.13)]), Color(gold, 0.85), 2.0, true)
-	# bóng của đế chính đổ lên bệ dưới
-	ci.draw_colored_polygon(PackedVector2Array([Iso.p(-E, E, y1), Iso.p(E, E, y1), Iso.p(E, -E, y1), Iso.p(E + 0.2, -E, y1), Iso.p(E + 0.2, E + 0.2, y1), Iso.p(-E, E + 0.2, y1)]),
-		Color(pr.darkened(0.3), 0.35))
-	# đế chính: 2 mặt bên nhìn thấy
-	_quad(ci, Iso.p(-E, E, 0), Iso.p(E, E, 0), Iso.p(E, E, y1), Iso.p(-E, E, y1), Color(S.side[0]), Color(S.side[1]))
-	_quad(ci, Iso.p(E, E, 0), Iso.p(E, -E, 0), Iso.p(E, -E, y1), Iso.p(E, E, y1), Color(S.side2[0]), Color(S.side2[1]))
-	# rãnh đèn: dải sẫm chạy giữa mặt bên
-	_quad(ci, Iso.p(-E, E, -0.30), Iso.p(E, E, -0.30), Iso.p(E, E, -0.58), Iso.p(-E, E, -0.58), Color(Color(S.side[1]).darkened(0.16), 0.9), Color(Color(S.side[1]).darkened(0.08), 0.9))
-	_quad(ci, Iso.p(E, E, -0.30), Iso.p(E, -E, -0.30), Iso.p(E, -E, -0.58), Iso.p(E, E, -0.58), Color(Color(S.side2[1]).darkened(0.16), 0.9), Color(Color(S.side2[1]).darkened(0.08), 0.9))
-	# nẹp viền trên / dưới
+	ci.draw_polyline(PackedVector2Array([Iso.p(-E2, E2, y1), Iso.p(E2, E2, y1), Iso.p(E2, -E2, y1)]), Color(1, 1, 1, 0.38), 1.6, true)
+	ci.draw_polyline(PackedVector2Array([Iso.p(-E2, E2, y2), Iso.p(E2, E2, y2), Iso.p(E2, -E2, y2)]), Color(1, 1, 1, 0.52), 2.2, true)
+	ci.draw_polyline(PackedVector2Array([Iso.p(-E2, E2, y1 - 0.13), Iso.p(E2, E2, y1 - 0.13), Iso.p(E2, -E2, y1 - 0.13)]), Color(gold, 0.88), 2.2, true)
+
+	# Bóng của đế chính đổ lên mặt bệ dưới
+	ci.draw_colored_polygon(PackedVector2Array([Iso.p(-E, E, y1), Iso.p(E, E, y1), Iso.p(E, -E, y1),
+		Iso.p(E + 0.22, -E, y1), Iso.p(E + 0.22, E + 0.22, y1), Iso.p(-E, E + 0.22, y1)]), Color(pr.darkened(0.32), 0.36))
+
+	# Đèn lồng ở góc xa (vẽ trước đế chính)
+	_lamp(ci, Iso.p(-(E + 0.23), -(E + 0.23), y1), S, 0.88)
+
+	# Đế chính: 2 mặt bên có phào khung lõm
+	_tquad(ci, Iso.p(-E, E, 0), Iso.p(E, E, 0), Iso.p(E, E, y1), Iso.p(-E, E, y1), side_tex, Color(S.side[0]), Color(S.side[1]))
+	_tquad(ci, Iso.p(E, E, 0), Iso.p(E, -E, 0), Iso.p(E, -E, y1), Iso.p(E, E, y1), side_tex, Color(S.side2[0]), Color(S.side2[1]))
 	for yy in [-0.10, -0.76]:
 		ci.draw_polyline(PackedVector2Array([Iso.p(-E, E, yy), Iso.p(E, E, yy)]), trim, 3.0, true)
 		ci.draw_polyline(PackedVector2Array([Iso.p(E, E, yy), Iso.p(E, -E, yy)]), trim.darkened(0.22), 3.0, true)
-	# ốp góc mạ vàng ở 3 góc nhìn thấy
-	var cw := 0.2
-	_quad(ci, Iso.p(E - cw, E, 0), Iso.p(E, E, 0), Iso.p(E, E, y1), Iso.p(E - cw, E, y1), gold.lightened(0.25), gold.darkened(0.12))
-	_quad(ci, Iso.p(E, E, 0), Iso.p(E, E - cw, 0), Iso.p(E, E - cw, y1), Iso.p(E, E, y1), gold, gold.darkened(0.3))
-	_quad(ci, Iso.p(-E, E, 0), Iso.p(-E + cw, E, 0), Iso.p(-E + cw, E, y1), Iso.p(-E, E, y1), gold.lightened(0.25), gold.darkened(0.12))
-	_quad(ci, Iso.p(E, -E + cw, 0), Iso.p(E, -E, 0), Iso.p(E, -E, y1), Iso.p(E, -E + cw, y1), gold, gold.darkened(0.3))
-	# mặt trên: viền vát sáng + thảm dưới các ô
+
+	# Ốp góc mạ vàng ở 3 góc nhìn thấy
+	var cw := 0.21
+	_quad(ci, Iso.p(E - cw, E, 0), Iso.p(E, E, 0), Iso.p(E, E, y1), Iso.p(E - cw, E, y1), gold.lightened(0.28), gold.darkened(0.10))
+	_quad(ci, Iso.p(E, E, 0), Iso.p(E, E - cw, 0), Iso.p(E, E - cw, y1), Iso.p(E, E, y1), gold, gold.darkened(0.28))
+	_quad(ci, Iso.p(-E, E, 0), Iso.p(-E + cw, E, 0), Iso.p(-E + cw, E, y1), Iso.p(-E, E, y1), gold.lightened(0.28), gold.darkened(0.10))
+	_quad(ci, Iso.p(E, -E + cw, 0), Iso.p(E, -E, 0), Iso.p(E, -E, y1), Iso.p(E, -E + cw, y1), gold, gold.darkened(0.28))
+
+	# Mặt trên của bàn: viền chỉ kép mạ vàng + thảm lót các ô đất
 	ci.draw_colored_polygon(_sq(E, 0), Color(S.top))
-	ci.draw_polyline(_closed(_sq(E, 0)), trim, 2.5, true)
-	ci.draw_polyline(_closed(_sq(E - 0.09, 0)), Color(gold, 0.9), 2.0, true)
+	ci.draw_polyline(_closed(_sq(E, 0)), trim, 2.6, true)
+	ci.draw_polyline(_closed(_sq(E - 0.085, 0)), Color(gold, 0.92), 2.0, true)
 	ci.draw_colored_polygon(_sq(W / 2 + 0.1, 0.0), Color(S.mat))
-	ci.draw_polyline(_closed(_sq(W / 2 + 0.1, 0.0)), Color(Color(S.mat).darkened(0.18), 0.7), 1.2, true)
-	# sân giữa: ô ca-rô 8×8
+	ci.draw_polyline(_closed(_sq(W / 2 + 0.1, 0.0)), Color(Color(S.mat).darkened(0.20), 0.72), 1.4, true)
+
+	# Sân giữa: gạch cẩm thạch 8×8 + khung viền + huy hiệu trung tâm siêu nét (từ court_<theme>.png)
 	var inner := W - 2 * Board.CORNER - 2 * Board.GAP - 0.1
 	var h := inner / 2
-	var cell := inner / 8
-	for a in 8:
-		for b in 8:
-			var x0 := -h + a * cell
-			var z0 := -h + b * cell
-			var poly := PackedVector2Array([Iso.p(x0, z0, 0.01), Iso.p(x0 + cell, z0, 0.01), Iso.p(x0 + cell, z0 + cell, 0.01), Iso.p(x0, z0 + cell, 0.01)])
-			ci.draw_colored_polygon(poly, Color(S.court[(a + b) % 2]))
-	# vầng sáng giữa sân
-	var cc := Iso.p(0, 0, 0.01)
-	var gl := Color(S.glow)
-	ci.draw_texture_rect(blob, Rect2(cc - Vector2(h * Iso.A * 1.38, h * Iso.B * 1.38), Vector2(h * Iso.A * 2.76, h * Iso.B * 2.76)), false, Color(gl, 0.55 if theme != "midnight" else 0.22))
-	# đường chỉ viền sân + hoa văn 4 góc
-	ci.draw_polyline(_closed(_sq(h, 0.01)), Color(trim, 0.55), 2.0, true)
-	ci.draw_polyline(_closed(_sq(h - 0.2, 0.01)), Color(trim, 0.42), 1.6, true)
-	ci.draw_polyline(_closed(_sq(h - 0.29, 0.01)), Color(trim, 0.22), 1.0, true)
-	for sv in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
-		var k: Vector2 = sv * (h - 0.2)
-		ci.draw_circle(Iso.p(k.x, k.y, 0.01), 5.0, Color(trim, 0.85))
-		ci.draw_circle(Iso.p(k.x, k.y, 0.01), 2.6, gold)
-		# cung trang trí ôm góc
-		var arc := PackedVector2Array()
-		for j in 13:
-			var an := atan2(-sv.y, -sv.x) - PI / 4 + PI / 2 * j / 12.0
-			arc.append(Iso.p(k.x + cos(an) * 0.62, k.y + sin(an) * 0.62, 0.01))
-		ci.draw_polyline(arc, Color(trim, 0.38), 1.6, true)
-	# huy hiệu: đĩa sáng + các vòng + chữ chạy vòng + hoạ tiết giữa
-	ci.draw_colored_polygon(_circ(2.46, 0.012), Color(Color(S.court[0]).lightened(0.4), 0.55))
-	for q in [[2.46, 0.8, 3.2], [2.3, 0.45, 1.4], [1.52, 0.55, 1.8], [1.4, 0.28, 1.0]]:
-		ci.draw_polyline(_closed(_circ(q[0], 0.012, 96)), Color(trim, q[1]), q[2], true)
-	for k in 48:
-		var an := TAU * k / 48
-		ci.draw_circle(Iso.p(cos(an) * 2.38, sin(an) * 2.38, 0.012), 1.7 if k % 4 else 2.8, Color(gold if k % 4 == 0 else trim, 0.9 if k % 4 == 0 else 0.45))
-	var txt := "CỜ TỶ PHÚ • VIỆT NAM • MUA ĐẤT • XÂY NHÀ • "
-	for k in txt.length():
-		var an := -PI / 2 + TAU * k / txt.length()
-		var p := Iso.p(cos(an) * 1.9, sin(an) * 1.9, 0.012)
-		var tang := (Iso.p(cos(an + 0.01) * 1.9, sin(an + 0.01) * 1.9) - Iso.p(cos(an) * 1.9, sin(an) * 1.9)).normalized()
-		ci.draw_set_transform(p, tang.angle(), Vector2(1, 0.62))
-		ci.draw_string(ring_font, Vector2(-7, 7), txt[k], HORIZONTAL_ALIGNMENT_LEFT, -1, 21, Color(trim, 0.88))
-	ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
-	_draw_motif(ci, S)
-	# cánh hoa / lá rụng lác đác trên sân
+	var sq := _sq(h, 0.01)
+	ci.draw_polygon(sq, PackedColorArray([Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE]),
+		PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)]),
+		COURT_TEX[theme])
+
+	# Vầng sáng dịu giữa sân (nhẹ nhàng, giữ trọn vân gạch và họa tiết huy hiệu)
+	var cc := Iso.p(0, 0, 0.012)
+	ci.draw_texture_rect(blob, Rect2(cc - Vector2(h * Iso.A * 0.95, h * Iso.B * 0.95), Vector2(h * Iso.A * 1.9, h * Iso.B * 1.9)),
+		false, Color(Color(S.glow), 0.14 if not (theme in ["midnight", "cosmos"]) else 0.20))
+
+	# Cánh hoa / lá thu vương nhẹ ở 4 góc sân (tránh vùng chữ huy hiệu ở giữa)
 	var pals: Array = S.petals
 	if not pals.is_empty():
 		var rng := RandomNumberGenerator.new()
-		rng.seed = 7 + hash(theme)
-		for k in 78:
-			var px := rng.randf_range(-h + 0.15, h - 0.15)
-			var pz := rng.randf_range(-h + 0.15, h - 0.15)
-			var rot := rng.randf() * TAU
-			var sz := rng.randf_range(6.5, 11.0)
-			var col := Color(pals[rng.randi() % pals.size()])
-			if Vector2(px, pz).length() < 1.25:
+		rng.seed = 19 + hash(theme)
+		for k in 54:
+			var px := rng.randf_range(-h + 0.22, h - 0.22)
+			var pz := rng.randf_range(-h + 0.22, h - 0.22)
+			if Vector2(px, pz).length() < 2.55:
 				continue
+			var rot := rng.randf() * TAU
+			var sz := rng.randf_range(6.0, 10.2)
+			var col := Color(pals[rng.randi() % pals.size()])
 			var pp := Iso.p(px, pz, 0.012)
-			ci.draw_set_transform_matrix(Transform2D(Vector2(cos(rot), sin(rot) * 0.6), Vector2(-sin(rot), cos(rot) * 0.6), pp + Vector2(1.2, 1.6)))
-			ci.draw_texture_rect(petal_tex, Rect2(-sz, -sz, sz * 2, sz * 2), false, Color(0.3, 0.1, 0.25, 0.16))
+			ci.draw_set_transform_matrix(Transform2D(Vector2(cos(rot), sin(rot) * 0.6), Vector2(-sin(rot), cos(rot) * 0.6), pp + Vector2(1.2, 1.5)))
+			ci.draw_texture_rect(petal_tex, Rect2(-sz, -sz, sz * 2, sz * 2), false, Color(0.25, 0.08, 0.22, 0.16))
 			ci.draw_set_transform_matrix(Transform2D(Vector2(cos(rot), sin(rot) * 0.6), Vector2(-sin(rot), cos(rot) * 0.6), pp))
-			ci.draw_texture_rect(petal_tex, Rect2(-sz, -sz, sz * 2, sz * 2), false, Color(col, 0.95))
+			ci.draw_texture_rect(petal_tex, Rect2(-sz, -sz, sz * 2, sz * 2), false, Color(col, 0.92))
 		ci.draw_set_transform_matrix(Transform2D.IDENTITY)
 
 
-func _draw_motif(ci: CanvasItem, S: Dictionary) -> void:
-	var trim := Color(S.trim)
-	var gold := Color(S.gold)
-	if S.motif == "flower":
-		# hoa anh đào 5 cánh, đầu cánh có khía
-		for k in 5:
-			var ang := -PI / 2 + TAU * k / 5
-			var dir := Vector2(cos(ang), sin(ang))
-			var nor := Vector2(-dir.y, dir.x)
-			var lf: Array = []
-			var rt: Array = []
-			for j in 13:
-				var u := j / 12.0 * 0.95
-				var rad := lerpf(0.14, 1.28, u)
-				var half := 0.50 * sin(PI * pow(u, 0.78)) + 0.05
-				lf.append(dir * rad + nor * half)
-				rt.append(dir * rad - nor * half)
-			var pts := PackedVector2Array()
-			for q in lf:
-				pts.append(Iso.p(q.x, q.y, 0.013))
-			var tip := dir * 1.10
-			pts.append(Iso.p(tip.x, tip.y, 0.013))
-			rt.reverse()
-			for q in rt:
-				pts.append(Iso.p(q.x, q.y, 0.013))
-			var o := Iso.p(0, 0, 0.013)
-			ci.draw_polygon(pts, _grad(pts, o, Iso.p(tip.x, tip.y, 0.013), Color(trim, 0.30), Color(trim, 0.10)))
-			ci.draw_polyline(_closed(pts), Color(trim, 0.42), 1.5, true)
-			var st0 := dir * 0.2
-			var st1 := dir * 0.62
-			ci.draw_line(Iso.p(st0.x, st0.y, 0.013), Iso.p(st1.x, st1.y, 0.013), Color(trim, 0.35), 1.2, true)
-			ci.draw_circle(Iso.p(st1.x, st1.y, 0.013), 2.4, Color(gold, 0.95))
-		ci.draw_colored_polygon(_circ(0.17, 0.013, 24), Color(gold, 0.95))
-	else:
-		# sao la bàn 8 cánh
-		var radii := [1.30, 0.34, 0.80, 0.34]
-		var pts := PackedVector2Array()
-		for k in 16:
-			var an := -PI / 2 + TAU * k / 16
-			var r: float = radii[k % 4]
-			pts.append(Iso.p(cos(an) * r, sin(an) * r, 0.013))
-		ci.draw_colored_polygon(pts, Color(trim, 0.22))
-		ci.draw_polyline(_closed(pts), Color(trim, 0.5), 1.5, true)
-		for k in 8:
-			var an := -PI / 2 + TAU * k / 8
-			var r: float = 1.30 if k % 2 == 0 else 0.80
-			ci.draw_line(Iso.p(0, 0, 0.013), Iso.p(cos(an) * r, sin(an) * r, 0.013), Color(trim, 0.32), 1.1, true)
-		ci.draw_colored_polygon(_circ(0.2, 0.013, 24), Color(gold, 0.95))
-		ci.draw_polyline(_closed(_circ(0.2, 0.013, 24)), Color(trim, 0.6), 1.2, true)
+# ============================== lớp ô đất + sóng nước + đèn viền ==============================
 
-
-# ============================== lớp ô đất + đèn viền ==============================
-
-## hình học của một ô ở độ nâng `lift` (lift = 0 thì lấy sẵn trong bộ nhớ đệm)
 func _geo(i: int, lift: float) -> Dictionary:
 	if lift == 0.0 and geo[i] != null:
 		return geo[i]
@@ -481,37 +512,83 @@ func _geo(i: int, lift: float) -> Dictionary:
 	var y: float = TH + lift
 	var g := {"y": y}
 	g.face = _shape(i, -0.5, 0.5, 0.0, 1.0, y)
+	g.fuv = _uv(g.face, 240.0)
 	var foot := _shape(i, -0.5, 0.5, 0.0, 1.0, lift)
 	var sh := _shape(i, -0.5, 0.5, 0.0, 1.0, 0.0)
 	for k in sh.size():
-		sh[k] += Vector2(1.5, 4.5 + lift * 60.0)
+		sh[k] += Vector2(1.4, 4.8 + lift * 62.0)
 	g.sh = sh
-	var both: PackedVector2Array = g.face.duplicate()
-	both.append_array(foot)
-	var hull := Geometry2D.convex_hull(both)
-	hull.resize(hull.size() - 1)
-	g.hull = hull
-	g.cx = scr(Board.tp(i, 0, 0.5, y)).x
-	g.hw = absf(scr(Board.tp(i, 0.5, 0.5, y)).x - scr(Board.tp(i, -0.5, 0.5, y)).x) + absf(scr(Board.tp(i, 0, 1.0, y)).x - scr(Board.tp(i, 0, 0.0, y)).x)
+
+	# Tách 2 vách đứng phía trước của ô (bên trái sáng, bên phải tối) theo đúng chiều đi qua cạnh trước (y lớn hơn)
+	var face_pts: PackedVector2Array = g.face
+	var n: int = face_pts.size()
+	var i_left := 0
+	var i_right := 0
+	var i_bot := 0
+	for k in n:
+		if face_pts[k].x < face_pts[i_left].x:
+			i_left = k
+		if face_pts[k].x > face_pts[i_right].x:
+			i_right = k
+		if face_pts[k].y > face_pts[i_bot].y:
+			i_bot = k
+	var step_f := 1 if face_pts[(i_left + 1) % n].y > face_pts[(i_left - 1 + n) % n].y else -1
+	var wl := PackedVector2Array()
+	var idx := i_left
+	for _guard in n:
+		wl.append(face_pts[idx])
+		if idx == i_bot:
+			break
+		idx = (idx + step_f + n) % n
+	for _guard in n:
+		wl.append(foot[idx])
+		if idx == i_left:
+			break
+		idx = (idx - step_f + n) % n
+	var wr := PackedVector2Array()
+	idx = i_bot
+	for _guard in n:
+		wr.append(face_pts[idx])
+		if idx == i_right:
+			break
+		idx = (idx + step_f + n) % n
+	for _guard in n:
+		wr.append(foot[idx])
+		if idx == i_bot:
+			break
+		idx = (idx - step_f + n) % n
+	g.wall_l = wl
+	g.wall_r = wr
+	g.ridge_top = face_pts[i_bot]
+	g.ridge_bot = foot[i_bot]
+
 	g.pf = scr(Board.tp(i, 0, 0.0, y))
 	g.pn = scr(Board.tp(i, 0, 1.0, y))
-	g.banded = info.type == "resort" or info.has("group")
+	g.resort = info.type == "resort"
+	g.banded = g.resort or info.has("group")
 	if g.banded:
-		var bh := 0.2 if info.has("group") else 0.27
+		var bh := 0.205 if info.has("group") else 0.275
 		g.band = _shape(i, -0.5, 0.5, 0.0, bh, y, R, 0.0)
 		g.pb = scr(Board.tp(i, 0, bh, y))
-		g.gloss = _shape(i, -0.42, 0.42, 0.028, 0.062, y, 0.02, 0.02)
+		g.gloss = _shape(i, -0.43, 0.43, 0.026, 0.064, y, 0.02, 0.02)
 		g.l0 = scr(Board.tp(i, -0.5, bh, y))
 		g.l1 = scr(Board.tp(i, 0.5, bh, y))
-		g.star = scr(Board.tp(i, 0, bh * 0.5, y))
+		g.star = scr(Board.tp(i, 0, bh * 0.52, y))
+		if g.resort:
+			g.sea = _shape(i, -0.5, 0.5, 0.0, 0.205, y, R, 0.0)
+			g.foam = _shape(i, -0.5, 0.5, 0.185, 0.222, y, 0.0, 0.0)
+			g.psea = scr(Board.tp(i, 0, 0.205, y))
 	else:
-		var pc := Board.tp(i, 0, 0.3, y)
-		g.plate = _circ(0.40 if T.side == "c" else 0.27, y, 28, Vector2(pc.x, pc.z))
-	g.in25 = _closed(_inset(i, 0.025, y))
-	g.in30 = _closed(_inset(i, 0.03, y))
+		var pc := Board.tp(i, 0, 0.29 if T.side == "c" else 0.30, y)
+		g.plate = _circ(0.42 if T.side == "c" else 0.27, y, 32, Vector2(pc.x, pc.z))
+	g.in22 = _closed(_inset(i, 0.022, y))
+	g.in30 = _closed(_inset(i, 0.030, y))
 	g.in55 = _closed(_inset(i, 0.055, y))
-	g.name = scr(Board.tp(i, 0, 0.62 if T.side != "c" else 0.66, y))
-	g.price = scr(Board.tp(i, 0, 0.87 if T.side != "c" else 0.84, y))
+	var s_n: float = labels[i][2] if i < labels.size() else (0.69 if T.side == "c" else 0.62)
+	var s_p: float = labels[i][3] if i < labels.size() else (0.86 if T.side == "c" else 0.865)
+	g.name = scr(Board.tp(i, 0, s_n, y))
+	g.price = scr(Board.tp(i, 0, s_p, y))
+	g.prop = scr(Board.tp(i, 0, 0.29, y))
 	if lift == 0.0:
 		geo[i] = g
 	return g
@@ -519,10 +596,9 @@ func _geo(i: int, lift: float) -> Dictionary:
 
 func _lift(i: int) -> float:
 	var s: Dictionary = st[i]
-	return (0.06 + 0.04 * (0.5 + 0.5 * sin(t * 6)) if i == target else 0.0) + s.flash * 0.08 + s.step * 0.05
+	return (0.065 + 0.035 * (0.5 + 0.5 * sin(t * 6.0)) if i == target else 0.0) + s.flash * 0.08 + s.step * 0.05
 
 
-## ô đang chuyển động (phải vẽ lại mỗi khung hình)
 func _is_active(i: int) -> bool:
 	var s: Dictionary = st[i]
 	return i == target or s.pick or s.step > 0 or s.flash > 0
@@ -537,140 +613,180 @@ func _draw_static(ci: CanvasItem) -> void:
 func _draw_fx(ci: CanvasItem) -> void:
 	var S: Dictionary = STYLE[theme]
 	var E := Board.W / 2 + 0.38
-	# đèn chạy trong rãnh trên 2 mặt bên
+	var E2 := E + 0.46
+	var y2 := -1.36
+
+	# Vòng gợn sóng nước lan nhẹ ở 3 mũi bệ đá chạm mặt hồ
+	for corner in [Vector2(-E2, E2), Vector2(E2, E2), Vector2(E2, -E2)]:
+		var cp := Iso.p(corner.x, corner.y, y2)
+		for r_i in 2:
+			var ph := fmod(t * 0.38 + r_i * 0.5 + (corner.x + corner.y) * 0.07, 1.0)
+			var rx := 22.0 + ph * 48.0
+			var alpha := sin(ph * PI) * 0.24
+			ci.draw_set_transform(cp, 0, Vector2(1.0, Iso.B / Iso.A))
+			ci.draw_arc(Vector2.ZERO, rx, 0.0, TAU, 36, Color(1, 1, 1, alpha), 1.4, true)
+		ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+
+	# Dải đèn ngọc chạy dọc rãnh 2 mặt bên đế bàn
 	var n := 22
 	var bulb := Color(S.bulb)
-	var off := Color(S.side2[1]).darkened(0.25)
+	var off := Color(S.side2[1]).darkened(0.28)
 	for side in 2:
 		for j in n:
 			var u := -E + 2 * E * (j + 0.5) / n
-			var w := Vector3(u, -0.44, E) if side == 0 else Vector3(E, -0.44, -u)
+			var w := Vector3(u, -0.43, E) if side == 0 else Vector3(E, -0.43, -u)
 			var k := j + side * n
 			var head := fmod(t * 14.0, n * 2.0)
 			var d := minf(absf(k - head), n * 2 - absf(k - head))
-			var v := minf(1.0, (0.55 if k % 3 == int(t * 3) % 3 else 0.22) + maxf(0, 1 - d / 5.0) * 0.9)
+			var v := minf(1.0, (0.55 if k % 3 == int(t * 3) % 3 else 0.20) + maxf(0, 1 - d / 5.0) * 0.92)
 			var pp := Iso.v(w)
-			ci.draw_texture_rect(blob, Rect2(pp - Vector2(16, 16), Vector2(32, 32)), false, Color(bulb, 0.65 * v))
+			ci.draw_texture_rect(blob, Rect2(pp - Vector2(17, 17), Vector2(34, 34)), false, Color(bulb, 0.68 * v))
 			ci.draw_circle(pp, 5.6, off)
-			ci.draw_circle(pp, 4.5, off.lerp(bulb, v))
-			ci.draw_circle(pp + Vector2(-1.3, -1.4), 1.6, Color(1, 1, 1, 0.8 * v))
+			ci.draw_circle(pp, 4.4, off.lerp(bulb, v))
+			ci.draw_circle(pp + Vector2(-1.3, -1.4), 1.6, Color(1, 1, 1, 0.85 * v))
+
 	for i in order:
 		if act[i]:
 			_draw_tile(ci, i, _lift(i))
 
 
-## một ô đất: bóng → thân (mép dày) → mặt → dải màu → khung
 func _draw_tile(ci: CanvasItem, i: int, lift: float) -> void:
 	var S: Dictionary = STYLE[theme]
 	var s: Dictionary = st[i]
 	var info: Dictionary = Data.BOARD[i]
 	var g := _geo(i, lift)
-	var pulse := 0.5 + 0.5 * sin(t * 6)
-	# bóng đổ trên thảm
-	ci.draw_colored_polygon(g.sh, Color(0.25, 0.08, 0.22, 0.20))
-	# thân ô: bao lồi của mặt trên và chân, sáng bên trái tối bên phải
+	var pulse := 0.5 + 0.5 * sin(t * 6.0)
+
+	# Quầng sáng dưới chân ô đích / ô đang chọn
+	if i == target or s.pick:
+		var gc := Color("#ffd000") if i == target else Color("#ffdc48")
+		ci.draw_colored_polygon(g.sh, Color(gc, 0.34 + 0.20 * pulse))
+	else:
+		ci.draw_colored_polygon(g.sh, Color(0.22, 0.07, 0.20, 0.22))
+
+	# Thân ô dày 3D: vách trái bắt nắng ấm, vách phải đổ bóng dịu, sống mũi giữa sáng nhẹ
 	var c_l := Color(S.tile_side[0])
 	var c_r := Color(S.tile_side[1])
+	if s.owned != null:
+		c_l = c_l.lerp(Color(s.owned).lightened(0.35), 0.22)
+		c_r = c_r.lerp(Color(s.owned).darkened(0.10), 0.25)
 	if s.dim:
-		c_l = c_l.darkened(0.4)
-		c_r = c_r.darkened(0.4)
-	ci.draw_polygon(g.hull, _grad(g.hull, Vector2(g.cx - g.hw * 0.5, 0), Vector2(g.cx + g.hw * 0.5, 0), c_l, c_r))
-	# mặt ô: chuyển màu từ mép xa tới mép gần
+		c_l = c_l.darkened(0.42)
+		c_r = c_r.darkened(0.42)
+	if g.wall_l.size() >= 3:
+		ci.draw_colored_polygon(g.wall_l, c_l)
+	if g.wall_r.size() >= 3:
+		ci.draw_colored_polygon(g.wall_r, c_r)
+	ci.draw_line(g.ridge_top, g.ridge_bot, c_l.lightened(0.18), 1.4, true)
+
+	# Mặt ô: chuyển màu mịn + vân giấy mỹ thuật
 	var pair: Array = TILE_BG.get(info.type, ["#ffffff", "#f4f4f4"])
 	var b0 := Color(pair[0])
 	var b1 := Color(pair[1])
 	if s.owned != null:
-		b0 = b0.lerp(Color(s.owned), 0.10)
-		b1 = b1.lerp(Color(s.owned), 0.20)
+		b0 = b0.lerp(Color(s.owned), 0.09)
+		b1 = b1.lerp(Color(s.owned), 0.18)
 	if s.dim:
 		b0 = b0.darkened(0.45)
 		b1 = b1.darkened(0.45)
 	b0 = b0.lightened(s.flash * 0.25)
 	b1 = b1.lightened(s.flash * 0.25)
-	ci.draw_polygon(g.face, _grad(g.face, g.pf, g.pn, b0, b1))
-	# dải màu nhóm / dải biển ở mép xa
+	ci.draw_polygon(g.face, _grad(g.face, g.pf, g.pn, b0, b1), g.fuv, paper_tex)
+
+	# Dải màu nhóm / dải biển cát vàng của khu du lịch
 	if g.banded:
-		var bc := Color(Data.GROUPS[info.group].color) if info.has("group") else Color("#3fb4dc")
-		if s.dim:
-			bc = bc.darkened(0.35)
-		ci.draw_polygon(g.band, _grad(g.band, g.pf, g.pb, bc.lightened(0.16), bc.darkened(0.06)))
-		ci.draw_colored_polygon(g.gloss, Color(1, 1, 1, 0.30))
-		ci.draw_line(g.l0, g.l1, Color(bc.darkened(0.3), 0.55), 1.6, true)
-		if s.mono:
-			ci.draw_string(font_b, g.star + Vector2(-8, 6), "★", HORIZONTAL_ALIGNMENT_CENTER, 16, 17, Color.WHITE)
+		if g.resort:
+			var sand := Color("#f7de9c") if not s.dim else Color("#f7de9c").darkened(0.38)
+			var sea0 := Color("#1789b8") if not s.dim else Color("#1789b8").darkened(0.38)
+			var sea1 := Color("#5fd3eb") if not s.dim else Color("#5fd3eb").darkened(0.38)
+			ci.draw_colored_polygon(g.band, sand)
+			ci.draw_polygon(g.sea, _grad(g.sea, g.pf, g.psea, sea0, sea1))
+			ci.draw_colored_polygon(g.foam, Color(1, 1, 1, 0.78 if not s.dim else 0.35))
+			ci.draw_colored_polygon(g.gloss, Color(1, 1, 1, 0.32))
+			ci.draw_line(g.l0, g.l1, Color("#d4b26a", 0.55), 1.4, true)
+		else:
+			var bc := Color(Data.GROUPS[info.group].color)
+			if s.dim:
+				bc = bc.darkened(0.38)
+			ci.draw_polygon(g.band, _grad(g.band, g.pf, g.pb, bc.lightened(0.18), bc.darkened(0.08)))
+			ci.draw_colored_polygon(g.gloss, Color(1, 1, 1, 0.34))
+			ci.draw_line(g.l0, g.l1, Color(bc.darkened(0.32), 0.58), 1.6, true)
+			if s.mono:
+				ci.draw_circle(g.star, 8.5, Color("#ffd43b"))
+				ci.draw_arc(g.star, 8.5, 0, TAU, 20, Color.WHITE, 1.4, true)
+				ci.draw_string(font_b, g.star + Vector2(-8, 5.5), "★", HORIZONTAL_ALIGNMENT_CENTER, 16, 13, Color("#663c00"))
 	else:
-		# ô đặc biệt: đĩa sáng làm nền cho icon
-		ci.draw_colored_polygon(g.plate, Color(1, 1, 1, 0.20 if s.dim else 0.55))
-		ci.draw_polyline(_closed(g.plate), Color(b1.darkened(0.18), 0.55), 1.4, true)
-	# viền sáng mảnh quanh mặt ô
+		ci.draw_colored_polygon(g.plate, Color(1, 1, 1, 0.22 if s.dim else 0.52))
+		ci.draw_polyline(_closed(g.plate), Color(b1.darkened(0.20), 0.52), 1.4, true)
+
+	# Viền vát sáng mảnh quanh mép trên mặt ô
 	if not s.dim:
-		ci.draw_polyline(g.in25, Color(1, 1, 1, 0.75), 1.2, true)
-	# viền chủ đất
+		ci.draw_polyline(g.in22, Color(1, 1, 1, 0.82), 1.3, true)
+
+	# Viền chủ đất
 	if s.owned != null:
 		ci.draw_polyline(g.in55, Color(s.owned), 3.0, true)
-	# khung sáng: ô đích, ô chọn được, lễ hội
+
+	# Khung sáng: ô đích, ô chọn được, lễ hội (nằm gọn quanh viền ô, không đè ngang chữ)
 	var fc = null
 	var fa := 0.0
 	if i == target:
-		fc = Color("#ffcf00")
-		fa = 0.75 + 0.25 * pulse
+		fc = Color("#ffd000")
+		fa = 0.82 + 0.18 * pulse
 	elif s.chosen:
 		fc = Color("#1f9d55")
 		fa = 1.0
 	elif s.pick:
 		fc = Color("#ffc800")
-		fa = 0.6 + 0.4 * pulse
+		fa = 0.65 + 0.35 * pulse
 	elif s.fest:
 		fc = Color("#ff5fa2")
-		fa = 0.9
+		fa = 0.92
 	elif s.rfest:
 		fc = Color("#2fbf6c")
-		fa = 0.75
+		fa = 0.78
 	if s.step > 0:
 		fc = Color("#fff2a0")
 		fa = maxf(fa, s.step)
 	if fc != null:
-		ci.draw_polyline(g.in30, Color(fc, fa), 4.0, true)
-	# chữ đi theo độ nâng của ô
-	var lb: Array = labels[i]
-	lb[0].get_parent().position = g.name
-	lb[1].get_parent().position = g.price
-	lb[0].get_parent().modulate.a = 0.45 if s.dim else 1.0
-	lb[1].get_parent().modulate.a = 0.45 if s.dim else 1.0
+		ci.draw_polyline(g.in30, Color(fc, fa), 4.2, true)
+
+	# Cập nhật vị trí chữ theo độ nâng của ô
+	if i < labels.size():
+		var lb: Array = labels[i]
+		lb[0].get_parent().position = g.name
+		lb[1].get_parent().position = g.price
+		lb[0].get_parent().modulate.a = 0.45 if s.dim else 1.0
+		lb[1].get_parent().modulate.a = 0.45 if s.dim else 1.0
 
 
-# ============================== lớp trên cùng: đèn lồng 4 góc ==============================
+# ============================== tiểu cảnh 3D trên 4 ô góc + đèn lồng 4 góc bệ ==============================
+
+func _draw_corner_props(ci: CanvasItem) -> void:
+	for i in [16, 8, 24, 0]:
+		var tex: Texture2D = CORNER_TEX[i]
+		var g := _geo(i, _lift(i))
+		var p: Vector2 = g.prop
+		var sc := 0.48
+		var sz := Vector2(tex.get_size()) * sc
+		var anc := Vector2(sz.x * 0.5, sz.y * 0.86)
+		var alpha := 0.45 if st[i].dim else 1.0
+		ci.draw_texture_rect(blob, Rect2(p - Vector2(36, 15), Vector2(72, 30)), false, Color(0.2, 0.08, 0.22, 0.22 * alpha))
+		ci.draw_texture_rect(tex, Rect2(p - anc, sz), false, Color(1, 1, 1, alpha))
+		# Hiệu ứng sống động riêng cho từng góc: đèn nháy đài không lưu Sân Bay & lồng đèn ấm Lễ Hội
+		if i == 24 and not st[i].dim:
+			var blink := 0.25 + 0.75 * maxf(0.0, sin(t * 5.5))
+			var bp := p + Vector2(-9, -56)
+			ci.draw_texture_rect(blob, Rect2(bp - Vector2(13, 13), Vector2(26, 26)), false, Color(1.0, 0.25, 0.25, 0.75 * blink))
+			ci.draw_circle(bp, 3.0, Color(1.0, 0.88, 0.85, blink))
+		elif i == 16 and not st[i].dim:
+			var gl := 0.75 + 0.25 * sin(t * 3.0)
+			ci.draw_texture_rect(blob, Rect2(p + Vector2(-42, -52), Vector2(84, 52)), false, Color(1.0, 0.65, 0.38, 0.24 * gl))
+
 
 func _draw_top(ci: CanvasItem) -> void:
 	var S: Dictionary = STYLE[theme]
 	var E := Board.W / 2 + 0.38
-	var post := Color(S.post)
-	var lan := Color(S.lantern)
-	var gold := Color(S.gold)
-	for sv in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
-		var b := Iso.p(sv.x * (E + 0.23), sv.y * (E + 0.23), -0.86)
-		var top := b + Vector2(0, -84)
-		# chân đế + thân cột
-		ci.draw_set_transform(b, 0, Vector2(1, 0.58))
-		ci.draw_circle(Vector2.ZERO, 12, Color(0, 0, 0, 0.16))
-		ci.draw_circle(Vector2(0, -3), 9.5, post.lightened(0.15))
-		ci.draw_circle(Vector2(0, -7), 6.5, gold)
-		ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
-		ci.draw_line(b + Vector2(0, -3), top, post, 5.0, true)
-		ci.draw_line(b + Vector2(-1.4, -3), top + Vector2(-1.4, 0), post.lightened(0.35), 1.4, true)
-		# đèn lồng giấy
-		var c := top + Vector2(0, -15)
-		var glow := 0.72 + 0.28 * sin(t * 2.2 + sv.x * 1.3 + sv.y * 2.1)
-		ci.draw_texture_rect(blob, Rect2(c - Vector2(52, 52), Vector2(104, 104)), false, Color(lan.lightened(0.45), 0.42 * glow))
-		ci.draw_rect(Rect2(c + Vector2(-7, -19), Vector2(14, 5)), post)
-		ci.draw_rect(Rect2(c + Vector2(-7, 14), Vector2(14, 5)), post)
-		ci.draw_set_transform(c, 0, Vector2(1, 1.08))
-		ci.draw_circle(Vector2.ZERO, 15, lan.darkened(0.12))
-		ci.draw_circle(Vector2(-1, -1), 13.5, lan)
-		ci.draw_circle(Vector2(-2, -2), 9.0, lan.lightened(0.28 + 0.2 * glow))
-		ci.draw_circle(Vector2(-4, -5), 4.0, Color(1, 1, 1, 0.55 + 0.3 * glow))
-		ci.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
-		for dx in [-8.0, 0.0, 8.0]:
-			ci.draw_line(c + Vector2(dx * 0.72, -13), c + Vector2(dx * 0.72, 13), Color(lan.darkened(0.3), 0.35), 1.0, true)
-		ci.draw_line(c + Vector2(0, 19), c + Vector2(0, 28), gold, 2.0, true)
-		ci.draw_circle(c + Vector2(0, 29), 2.4, gold)
+	for sv in [Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+		var glow := 0.78 + 0.22 * sin(t * 2.2 + sv.x * 1.3 + sv.y * 2.1)
+		_lamp(ci, Iso.p(sv.x * (E + 0.23), sv.y * (E + 0.23), -0.86), S, glow)

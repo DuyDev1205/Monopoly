@@ -11,8 +11,8 @@ const SS := 2
 const COLS := 8
 const VIEW := 2.6                 # chiều cao vùng nhìn (đơn vị 3D)
 const AIM_Y := 0.75
-## cỡ nhà theo cấp [vừa bề ngang, cao tối đa] — cấp càng cao càng to rõ
-const FIT := {1: [0.5, 0.5], 2: [0.56, 0.74], 3: [0.74, 1.0], 4: [0.72, 1.5]}
+## cỡ nhà theo cấp [vừa bề ngang, cao tối đa] — cấp càng cao càng to rõ (Business Tour)
+const FIT := {1: [0.54, 0.56], 2: [0.58, 0.80], 3: [0.68, 1.06], 4: [0.72, 1.46]}
 ## [loại, cấp, kiểu]
 const MODELS := [
 	["resort", 0, 0],
@@ -28,16 +28,26 @@ func _ready() -> void:
 	vp.size = Vector2i(FW * SS, FH * SS)
 	vp.transparent_bg = true
 	vp.own_world_3d = true
-	vp.msaa_3d = Viewport.MSAA_4X
+	vp.msaa_3d = Viewport.MSAA_8X
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(vp)
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color("#dce6ff")
+	sky_mat.sky_horizon_color = Color("#ffeaf2")
+	sky_mat.ground_horizon_color = Color("#e8d4e4")
+	sky_mat.ground_bottom_color = Color("#b89ec4")
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
 	var we := WorldEnvironment.new()
 	var env := Environment.new()
-	env.background_mode = Environment.BG_CLEAR_COLOR
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("#fff1f4")
-	env.ambient_light_energy = 0.95
-	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_sky_contribution = 0.65
+	env.ambient_light_color = Color("#f7ebf2")
+	env.ambient_light_energy = 0.55
+	env.tonemap_mode = Environment.TONE_MAPPER_AGX
+	env.tonemap_exposure = 0.98
 	we.environment = env
 	vp.add_child(we)
 	var cam := Camera3D.new()
@@ -74,22 +84,29 @@ func _ready() -> void:
 			var g := Node3D.new()
 			var hgt := 0.0
 			if M[0] == "resort":
-				g.add_child(P._plot(color, 1, 0.74, 0.54, Color("#f2dfa6")))
-				var hut := MeshUtil.kit("pf/beach-hut-fc7649", 0.36)
-				hut.position = Vector3(-0.12, 0.075, -0.02)
-				g.add_child(hut)
-				var palm := MeshUtil.kit("pf/palm-sapling-ef7ae4", 0, 0.62)
-				palm.position = Vector3(0.2, 0.075, 0.05)
-				g.add_child(palm)
-				hgt = 0.62
+				g.add_child(MeshUtil.mesh(MeshUtil.rounded_box(Vector3(0.80, 0.056, 0.62), 0.028, 3), MeshUtil.std(color, 0.32, 0.12), Vector3(0, 0.028, 0)))
+				g.add_child(MeshUtil.mesh(MeshUtil.rounded_box(Vector3(0.70, 0.022, 0.52), 0.014, 2), MeshUtil.std(Color("#38bdf8"), 0.22, 0.1), Vector3(0, 0.064, 0)))
+				g.add_child(MeshUtil.mesh(MeshUtil.rounded_box(Vector3(0.32, 0.028, 0.36), 0.018, 2), MeshUtil.std(Color("#f7e3ab"), 0.85), Vector3(0.16, 0.070, -0.02)))
+				var ship := MeshUtil.kit("bt_city/CruiseShip", 0.58)
+				if ship:
+					ship.position = Vector3(-0.10, 0.075, 0.04)
+					ship.rotation_degrees.y = 26.0
+					g.add_child(ship)
+				var palm := MeshUtil.kit("pf/palm-tree-a307da", 0, 0.56)
+				if palm == null:
+					palm = MeshUtil.kit("pf/palm-sapling-ef7ae4", 0, 0.56)
+				if palm:
+					palm.position = Vector3(0.24, 0.078, -0.06)
+					g.add_child(palm)
+				hgt = 0.64
 			else:
 				var L: int = M[1]
 				var mdl := MeshUtil.kit(Pieces.HOUSE_SETS[L][M[2]], FIT[L][0], 0, FIT[L][1])
-				_tint_roofs(mdl, color)
+				Pieces.decorate_building(mdl, color, L)
 				g.add_child(P._plot(color, L))
 				mdl.position.y = 0.075
 				g.add_child(mdl)
-				hgt = mdl.get_meta("height")
+				hgt = mdl.get_meta("height") + (0.26 if L >= 4 else 0.04)
 			vp.add_child(g)
 			await RenderingServer.frame_post_draw
 			await RenderingServer.frame_post_draw
@@ -110,44 +127,3 @@ func _ready() -> void:
 	sheet.save_png(ProjectSettings.globalize_path("res://assets/build2d/houses.png"))
 	P.free()
 	get_tree().quit()
-
-
-## tô mái (mặt hướng lên, ở nửa trên, màu gốc sẫm) theo màu chủ đất đã làm dịu; giữ độ đậm nhạt gốc để còn thấy vân ngói
-func _tint_roofs(grp: Node3D, color: Color) -> void:
-	var soft := color.lerp(Color.WHITE, 0.16)
-	var bb := MeshUtil.visible_aabb(grp)
-	var y0 := bb.position.y
-	var H := bb.size.y
-	var stack: Array = [[grp, Transform3D.IDENTITY]]
-	while stack.size():
-		var it: Array = stack.pop_back()
-		var n: Node = it[0]
-		var tf: Transform3D = it[1]
-		if n != grp and n is Node3D:
-			tf = tf * (n as Node3D).transform
-		for c in n.get_children():
-			stack.append([c, tf])
-		if not (n is MeshInstance3D) or (n as MeshInstance3D).mesh == null:
-			continue
-		var mi: MeshInstance3D = n
-		var out := ArrayMesh.new()
-		for s in mi.mesh.get_surface_count():
-			var arr: Array = mi.mesh.surface_get_arrays(s)
-			var mat := mi.mesh.surface_get_material(s)
-			if arr[Mesh.ARRAY_COLOR] != null and arr[Mesh.ARRAY_NORMAL] != null:
-				var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
-				var nr: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
-				var c: PackedColorArray = arr[Mesh.ARRAY_COLOR].duplicate()
-				for k in v.size():
-					var wp: Vector3 = tf * v[k]
-					var wn: Vector3 = (tf.basis * nr[k]).normalized()
-					var cc: Color = c[k]
-					var L := 0.3 * cc.r + 0.59 * cc.g + 0.11 * cc.b
-					var sat := maxf(cc.r, maxf(cc.g, cc.b)) - minf(cc.r, minf(cc.g, cc.b))
-					if wn.y >= 0.25 and wp.y >= y0 + H * 0.38 and L <= 0.6 and sat < 0.22:
-						var kk := 0.62 + L * 1.15
-						c[k] = Color(minf(1, soft.r * kk), minf(1, soft.g * kk), minf(1, soft.b * kk))
-				arr[Mesh.ARRAY_COLOR] = c
-			out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-			out.surface_set_material(out.get_surface_count() - 1, mat)
-		mi.mesh = out

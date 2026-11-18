@@ -35,6 +35,12 @@ const THEMES := {
 		"tree": "pf/tall-pine-tree-ab4108", "accent": "pf/birch-tree-181b33", "pine": "pf/young-pine-0d7695",
 		"bush": "pf/round-bush-cd2ac0", "pond": true, "torii": true, "pagoda": true, "night": true,
 	},
+	"cosmos": {
+		"grass_a": "#1e295e", "grass_b": "#12183a", "dry": "#2d4b88", "bank": "#182850", "petal": "#9bf8ff", "petal_amt": 0.10,
+		"blade_base": "#183064", "blade_tip": "#38bdf8", "fall": "",
+		"tree": "pf/palm-tree-a307da", "accent": "pf/palm-sapling-ef7ae4", "pine": "pf/tamarisk-bush-ba4337",
+		"bush": "pf/marram-grass-tuft-8c7a99", "pond": false, "torii": false, "pagoda": false, "night": true,
+	},
 }
 
 static var grass_scale := 1.0
@@ -187,7 +193,7 @@ func _build_pond(P: Dictionary) -> void:
 	var wm := ShaderMaterial.new()
 	wm.shader = load("res://scripts/water.gdshader")
 	wm.set_shader_parameter("noise", noise_tex)
-	if theme == "midnight":
+	if theme in ["midnight", "cosmos"]:
 		wm.set_shader_parameter("deep", Color("#0d2340"))
 		wm.set_shader_parameter("shallow", Color("#2a4f70"))
 	var disc := MeshUtil.cyl(pond_r * 1.2, pond_r * 1.2, 0.001, 64)

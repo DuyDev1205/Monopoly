@@ -9,7 +9,6 @@
 import os, sys, math
 import numpy as np
 from PIL import Image
-from scipy.ndimage import gaussian_filter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, "..", "assets", "art"))
@@ -33,12 +32,40 @@ def mix(a, b, t):
     return a + (b - a) * t
 
 
+def _gauss1d(a, s, axis, wrap=False):
+    if s <= 0.05:
+        return np.asarray(a, F)
+    arr = np.asarray(a, F)
+    L = arr.shape[axis]
+    if wrap:
+        freq = np.fft.rfftfreq(L).astype(F)
+        kern = np.exp(-2.0 * (np.pi * s * freq) ** 2).astype(F)
+        sh = [1] * arr.ndim
+        sh[axis] = len(kern)
+        return np.fft.irfft(np.fft.rfft(arr, axis=axis) * kern.reshape(sh), n=L, axis=axis).astype(F)
+    p = min(L - 1, max(12, int(math.ceil(s * 3.5))))
+    pad_w = [(0, 0)] * arr.ndim
+    pad_w[axis] = (p, p)
+    padded = np.pad(arr, pad_w, mode="edge")
+    Lp = L + 2 * p
+    freq = np.fft.rfftfreq(Lp).astype(F)
+    kern = np.exp(-2.0 * (np.pi * s * freq) ** 2).astype(F)
+    sh = [1] * arr.ndim
+    sh[axis] = len(kern)
+    res = np.fft.irfft(np.fft.rfft(padded, axis=axis) * kern.reshape(sh), n=Lp, axis=axis).astype(F)
+    sl = [slice(None)] * arr.ndim
+    sl[axis] = slice(p, p + L)
+    return res[tuple(sl)]
+
+
+def blur_aniso(a, sig_yx, wrap_x=False):
+    sy, sx = (sig_yx[0], sig_yx[1]) if isinstance(sig_yx, (tuple, list)) else (sig_yx, sig_yx)
+    out = _gauss1d(a, float(sy), axis=0, wrap=False)
+    return _gauss1d(out, float(sx), axis=1, wrap=wrap_x)
+
+
 def blur(a, s, wrap_x=False):
-    a = np.asarray(a, F)
-    mode = ["nearest", "wrap" if wrap_x else "nearest"]
-    if a.ndim == 3:
-        return gaussian_filter(a, sigma=(s, s, 0), mode=mode + ["nearest"])
-    return gaussian_filter(a, sigma=s, mode=mode)
+    return blur_aniso(a, (s, s), wrap_x=wrap_x)
 
 
 def ramp(t, stops):
@@ -137,19 +164,101 @@ def paint_sky(T, seed):
         stars *= smooth(10, 260, YA) * (1 - np.exp(-(d / (S["r"] * 5.0)) ** 2) * 0.9)
         tint = mix(hexc("#ffffff"), hexc(T["milky"]), rng.random((1, 1, 1)).astype(F) * 0 + 0.25)
         img += np.clip(stars, 0, 1.4)[..., None] * tint
-    # quầng sáng mặt trời / trăng (blend screen)
+        if T.get("cosmos"):
+            # Tinh vân sắc màu đa tầng (lục lam, hồng tím, hoàng kim) uốn lượn dọc nền trời đêm
+            neb1 = spectral(W, H, 2.05, seed + 19, sx=1.1, sy=1.4)
+            neb2 = spectral(W, H, 1.95, seed + 23, sx=1.5, sy=0.95)
+            neb3 = spectral(W, H, 2.2, seed + 31, sx=0.8, sy=1.2)
+            v_fade = smooth(18, 340, YA) * (0.45 + 0.55 * band)
+            diag = np.exp(-((((xx - W * 0.48) * 0.36 + (yy - H * 0.45)) / 240.0) ** 2))
+            cyan_m = smooth(0.45, 0.86, neb1) * (0.35 + 0.65 * diag) * v_fade
+            mag_m = smooth(0.46, 0.88, neb2) * (0.30 + 0.70 * diag) * v_fade
+            vio_m = smooth(0.38, 0.82, neb3) * v_fade
+            gold_m = np.clip((neb1 * neb2 - 0.26) * 3.0, 0.0, 1.0) * diag * v_fade
+            img += cyan_m[..., None] * hexc("#14e8ff") * 0.34
+            img += mag_m[..., None] * hexc("#ff3ca8") * 0.28
+            img += vio_m[..., None] * hexc("#7c3aed") * 0.24
+            img += gold_m[..., None] * hexc("#ffd166") * 0.22
+            # Khoảng 28 ngôi sao rực rỡ có 4 tia nhiễu xạ sắc nét
+            hrng = np.random.default_rng(seed + 41)
+            for si in range(28):
+                hx = int(hrng.integers(80, W - 80))
+                hy = int(hrng.integers(45, H - 90))
+                if math.hypot(hx - sx, hy - sy) < S["r"] * 2.1:
+                    continue
+                sp_r = 28
+                y0, y1 = max(0, hy - sp_r), min(H, hy + sp_r + 1)
+                x0, x1 = max(0, hx - sp_r), min(W, hx + sp_r + 1)
+                dy_p = (np.arange(y0, y1, dtype=F) - hy)[:, None]
+                dx_p = (np.arange(x0, x1, dtype=F) - hx)[None, :]
+                scol = hexc(["#ffffff", "#8ef7ff", "#ffb8ef", "#ffe69a"][si % 4])
+                flare = (
+                    np.exp(-(dx_p * dx_p + dy_p * dy_p) / 7.5) * 0.95
+                    + (np.exp(-np.abs(dx_p) / 1.15) * np.exp(-np.abs(dy_p) / 14.0)
+                       + np.exp(-np.abs(dy_p) / 1.15) * np.exp(-np.abs(dx_p) / 14.0)) * 0.72
+                ) * hrng.uniform(0.7, 1.15)
+                img[y0:y1, x0:x1] += flare[..., None] * scol
+    # quầng sáng mặt trời / trăng / hành tinh (blend screen)
     g = S["amt"] * (0.60 * np.exp(-(d / 70) ** 2) + 0.34 * np.exp(-(d / 210) ** 2)
                     + 0.22 * np.exp(-(d / 560) ** 2) + 0.12 * np.exp(-(d / 1200) ** 2))
     g += S["amt"] * 0.22 * np.exp(-((xx - sx) / 1000) ** 2) * np.exp(-YA / 130)      # hừng sáng sát chân trời
     gc = hexc(S["glow"])
     img = 1 - (1 - np.clip(img, 0, 1)) * (1 - np.clip(g, 0, 1)[..., None] * gc)
     r = S["r"]
-    disc = smooth(r + 1.6, r - 1.6, d)
-    sc = np.broadcast_to(hexc(S["col"]), img.shape).copy()
-    if T.get("stars"):                                                              # mặt trăng: vân tối nhẹ
-        m = spectral(W, H, 2.2, seed + 3)
-        sc *= (1 - 0.16 * smooth(0.5, 0.8, m))[..., None]
-    img = mix(img, sc, disc[..., None])
+    if T.get("cosmos"):
+        # Hành tinh khí khổng lồ có vành đai nghiêng 3D + mặt trăng băng phụ
+        dx = xx - sx
+        dy = yy - sy
+        ang = -0.34
+        ca, sa = math.cos(ang), math.sin(ang)
+        rx = dx * ca + dy * sa
+        ry = -dx * sa + dy * ca
+        rr = np.hypot(rx, ry * 2.85) / r
+        ring_band = smooth(1.26, 1.32, rr) * (1.0 - smooth(2.34, 2.40, rr))
+        cassini = 1.0 - 0.85 * np.exp(-((rr - 1.82) / 0.045) ** 2)
+        ring_tex = 0.75 + 0.25 * np.sin(rr * 36.0)
+        ring_a = np.clip(ring_band * cassini * ring_tex * 0.82, 0.0, 1.0)
+        rt = np.clip((rr - 1.26) / 1.14, 0.0, 1.0)
+        ring_rgb = ramp(rt, [(0.0, hexc("#9bf8ff")), (0.45, hexc("#ffd6a5")), (1.0, hexc("#c4b5fd"))])
+        back_sh = 1.0 - 0.72 * smooth(0.25 * r, 0.90 * r, rx) * (ry < 0)
+        back_a = (ring_a * (ry < 0))[..., None]
+        img = mix(img, np.clip(ring_rgb * back_sh[..., None], 0, 1), back_a)
+
+        # Thân cầu hành tinh có vân mây vĩ độ & quầng khí quyển phía sáng
+        px = np.clip(dx / r, -1.0, 1.0)
+        py = np.clip(dy / r, -1.0, 1.0)
+        pz = np.sqrt(np.maximum(0.0, 1.0 - px * px - py * py))
+        L_pl = np.array([-0.55, -0.48, 0.68], F)
+        L_pl /= np.linalg.norm(L_pl)
+        nl = np.clip(px * L_pl[0] + py * L_pl[1] + pz * L_pl[2], 0.0, 1.0)
+        lat = ry / r + 0.08 * (spectral(W, H, 2.0, seed + 51, sx=1.8, sy=1.0) - 0.5)
+        bt = np.clip(0.5 + 0.48 * np.sin(lat * 11.5), 0.0, 1.0)
+        p_col = ramp(bt, [(0.0, hexc("#163b7a")), (0.42, hexc("#38bdf8")), (0.72, hexc("#818cf8")), (1.0, hexc("#f4a261"))])
+        rim = smooth(0.55, 0.98, np.hypot(px, py)) * (0.25 + 0.75 * nl)
+        p_lit = p_col * (0.14 + 0.95 * (nl ** 0.78))[..., None] + hexc("#7df9ff") * (rim * 0.55)[..., None]
+        disc = smooth(r + 1.6, r - 1.6, d)
+        img = mix(img, np.clip(p_lit, 0, 1), disc[..., None])
+
+        # Nửa trước của vành đai vắt ngang trước hành tinh
+        front_a = (ring_a * (ry >= 0))[..., None]
+        img = mix(img, ring_rgb * (0.86 + 0.14 * smooth(-r * 1.4, r * 0.4, -rx))[..., None], front_a)
+
+        # Mặt trăng băng nhỏ ở góc trên-trái đối xứng
+        mx, my, mr = 0.20 * W, H - 390.0, 24.0
+        md = np.hypot(xx - mx, yy - my)
+        mdx, mdy = np.clip((xx - mx) / mr, -1.0, 1.0), np.clip((yy - my) / mr, -1.0, 1.0)
+        mdz = np.sqrt(np.maximum(0.0, 1.0 - mdx * mdx - mdy * mdy))
+        mnl = np.clip(mdx * L_pl[0] + mdy * L_pl[1] + mdz * L_pl[2], 0.0, 1.0)
+        m_crater = 1.0 - 0.14 * smooth(0.55, 0.85, spectral(W, H, 2.2, seed + 61))
+        m_col = mix(hexc("#8ea8e6"), hexc("#dff7ff"), mnl[..., None]) * m_crater[..., None] * (0.18 + 0.92 * mnl[..., None])
+        img = mix(img, np.clip(m_col, 0, 1), smooth(mr + 1.4, mr - 1.4, md)[..., None])
+    else:
+        disc = smooth(r + 1.6, r - 1.6, d)
+        sc = np.broadcast_to(hexc(S["col"]), img.shape).copy()
+        if T.get("stars"):                                                              # mặt trăng: vân tối nhẹ
+            m = spectral(W, H, 2.2, seed + 3)
+            sc *= (1 - 0.16 * smooth(0.5, 0.8, m))[..., None]
+        img = mix(img, sc, disc[..., None])
     return np.clip(img, 0, 1)
 
 
@@ -253,14 +362,23 @@ def cloud_row(spec, seed, L, P, sky_hz):
 
 def paint_clouds(T, seed, sky_hz):
     P = {k: hexc(v) for k, v in T["cloud"].items()}
+    layer = np.zeros((H, W, 4), F)
+    ya = (H - np.arange(H, dtype=F))[:, None]
+    if T.get("cosmos"):
+        # Dải mây tinh vân phát quang xuyên qua nền sao (liền mép X để trôi mượt trong shader)
+        w1 = spectral(W, H, 2.2, seed + 71, sx=1.5, sy=1.0)
+        w2 = spectral(W, H, 2.1, seed + 79, sx=1.1, sy=1.3)
+        w3 = spectral(W, H, 2.35, seed + 83, sx=2.2, sy=0.7)
+        fade = smooth(75, 420, ya)
+        over(layer, np.broadcast_to(P["mid"], (H, W, 3)), (smooth(0.48, 0.88, w1) * fade * 0.28).astype(F))
+        over(layer, np.broadcast_to(P["hi"], (H, W, 3)), (smooth(0.54, 0.92, w2) * w3 * fade * 0.34).astype(F))
+        return layer
     sun_right = T["sun"]["x"] > 0.5
     L = np.array([0.50 if sun_right else -0.50, -0.74, 0.45], F)
     L /= np.linalg.norm(L)
-    layer = np.zeros((H, W, 4), F)
     # mây ti: vệt mỏng kéo ngang trên cao
     n = spectral(W, H, 2.3, seed + 1, sx=2.2, sy=0.8)
     n2 = spectral(W, H, 2.4, seed + 2, sx=1.0, sy=1.0)
-    ya = (H - np.arange(H, dtype=F))[:, None]
     ca = smooth(0.50, 0.92, n) * (0.25 + 0.75 * n2) * smooth(160, 520, ya) * T.get("cirrus", 0.5) * 0.8
     over(layer, np.broadcast_to(mix(P["mid"], P["hi"], 0.6), (H, W, 3)), ca.astype(F))
     for k, spec in enumerate(T["cloud_rows"]):                           # xa vẽ trước
@@ -281,10 +399,10 @@ def mountain(land, hmap, c_top, c_lit, mist, sun_right, mist_h, mist_amt, seed):
     ya = (LH - np.arange(LH, dtype=F))[:, None] - 0.5
     a = np.clip(hmap[None, :] - ya + 0.5, 0, 1)
     depth = np.maximum(hmap[None, :] - ya, 0)
-    slope = np.gradient(gaussian_filter(hmap, 26, mode="wrap"))
+    slope = np.gradient(_gauss1d(hmap, 26, axis=0, wrap=True))
     lit = np.clip(0.40 - slope * (1.0 if sun_right else -1.0) * 2.0, 0, 1)
     xi = np.arange(W)[None, :] + (depth * (0.5 if sun_right else -0.5)).astype(np.int32)
-    lit2 = gaussian_filter(lit[xi % W], (14, 16), mode="nearest")
+    lit2 = blur_aniso(lit[xi % W], (14, 16), wrap_x=False)
     tex = spectral(W, LH, 2.3, seed, sx=1.2, sy=0.8)
     k = lit2 * np.exp(-depth / 150.0) * 0.75 + (tex - 0.5) * 0.08
     rgb = mix(c_top, c_lit, np.clip(k, 0, 1)[..., None])
@@ -443,8 +561,26 @@ THEMES = {
                     lights=dict(n=46, col="#ffcf8a"))],
         fog=0.4,
     ),
+    "cosmos": dict(
+        sky=[(900, "#02030d"), (660, "#050924"), (450, "#0b133d"), (290, "#141f5c"), (160, "#183675"), (65, "#1b568c"), (0, "#247ba0")],
+        sun=dict(x=0.76, y=340, r=78, col="#38bdf8", glow="#6d28d9", amt=0.48),
+        cosmos=True, stars=9000, milky="#9ef0ff", wash=0.025,
+        cloud=dict(hi="#4ff4ff", mid="#a855f7", sh="#2c1d63", deep="#0c0a2a"), cirrus=0.55,
+        cloud_rows=[],
+        mist="#2ae8f5",
+        mtn=[dict(base=60, amp=310, col="#141e52", lit="#38bdf8", mid=0.22, mist_h=240, mist=0.72, band=95, band_amt=0.26),
+             dict(base=34, amp=225, col="#101842", lit="#818cf8", mid=0.20, mist_h=190, mist=0.65, band=75, band_amt=0.22, beta=1.95),
+             dict(base=14, amp=150, col="#0b102d", lit="#c084fc", mid=0.14, mist_h=135, mist=0.52, band=55, band_amt=0.18, beta=1.9)],
+        hills=[dict(base=4, amp=105, mid=0.12, wl=22, haze=0.26, gap=0.26,
+                    pal=dict(hi="#7df9ff", mid="#4338ca", sh="#1e1b4b", deep="#09081f", tints=["#7df9ff", "#c084fc", "#f472b6", "#38bdf8"]),
+                    lights=dict(n=95, col="#38f6ff")),
+               dict(base=0, amp=74, mid=0.03, envp=2.3, wl=32, haze=0.08, gap=0.46,
+                    pal=dict(hi="#a5f3fc", mid="#6d28d9", sh="#22174a", deep="#08061a", tints=["#a5f3fc", "#f472b6", "#ffd166", "#818cf8"]),
+                    lights=dict(n=60, col="#ff6ad5"))],
+        fog=0.36, fog_h=38,
+    ),
 }
-SEEDS = {"sakura": 11, "wood": 23, "ocean": 37, "midnight": 51}
+SEEDS = {"sakura": 11, "wood": 23, "ocean": 37, "midnight": 51, "cosmos": 73}
 
 
 # ============================== XEM THỬ ==============================

@@ -1,21 +1,14 @@
 extends Node
-## Chụp 12 nhân vật 3D (KayKit) thành bảng khung hình 2D cho bản app 2D: đứng thở, đi, nhảy, reo hò, giật mình, ngã
-## (nhìn từ trước) + đi, nhảy (nhìn từ sau). Góc máy khớp phép chiếu của bàn cờ (Iso).
-## Chạy (cần cửa sổ, không --headless):  godot --path godot res://tools/render_chars.tscn [-- --only=0,5 --probe]
-## Sau đó chạy: python godot/tools/fix_chars.py  (bỏ nhân sẵn alpha, tăng nhẹ độ tươi, nén PNG)
-## Xuất: assets/chars2d/c<k>.png — lưới COLS cột, mỗi ô FRAME px; thứ tự khung theo bảng CLIPS (pieces2d.gd dùng cùng bảng).
+## Kết xuất 12 nhân vật hình người 3D (TokenModels) thành chân dung UI trên bệ vàng (320×320, tự động cắt khung theo vùng alpha sao cho nhân vật chiếm ~91% chiều cao)
+## tại .ui_raw/chars/c0..c11.png (fix_chars.py sẽ chuyển sang assets/ui/chars/*.webp).
+## Chạy (cần cửa sổ, không --headless):
+##   godot --path godot res://tools/render_chars.tscn [-- --only=0,5]
+## Sau đó chạy: python godot/tools/fix_chars.py --force
 
-const FRAME := 240
+const PORT_PX := 320
+const PORT_SS := 768
+const FILL_PX := 292
 const SS := 2
-const COLS := 10
-const VIEW := 1.85                # chiều cao vùng nhìn (đơn vị 3D)
-const AIM_Y := 0.60               # máy nhìn vào độ cao này
-## [tên, hướng (d = quay mặt xuống-trái, u = quay lưng lên-trái), clip, số khung, lặp]
-const CLIPS := [
-	["idle", "d", "Idle", 12, true], ["walk", "d", "Walking_A", 10, true], ["jump", "d", "Jump_Full_Short", 10, false],
-	["cheer", "d", "Cheer", 14, false], ["hit", "d", "Hit_A", 8, false], ["die", "d", "Death_A", 12, false],
-	["walk_u", "u", "Walking_A", 10, true], ["jump_u", "u", "Jump_Full_Short", 10, false],
-]
 
 var args := {}
 
@@ -24,101 +17,144 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		var kv := a.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "1"
+
 	var vp := SubViewport.new()
-	vp.size = Vector2i(FRAME * SS, FRAME * SS)
 	vp.transparent_bg = true
 	vp.own_world_3d = true
-	vp.msaa_3d = Viewport.MSAA_4X
+	vp.msaa_3d = Viewport.MSAA_8X
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(vp)
+
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color("#e8f0ff")
+	sky_mat.sky_horizon_color = Color("#fff2f7")
+	sky_mat.ground_horizon_color = Color("#ece0ea")
+	sky_mat.ground_bottom_color = Color("#c8b2d2")
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
 	var we := WorldEnvironment.new()
 	var env := Environment.new()
-	env.background_mode = Environment.BG_CLEAR_COLOR
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("#fff3f6")
-	env.ambient_light_energy = 0.98
-	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_sky_contribution = 0.56
+	env.ambient_light_color = Color("#fff5fb")
+	env.ambient_light_energy = 0.46
+	env.tonemap_mode = Environment.TONE_MAPPER_AGX
+	env.tonemap_exposure = 0.96
 	we.environment = env
 	vp.add_child(we)
+
 	var cam := Camera3D.new()
-	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
-	cam.size = VIEW
 	cam.near = 0.1
-	cam.far = 60.0
+	cam.far = 40.0
 	vp.add_child(cam)
-	cam.position = Vector3(0, AIM_Y, 0) + Vector3(1, 1, 1) * 12.0
-	cam.look_at(Vector3(0, AIM_Y, 0))
-	var key := DirectionalLight3D.new()            # nắng chính: từ trên, chếch trái-trước
+
+	var key := DirectionalLight3D.new()
 	vp.add_child(key)
-	key.look_at_from_position(Vector3(-0.2, 2.2, 1.6), Vector3.ZERO)
-	key.light_energy = 1.0
-	key.light_color = Color("#fff8ee")
-	var rim := DirectionalLight3D.new()            # ánh viền từ sau-phải
+	key.look_at_from_position(Vector3(-1.0, 2.5, 2.2), Vector3.ZERO)
+	key.light_energy = 1.08
+	key.light_color = Color("#fff7ed")
+	key.shadow_enabled = true
+	key.shadow_opacity = 0.28
+	key.shadow_blur = 1.8
+	key.directional_shadow_max_distance = 12.0
+
+	var fill := DirectionalLight3D.new()
+	vp.add_child(fill)
+	fill.look_at_from_position(Vector3(1.6, 0.8, 1.6), Vector3.ZERO)
+	fill.light_energy = 0.40
+	fill.light_color = Color("#ffebf4")
+
+	var rim := DirectionalLight3D.new()
 	vp.add_child(rim)
-	rim.look_at_from_position(Vector3(1.5, 1.2, -1.8), Vector3.ZERO)
-	rim.light_energy = 0.38
-	rim.light_color = Color("#d9e4ff")
+	rim.look_at_from_position(Vector3(1.5, 1.5, -1.9), Vector3.ZERO)
+	rim.light_energy = 0.58
+	rim.light_color = Color("#dce8ff")
+
 	var only: Array = []
 	if args.has("only"):
 		for s in str(args.only).split(","):
 			only.append(int(s))
-	var total := 0
-	for c in CLIPS:
-		total += c[3]
-	var rows := int(ceil(float(total) / COLS))
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/chars2d"))
-	for k in Pieces.CHAR3D.size():
+
+	var raw_dir := ProjectSettings.globalize_path("res://../.ui_raw/chars")
+	DirAccess.make_dir_recursive_absolute(raw_dir)
+
+	# Góc xoay 3/4 tinh tế khoe trọn biểu cảm mắt, trang phục và đạo cụ tay phải
+	var ui_yaws := [0.34, 0.30, 0.34, 0.32, 0.32, 0.30, 0.32, 0.34, 0.34, 0.32, 0.30, 0.34]
+
+	for k in 12:
 		if not only.is_empty() and not (k in only):
 			continue
-		var ent: Dictionary = Pieces.CHAR3D[k]
-		var o: Node3D = load("res://assets/models/kk/chr/%s.glb" % ent.f).instantiate()
-		var ap: AnimationPlayer = o.find_child("AnimationPlayer", true, false)
-		if ent.has("hide"):
-			var re := RegEx.create_from_string("(?i)" + ent.hide)
-			for n in o.find_children("*", "", true, false):
-				if n != o and re.search(n.name) and n is Node3D:
-					n.visible = false
-		var bb := MeshUtil.visible_aabb(o)
-		var sc := Pieces.TOKEN_H / maxf(bb.size.y, 0.01)
-		o.scale = Vector3.ONE * sc
-		o.position.y = -bb.position.y * sc
-		var wrap := Node3D.new()
-		wrap.add_child(o)
-		vp.add_child(wrap)
-		if args.has("probe"):
-			for nm in ap.get_animation_list():
-				print(k, " ", nm, " ", snappedf(ap.get_animation(nm).length, 0.01))
-			wrap.queue_free()
-			continue
-		var sheet := Image.create(COLS * FRAME, rows * FRAME, false, Image.FORMAT_RGBA8)
-		var idx := 0
-		var edge := 0
-		for c in CLIPS:
-			wrap.rotation.y = 0.22 if c[1] == "d" else -PI / 2 - 0.22
-			var clip: String = c[2]
-			if not ap.has_animation(clip):
-				push_error("thiếu clip %s ở nhân vật %d" % [clip, k])
-				idx += c[3]
-				continue
-			var n: int = c[3]
-			var L := ap.get_animation(clip).length
-			ap.play(clip)
-			for i in n:
-				var tt := (L * i / n) if c[4] else (L * i / (n - 1))
-				ap.seek(minf(tt, L - 0.001), true)
-				await RenderingServer.frame_post_draw
-				await RenderingServer.frame_post_draw
-				var img := vp.get_texture().get_image()
-				img.convert(Image.FORMAT_RGBA8)
-				img.resize(FRAME, FRAME, Image.INTERPOLATE_LANCZOS)
-				for e in FRAME:
-					if img.get_pixel(e, 0).a > 0.1 or img.get_pixel(0, e).a > 0.1 or img.get_pixel(FRAME - 1, e).a > 0.1:
-						edge += 1
-						break
-				sheet.blit_rect(img, Rect2i(0, 0, FRAME, FRAME), Vector2i((idx % COLS) * FRAME, (idx / COLS) * FRAME))
-				idx += 1
-		sheet.save_png(ProjectSettings.globalize_path("res://assets/chars2d/c%d.png" % k))
-		print("ok c%d  khung=%d  chạm mép=%d" % [k, idx, edge])
-		wrap.queue_free()
+
+		# Ảnh chân dung UI chất lượng cao (768×768 -> auto-crop sát khung 320×320)
+		vp.size = Vector2i(PORT_SS, PORT_SS)
+		cam.projection = Camera3D.PROJECTION_PERSPECTIVE
+		cam.fov = 22.0
+
+		var stage := Node3D.new()
+		var plinth := TokenModels.plinth()
+		stage.add_child(plinth)
+		var rig := TokenModels.build(k)
+		(rig.root as Node3D).position.y = 0.065
+		(rig.root as Node3D).rotation.y = ui_yaws[k]
+		TokenModels.animate(rig, 0.22, "idle", 0.0, 1.0, false)
+		stage.add_child(rig.root)
+		vp.add_child(stage)
+
+		var bb := MeshUtil.visible_aabb(stage)
+		var aim := bb.position + bb.size * 0.5
+		var span := maxf(bb.size.y, maxf(bb.size.x, bb.size.z))
+		var dist := (span * 0.60) / tan(deg_to_rad(cam.fov * 0.5))
+		cam.look_at_from_position(aim + Vector3(0.0, 0.22, 1.0).normalized() * dist, aim, Vector3.UP)
+
+		await RenderingServer.frame_post_draw
+		await RenderingServer.frame_post_draw
+		await RenderingServer.frame_post_draw
+		var raw_img := vp.get_texture().get_image()
+		raw_img.convert(Image.FORMAT_RGBA8)
+		var out_img := _tight_frame_portrait(raw_img)
+		out_img.save_png("%s/c%d.png" % [raw_dir, k])
+		print("ok portrait c%d" % k)
+		stage.queue_free()
 		await get_tree().process_frame
+
 	get_tree().quit()
+
+
+func _tight_frame_portrait(src: Image) -> Image:
+	## Cắt sát hộp alpha thực tế của nhân vật + bệ và co giãn vừa khít ~91% khung 320×320.
+	var w := src.get_width()
+	var h := src.get_height()
+	var x0 := w
+	var y0 := h
+	var x1 := -1
+	var y1 := -1
+	for y in h:
+		for x in w:
+			if src.get_pixel(x, y).a > 0.015:
+				if x < x0: x0 = x
+				if x > x1: x1 = x
+				if y < y0: y0 = y
+				if y > y1: y1 = y
+	if x1 < x0 or y1 < y0:
+		var fallback := src.duplicate()
+		fallback.resize(PORT_PX, PORT_PX, Image.INTERPOLATE_LANCZOS)
+		return fallback
+
+	var bw := x1 - x0 + 1
+	var bh := y1 - y0 + 1
+	var crop := src.get_region(Rect2i(x0, y0, bw, bh))
+	var scale := float(FILL_PX) / float(maxi(bw, bh))
+	var tw := maxi(1, int(round(float(bw) * scale)))
+	var th := maxi(1, int(round(float(bh) * scale)))
+	crop.resize(tw, th, Image.INTERPOLATE_LANCZOS)
+
+	var canvas := Image.create(PORT_PX, PORT_PX, false, Image.FORMAT_RGBA8)
+	canvas.fill(Color(0, 0, 0, 0))
+	var dx := (PORT_PX - tw) / 2
+	var dy := PORT_PX - th - 12
+	if dy < (PORT_PX - th) / 2:
+		dy = (PORT_PX - th) / 2
+	canvas.blit_rect(crop, Rect2i(0, 0, tw, th), Vector2i(dx, dy))
+	return canvas

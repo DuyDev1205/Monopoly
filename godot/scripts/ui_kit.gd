@@ -2,24 +2,28 @@ class_name UiKit
 ## Bộ dựng giao diện: bảng màu 4 theme (giống skin-td.css của bản app cũ), nút / thẻ / nhãn bo tròn có bóng đổ.
 
 const PALETTE := {
-	"midnight": {"bg1": "#0E1330", "bg2": "#1B0F2E", "panel": "#151A33", "panel2": "#1D2342", "border": "#2B3360",
-		"text": "#EEF1FF", "dim": "#8C94C0", "accent": "#7B61FF", "a2": "#35D5FF", "gold": "#FFC857", "money": "#5BE49B", "shadow": Color(0, 0, 0, 0.55)},
-	"wood": {"bg1": "#F6EEE3", "bg2": "#E5D1B8", "panel": "#FFFBF5", "panel2": "#F6EDE1", "border": "#E6D5BF",
-		"text": "#3E2A17", "dim": "#8F7458", "accent": "#B8642E", "a2": "#1F3A5F", "gold": "#F0A020", "money": "#2f7d32", "shadow": Color(0.31, 0.18, 0.04, 0.28)},
-	"ocean": {"bg1": "#34E5D7", "bg2": "#12B3C6", "panel": "#F6FFFE", "panel2": "#E6F7F6", "border": "#BFE9E6",
-		"text": "#123250", "dim": "#56788F", "accent": "#0C93A5", "a2": "#FF6B5B", "gold": "#FFB703", "money": "#13895a", "shadow": Color(0.04, 0.24, 0.31, 0.3)},
+	"ocean": {"bg1": "#1CA7EC", "bg2": "#0F6CBD", "panel": "#FFFFFF", "panel2": "#EEF6FC", "border": "#C5DDF0",
+		"text": "#0F2942", "dim": "#52718E", "accent": "#1565C0", "a2": "#F59F00", "gold": "#FFB703", "money": "#0CA678", "shadow": Color(0.04, 0.16, 0.30, 0.28)},
 	"sakura": {"bg1": "#FFF0F5", "bg2": "#EDE2FF", "panel": "#FFFFFF", "panel2": "#FBF2F8", "border": "#F0D9E7",
 		"text": "#3B1F3F", "dim": "#9C7C9A", "accent": "#E8467C", "a2": "#6F4BE8", "gold": "#FFB020", "money": "#1f9d55", "shadow": Color(0.47, 0.16, 0.35, 0.22)},
+	"wood": {"bg1": "#F6EEE3", "bg2": "#E5D1B8", "panel": "#FFFBF5", "panel2": "#F6EDE1", "border": "#E6D5BF",
+		"text": "#3E2A17", "dim": "#8F7458", "accent": "#B8642E", "a2": "#1F3A5F", "gold": "#F0A020", "money": "#2f7d32", "shadow": Color(0.31, 0.18, 0.04, 0.28)},
+	"midnight": {"bg1": "#0E1330", "bg2": "#1B0F2E", "panel": "#151A33", "panel2": "#1D2342", "border": "#2B3360",
+		"text": "#EEF1FF", "dim": "#8C94C0", "accent": "#7B61FF", "a2": "#35D5FF", "gold": "#FFC857", "money": "#5BE49B", "shadow": Color(0, 0, 0, 0.55)},
+	"cosmos": {"bg1": "#060B22", "bg2": "#0E1B42", "panel": "#0D1530", "panel2": "#152248", "border": "#25437A",
+		"text": "#ECF6FF", "dim": "#82A4D0", "accent": "#22D3EE", "a2": "#E879F9", "gold": "#FFD166", "money": "#34D399", "shadow": Color(0.0, 0.02, 0.09, 0.62)},
 }
-const THEME_NAMES := {"midnight": "Midnight Neon", "wood": "Gỗ Cổ Điển", "ocean": "Đại Dương", "sakura": "Hoa Anh Đào"}
-const THEMES := ["midnight", "wood", "ocean", "sakura"]
+const THEME_NAMES := {"ocean": "Business Tour", "sakura": "Hoa Anh Đào", "wood": "Gỗ Cổ Điển", "midnight": "Midnight Neon", "cosmos": "Vũ Trụ"}
+const THEMES := ["ocean", "sakura", "wood", "midnight", "cosmos"]
 
-static var P: Dictionary = PALETTE.sakura
+static var P: Dictionary = PALETTE.ocean
 static var fonts := {}
+static var _portrait_cache := {}
+static var _bust_cache := {}
 
 
 static func set_theme(name: String) -> void:
-	P = PALETTE.get(name, PALETTE.sakura)
+	P = PALETTE.get(name, PALETTE.ocean)
 
 
 static func c(key: String) -> Color:
@@ -167,19 +171,45 @@ static func tex(path: String) -> Texture2D:
 	return load(path) if ResourceLoader.exists(path) else null
 
 
+static func _load_char_webp(cache: Dictionary, prefix: String, k: int) -> Texture2D:
+	var idx := posmod(k, 12)
+	if cache.has(idx):
+		return cache[idx]
+	var res_path := "res://assets/ui/chars/%s%d.webp" % [prefix, idx]
+	var t: Texture2D = null
+	if OS.has_feature("editor"):
+		var disk_path := ProjectSettings.globalize_path(res_path)
+		if FileAccess.file_exists(disk_path):
+			var img := Image.load_from_file(disk_path)
+			if img != null and not img.is_empty():
+				img.generate_mipmaps()
+				t = ImageTexture.create_from_image(img)
+	if t == null:
+		t = tex(res_path)
+	if t != null:
+		cache[idx] = t
+	return t
+
+
 static func portrait(k: int) -> Texture2D:
-	return tex("res://assets/ui/chars/c%d.webp" % posmod(k, 12))
+	return _load_char_webp(_portrait_cache, "c", k)
 
 
-## ảnh nhân vật trong khung tròn màu người chơi
+static func bust(k: int) -> Texture2D:
+	var t := _load_char_webp(_bust_cache, "av", k)
+	return t if t != null else portrait(k)
+
+
+## ảnh nhân vật trong khung tròn màu người chơi (ảnh bán thân av0..av11 render riêng từ Blender)
 static func avatar(k: int, color: Color, size := 64) -> Control:
 	var p := Panel.new()
 	p.custom_minimum_size = Vector2(size, size)
-	var sb := box(color.lerp(c("panel"), 0.72), size / 2, color, maxi(2, size / 22), 0, Vector4.ZERO)
+	var sb := box(color.lerp(c("panel"), 0.78), size / 2, color, maxi(2, size / 20), 0, Vector4.ZERO)
 	p.add_theme_stylebox_override("panel", sb)
 	p.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
 	var tr := TextureRect.new()
-	tr.texture = portrait(k)
+	tr.texture = bust(k)
+	tr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	tr.set_anchors_preset(Control.PRESET_FULL_RECT)

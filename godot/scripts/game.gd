@@ -3,8 +3,21 @@ extends CanvasLayer
 ## Bộ điều khiển ván + toàn bộ giao diện 2D (trang chủ, thanh trên, 4 thẻ người chơi ở góc, bảng hành động,
 ## băng rôn sự kiện, thẻ Cơ Hội, menu, màn thắng, luật chơi). Phát lại sự kiện từ Rules giống play() của js/app.js.
 
-const LVL_NAME := ["Chỉ mua đất", "Nhà cấp 1", "Nhà cấp 2", "Nhà cấp 3", "Khách sạn"]
-const CHAR_NAMES := ["Hiệp Sĩ", "Phù Thủy", "Tráng Sĩ", "Lãng Khách", "Ninja", "Xương Giáp", "Xương Phép", "Bé Xương", "Xương Ninja", "Chàng Hiệp Sĩ", "Pháp Sư Trẻ", "Thợ Săn"]
+const LVL_NAME := ["Chỉ mua đất", "Biệt thự", "Căn hộ TM", "Cao ốc", "Landmark"]
+const CHAR_NAMES := [
+	"Chủ Tịch Tập Đoàn",
+	"Nữ Tổng Tài",
+	"Ông Hoàng Tài Phiệt",
+	"Tiểu Thư Thượng Lưu",
+	"Đại Gia Nghỉ Dưỡng",
+	"Cảnh Sát Trưởng",
+	"Kỹ Sư Địa Ốc",
+	"Founder Khởi Nghiệp",
+	"Nữ Vlogger Du Lịch",
+	"Địa Chủ Miền Tây",
+	"Tay Chơi Phố Wall",
+	"Tỷ Phú Vũ Trụ",
+]
 const SAVE_PATH := "user://save.json"
 const SETTINGS_PATH := "user://settings.json"
 const VERSION := "2.2.1"
@@ -13,8 +26,8 @@ var main: Node
 var audio: GameAudio
 var net = null                  # chơi online (net.gd), null khi chơi trên máy
 var settings := {
-	"theme": "sakura", "dice": "classic", "music": true, "sound": true, "follow": true, "time": 60,
-	"setup": [{"name": "Bạn", "bot": false, "char": 0}, {"name": "Máy 1", "bot": true, "char": 1}, {"name": "Máy 2", "bot": true, "char": 2}, {"name": "Máy 3", "bot": true, "char": 3}],
+	"theme": "ocean", "dice": "classic", "music": true, "sound": true, "follow": true, "time": 60, "ui_v": 3,
+	"setup": [{"name": "Bạn", "bot": false, "char": 0}, {"name": "Máy 1", "bot": true, "char": 1}, {"name": "Máy 2", "bot": true, "char": 2}, {"name": "Máy 3", "bot": true, "char": 11}],
 	"name": "", "fullscreen": true,
 }
 
@@ -58,6 +71,10 @@ var update_ver := ""
 func _ready() -> void:
 	main = get_parent()
 	_load_settings()
+	if main.args.has("theme") and UiKit.PALETTE.has(main.args.theme):
+		settings.theme = main.args.theme
+	if main.args.has("dice") and Pieces.DICE_SKINS.has(main.args.dice):
+		settings.dice = main.args.dice
 	UiKit.set_theme(settings.theme)
 	audio = GameAudio.new()
 	add_child(audio)
@@ -92,9 +109,11 @@ func _ready() -> void:
 	if main.args.has("home"):
 		home_mode = main.args.home
 		show_home()
+	if main.args.has("picker"):
+		open_char_picker(0)
 	if main.args.has("start") or main.args.has("allbots"):
 		var ps := [{"name": "Bạn", "bot": not main.args.has("start"), "char": 0}, {"name": "Máy 1", "bot": true, "char": 1},
-			{"name": "Máy 2", "bot": true, "char": 5}, {"name": "Máy 3", "bot": true, "char": 9}]
+			{"name": "Máy 2", "bot": true, "char": 2}, {"name": "Máy 3", "bot": true, "char": 11}]
 		start_local(ps, 60)
 	if main.args.has("host"):
 		settings.name = "Chủ Godot"
@@ -166,8 +185,16 @@ func _load_settings() -> void:
 	if FileAccess.file_exists(SETTINGS_PATH):
 		var d = JSON.parse_string(FileAccess.get_file_as_string(SETTINGS_PATH))
 		if d is Dictionary:
+			var old_ver := int(d.get("ui_v", 0))
 			for k in d:
 				settings[k] = Rules.normalize(d[k])
+			if old_ver < 3:
+				settings.theme = "ocean"
+				settings.ui_v = 3
+				var su: Array = settings.get("setup", [])
+				if su.size() == 4 and int(su[0].get("char", 0)) == 0 and int(su[1].get("char", 1)) == 1 and int(su[2].get("char", 2)) == 2 and int(su[3].get("char", 3)) == 3:
+					su[3].char = 11
+				save_settings()
 
 
 ## chạy thử tự động (--shot / --shots) thì không ghi đè cài đặt và ván đã lưu của người dùng
@@ -450,12 +477,12 @@ func _picks_panel() -> Control:
 	p.add_child(v)
 	v.add_child(_section("GIAO DIỆN"))
 	var tg := GridContainer.new()
-	tg.columns = 4
-	tg.add_theme_constant_override("h_separation", 10)
+	tg.columns = 5
+	tg.add_theme_constant_override("h_separation", 6)
 	for k in UiKit.THEMES:
 		var on: bool = settings.theme == k
 		var b := Button.new()
-		b.custom_minimum_size = Vector2(112, 76)
+		b.custom_minimum_size = Vector2(91, 74)
 		b.focus_mode = Control.FOCUS_NONE
 		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		var pal: Dictionary = UiKit.PALETTE[k]
@@ -465,19 +492,19 @@ func _picks_panel() -> Control:
 		b.add_theme_stylebox_override("pressed", sb)
 		var vv := UiKit.vbox(4)
 		vv.set_anchors_preset(Control.PRESET_FULL_RECT)
-		vv.offset_left = 8
-		vv.offset_right = -8
+		vv.offset_left = 4
+		vv.offset_right = -4
 		vv.offset_top = 8
 		vv.offset_bottom = -6
 		var sw := PanelContainer.new()
-		sw.custom_minimum_size.y = 38
-		sw.add_theme_stylebox_override("panel", UiKit.box(Color(pal.bg1) if k != "midnight" else Color(pal.panel), 10, Color(pal.border), 1, 0, Vector4.ZERO))
-		var dots := UiKit.label("■ ●", 18, Color(pal.accent), "Black")
+		sw.custom_minimum_size.y = 36
+		sw.add_theme_stylebox_override("panel", UiKit.box(Color(pal.bg1) if not (k in ["midnight", "cosmos"]) else Color(pal.panel), 10, Color(pal.border), 1, 0, Vector4.ZERO))
+		var dots := UiKit.label("■ ●", 17, Color(pal.accent), "Black")
 		dots.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		dots.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		sw.add_child(dots)
 		vv.add_child(sw)
-		var nl := UiKit.label(UiKit.THEME_NAMES[k], 12, UiKit.c("text") if on else UiKit.c("dim"), "Bold")
+		var nl := UiKit.label(UiKit.THEME_NAMES[k], 11, UiKit.c("text") if on else UiKit.c("dim"), "Bold")
 		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vv.add_child(nl)
 		for n in [vv, sw, dots, nl]:
@@ -488,13 +515,13 @@ func _picks_panel() -> Control:
 	v.add_child(tg)
 	v.add_child(_section("XÚC XẮC CỦA BẠN"))
 	var dg := GridContainer.new()
-	dg.columns = 6
-	dg.add_theme_constant_override("h_separation", 8)
-	dg.add_theme_constant_override("v_separation", 8)
+	dg.columns = 7
+	dg.add_theme_constant_override("h_separation", 6)
+	dg.add_theme_constant_override("v_separation", 6)
 	for k in Pieces.DICE_KEYS:
 		var on: bool = settings.dice == k
 		var b := Button.new()
-		b.custom_minimum_size = Vector2(76, 70)
+		b.custom_minimum_size = Vector2(65, 68)
 		b.focus_mode = Control.FOCUS_NONE
 		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		b.tooltip_text = Pieces.DICE_NAMES[k]
@@ -507,11 +534,11 @@ func _picks_panel() -> Control:
 		vv.offset_top = 4
 		var tr := TextureRect.new()
 		tr.texture = UiKit.tex("res://assets/ui/dice/%s.webp" % k)
-		tr.custom_minimum_size = Vector2(0, 40)
+		tr.custom_minimum_size = Vector2(0, 38)
 		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		vv.add_child(tr)
-		var nl := UiKit.label(Pieces.DICE_NAMES[k], 11, UiKit.c("text") if on else UiKit.c("dim"), "Bold")
+		var nl := UiKit.label(Pieces.DICE_NAMES[k], 10, UiKit.c("text") if on else UiKit.c("dim"), "Bold")
 		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vv.add_child(nl)
 		for n in [vv, tr, nl]:
@@ -608,6 +635,7 @@ func _player_card(i: int) -> Control:
 	av.add_theme_stylebox_override("hover", UiKit.box(col.lerp(UiKit.c("panel"), 0.55), 18, col, 3, 6, Vector4.ZERO))
 	av.add_theme_stylebox_override("pressed", sb)
 	av.icon = UiKit.portrait(int(q.char))
+	av.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	av.expand_icon = true
 	av.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	av.tooltip_text = "Đổi nhân vật"
@@ -668,7 +696,7 @@ func open_char_picker(i: int) -> void:
 			taken.append(int(setup[k].char))
 	for k in 12:
 		var b := Button.new()
-		b.custom_minimum_size = Vector2(130, 150)
+		b.custom_minimum_size = Vector2(142, 166)
 		b.focus_mode = Control.FOCUS_NONE
 		b.disabled = k in taken
 		var on: bool = int(setup[i].char) == k
@@ -676,20 +704,31 @@ func open_char_picker(i: int) -> void:
 		b.add_theme_stylebox_override("hover", UiKit.box(UiKit.c("panel2"), 16, UiKit.c("accent"), 2, 6, Vector4(6, 6, 6, 6)))
 		b.add_theme_stylebox_override("disabled", UiKit.box(UiKit.c("panel2"), 16, UiKit.c("border"), 1, 0, Vector4(6, 6, 6, 6)))
 		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		var vv := UiKit.vbox(2)
+		var vv := UiKit.vbox(1)
 		vv.set_anchors_preset(Control.PRESET_FULL_RECT)
+		vv.offset_left = 6
+		vv.offset_right = -6
 		vv.offset_top = 6
+		vv.offset_bottom = -4
 		var tr := TextureRect.new()
 		tr.texture = UiKit.portrait(k)
-		tr.custom_minimum_size.y = 110
+		tr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		tr.custom_minimum_size.y = 116
 		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		if b.disabled:
-			tr.modulate.a = 0.35
+			tr.modulate.a = 0.42
 		vv.add_child(tr)
-		var nl := UiKit.label(CHAR_NAMES[k] + (" · đã chọn" if b.disabled else ""), 13, UiKit.c("dim") if b.disabled else UiKit.c("text"), "ExtraBold")
+		var nl := UiKit.label(CHAR_NAMES[k], 12, UiKit.c("dim") if b.disabled else UiKit.c("text"), "ExtraBold")
 		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		nl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		vv.add_child(nl)
+		if b.disabled:
+			var tag_taken := UiKit.label("ĐÃ CHỌN", 9, UiKit.c("dim"), "Black")
+			tag_taken.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			tag_taken.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			vv.add_child(tag_taken)
 		for n in [vv, tr, nl]:
 			n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(vv)
@@ -700,7 +739,7 @@ func open_char_picker(i: int) -> void:
 			show_home())
 		g.add_child(b)
 	v.add_child(g)
-	open_modal(v, 620)
+	open_modal(v, 656)
 
 
 func _online_form(v: VBoxContainer) -> void:
@@ -800,8 +839,8 @@ Trở thành người duy nhất còn trụ lại, hoặc thắng sớm khi:
 Gieo 2 xúc xắc rồi đi. Gieo đôi được gieo tiếp, đôi 3 lần liền thì ra Đảo Hoang.
 Qua [b]Xuất Phát[/b] nhận 200tr; dừng đúng ô còn được thưởng thêm.""", 15)
 	left.custom_minimum_size.x = 330
-	var right := UiKit.rich("""[b]Đất & nhà[/b]
-Mua đất trống, xây nhà cấp 1–3, sau vòng đầu lên được Khách sạn. Đối thủ dừng ở đất của bạn phải trả tiền thuê; có thể mua lại đất của bạn với giá gấp đôi (trừ Khách sạn).
+	var right := UiKit.rich("""[b]Đất & công trình[/b]
+Mua đất trống, nâng cấp Biệt thự · Căn hộ · Cao ốc, sau vòng đầu lên được Landmark. Đối thủ dừng ở đất của bạn phải trả tiền thuê; có thể mua lại đất của bạn với giá gấp đôi (trừ Landmark).
 Gom đủ một vùng: tiền thuê cả vùng +50%.
 
 [b]Ô đặc biệt[/b]
@@ -947,7 +986,7 @@ func open_menu() -> void:
 	var b1 := UiKit.button("▶ Chơi tiếp", "normal", 17)
 	b1.pressed.connect(close_modal)
 	v.add_child(b1)
-	var nx: String = UiKit.THEMES[(UiKit.THEMES.find(settings.theme) + 1) % 4]
+	var nx: String = UiKit.THEMES[(UiKit.THEMES.find(settings.theme) + 1) % UiKit.THEMES.size()]
 	var b2 := UiKit.button("🎨 Đổi giao diện (sang %s)" % UiKit.THEME_NAMES[nx], "normal", 17)
 	b2.pressed.connect(func():
 		close_modal()
@@ -1186,7 +1225,41 @@ func _process(_dt: float) -> void:
 		render_clock()
 
 
+func _player_ranks() -> Array:
+	var n: int = S.players.size()
+	var ids := range(n)
+	ids.sort_custom(func(a, b):
+		var oa := bool(S.players[a].out)
+		var ob := bool(S.players[b].out)
+		if oa != ob:
+			return not oa
+		return Rules.net_worth(S, a) > Rules.net_worth(S, b))
+	var out := []
+	out.resize(n)
+	for r in n:
+		out[ids[r]] = r + 1
+	return out
+
+
+func _player_stat_text(i: int) -> String:
+	var p: Dictionary = S.players[i]
+	var props := Rules.owned_by(S, i).size()
+	var nw := int(view.money[i]) + Rules.assets(S, i)
+	var st := ["💎 " + Data.fmt(nw), "🏠 %d đất" % props if props else "Chưa có đất"]
+	if int(p.island):
+		st.append("🌴 kẹt %d" % int(p.island))
+	if p.travel:
+		st.append("✈️ bay")
+	if int(p.freeCards):
+		st.append("🛟×%d" % int(p.freeCards))
+	if p.out:
+		st.append("💥 phá sản")
+	return " · ".join(st)
+
+
 func render_players() -> void:
+	var ranks := _player_ranks()
+	const RANK_BG := ["#ffb703", "#cbd5e1", "#d97706", "#94a3b8"]
 	for i in 4:
 		var c: PanelContainer = cards[i]
 		if i >= S.players.size():
@@ -1202,9 +1275,15 @@ func render_players() -> void:
 		c.modulate.a = 0.55 if p.out else 1.0
 		var h := UiKit.hbox(12)
 		h.add_child(UiKit.avatar(int(p.get("char", i)), col, 64))
-		var v := UiKit.vbox(0)
+		var v := UiKit.vbox(1)
 		var nm := UiKit.hbox(6)
-		nm.add_child(UiKit.label(p.name, 18, null, "ExtraBold"))
+		var rk := clampi(int(ranks[i]), 1, 4)
+		var rp := PanelContainer.new()
+		rp.add_theme_stylebox_override("panel", UiKit.box(Color(RANK_BG[rk - 1]), 99, Color(0, 0, 0, 0), 0, 0, Vector4(7, 1, 7, 1)))
+		rp.add_child(UiKit.label("#%d" % rk, 11, Color("#1f1600") if rk <= 2 else Color.WHITE, "Black"))
+		rp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		nm.add_child(rp)
+		nm.add_child(UiKit.label(p.name, 17, null, "ExtraBold"))
 		var tag := "máy" if p.bot else ("bạn" if mode == "online" and i == my_seat else "")
 		if tag != "":
 			var tp := PanelContainer.new()
@@ -1219,21 +1298,12 @@ func render_players() -> void:
 			tp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			nm.add_child(tp)
 		v.add_child(nm)
-		var money := UiKit.label("● " + Rules.fmt_full(view.money[i]), 24, Color("#d03030") if view.money[i] < 0 else UiKit.c("money"), "Black")
+		var money := UiKit.label("● " + Rules.fmt_full(view.money[i]), 23, Color("#d03030") if view.money[i] < 0 else UiKit.c("money"), "Black")
 		money.name = "money"
 		v.add_child(money)
-		var props := Rules.owned_by(S, i).size()
-		var st := []
-		st.append("🏠 %d đất" % props if props else "Chưa có đất")
-		if int(p.island):
-			st.append("🌴 kẹt %d" % int(p.island))
-		if p.travel:
-			st.append("✈️ bay")
-		if int(p.freeCards):
-			st.append("🛟×%d" % int(p.freeCards))
-		if p.out:
-			st.append("💥 phá sản")
-		v.add_child(UiKit.label(" · ".join(st), 13, UiKit.c("dim"), "Medium"))
+		var stat := UiKit.label(_player_stat_text(i), 12, UiKit.c("dim"), "Bold")
+		stat.name = "net"
+		v.add_child(stat)
 		h.add_child(v)
 		c.add_child(h)
 		var preset: int = [Control.PRESET_TOP_LEFT, Control.PRESET_TOP_RIGHT, Control.PRESET_BOTTOM_LEFT, Control.PRESET_BOTTOM_RIGHT][i]
@@ -1264,6 +1334,9 @@ func _update_money(pid: int) -> void:
 	if m:
 		m.text = "● " + Rules.fmt_full(view.money[pid])
 		m.add_theme_color_override("font_color", Color("#d03030") if view.money[pid] < 0 else UiKit.c("money"))
+	var n: Label = c.find_child("net", true, false)
+	if n:
+		n.text = _player_stat_text(pid)
 
 
 func _float_money(pid: int, delta: int) -> void:

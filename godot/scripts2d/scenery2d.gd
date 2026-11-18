@@ -24,6 +24,11 @@ const THEMES := {
 		"sun_u": 0.23, "glint_amt": 0.9, "water_mix": Vector2(0.14, 0.52),
 		"fall": ["#d6caff", "#ffffff", "#ffc9ec"], "fall_n": 160,
 	},
+	"cosmos": {
+		"deep": "#04081c", "tint": "#ccf2ff", "mist": "#2ae8f5", "glint": "#7df9ff", "petal": "#a5f3fc", "petals": 0.14,
+		"sun_u": 0.76, "glint_amt": 1.35, "water_mix": Vector2(0.10, 0.44),
+		"fall": ["#7df9ff", "#ff72e1", "#ffe680", "#ffffff"], "fall_n": 240,
+	},
 }
 const HORIZON := 0.40             # chân trời ở 40% chiều cao màn hình
 const DRIFT := 0.00042            # mây trôi: số vòng ảnh mỗi giây (~40 phút một vòng)
@@ -33,6 +38,9 @@ var root: Node2D
 var bg_layer: CanvasLayer
 var bg: ColorRect
 var mat: ShaderMaterial
+var meteor_node: Node2D
+var meteors: Array = []
+var meteor_cd := 0.7
 var rng := RandomNumberGenerator.new()
 var drift := 0.0
 var wt := 0.0
@@ -62,6 +70,9 @@ func _ready() -> void:
 	mat.set_shader_parameter("horizon", HORIZON)
 	bg.material = mat
 	bg_layer.add_child(bg)
+	meteor_node = Node2D.new()
+	meteor_node.draw.connect(_draw_meteors)
+	bg_layer.add_child(meteor_node)
 	drift = randf()
 
 
@@ -69,6 +80,11 @@ func set_theme(name: String) -> void:
 	if name == theme:
 		return
 	theme = name if THEMES.has(name) else "sakura"
+	meteors.clear()
+	meteor_cd = 0.08
+	if meteor_node:
+		meteor_node.visible = (theme == "cosmos")
+		meteor_node.queue_redraw()
 	var P: Dictionary = THEMES[theme]
 	for k in ["sky", "clouds", "land"]:
 		mat.set_shader_parameter(("cloud" if k == "clouds" else k) + "_tex", load("res://assets/art/%s_%s.png" % [theme, k]))
@@ -111,6 +127,57 @@ func _process(dt: float) -> void:
 	var lim := vs.x * 0.03
 	mat.set_shader_parameter("shift_px", Vector2(clampf(-par_shift.x * 0.06, -lim, lim), clampf(-par_shift.y * 0.04, -lim, lim)))
 	mat.set_shader_parameter("zoom", 1.0 + (par_zoom - 1.0) * 0.12)
+	if theme == "cosmos" and meteor_node:
+		meteor_cd -= dt
+		if meteor_cd <= 0.0 and meteors.size() < 3:
+			meteor_cd = rng.randf_range(0.95, 2.2)
+			var dir_x := -1.0 if rng.randf() < 0.65 else 1.0
+			var spd := rng.randf_range(700.0, 1080.0)
+			var cols := ["#a5f3fc", "#fde68a", "#f0abfc"]
+			meteors.append({
+				"p": Vector2(rng.randf_range(0.12, 0.88) * vs.x, rng.randf_range(26.0, vs.y * HORIZON * 0.68)),
+				"v": Vector2(dir_x * spd, spd * rng.randf_range(0.32, 0.54)),
+				"age": 0.0, "life": rng.randf_range(0.45, 0.72),
+				"col": Color(cols[rng.randi() % cols.size()]),
+				"len": rng.randf_range(95.0, 165.0),
+			})
+		var keep_m: Array = []
+		for m in meteors:
+			m.age += dt
+			m.p += m.v * dt
+			if m.age < m.life:
+				keep_m.append(m)
+		meteors = keep_m
+		meteor_node.queue_redraw()
+
+
+func _draw_meteors() -> void:
+	if theme != "cosmos" or meteors.is_empty():
+		return
+	var vs := get_viewport_rect().size
+	var hy := vs.y * HORIZON
+	for m in meteors:
+		var k: float = m.age / m.life
+		var alpha := (k / 0.14 if k < 0.14 else maxf(0.0, 1.0 - (k - 0.14) / 0.86))
+		if alpha <= 0.01:
+			continue
+		var p: Vector2 = m.p
+		var dir: Vector2 = (m.v as Vector2).normalized()
+		var tail_len: float = m.len * (0.45 + 0.55 * sin(minf(k * 1.4, 1.0) * PI))
+		var col: Color = m.col
+		for s_i in 4:
+			var t0 := float(s_i) / 4.0
+			var t1 := float(s_i + 1) / 4.0
+			var w := lerpf(3.2, 0.6, t0)
+			var sa := alpha * lerpf(0.95, 0.12, t0)
+			meteor_node.draw_line(p - dir * (tail_len * t0), p - dir * (tail_len * t1), Color(col, sa), w, true)
+		meteor_node.draw_circle(p, 3.6, Color(1, 1, 1, alpha))
+		meteor_node.draw_circle(p, 7.2, Color(col, alpha * 0.35))
+		# Bóng sao băng phản chiếu mờ dưới mặt hồ vũ trụ
+		if p.y < hy:
+			var rp := Vector2(p.x, hy + (hy - p.y) * 0.92)
+			var rtail := Vector2(dir.x, -dir.y) * tail_len
+			meteor_node.draw_line(rp, rp - rtail * 0.75, Color(col, alpha * 0.22), 2.2, true)
 
 
 func _falling(P: Dictionary) -> void:

@@ -1,15 +1,20 @@
-Mô hình 3D dùng trong bản app (app/skin/models/)
+Mô hình 3D & tài nguyên dùng trong game:
+
+valid-avatars-glb — Tiffany Do / xrtlab (https://github.com/c-frame/valid-avatars-glb), giấy phép MIT License:
+  bt_chars/ — 12 nhân vật người 3D lưới mịn có texture PBR & biểu cảm khuôn mặt (tùy biến trang phục, phụ kiện, ánh sáng Cycles & gắn hoạt ảnh Mixamo trong Blender 4.2 LTS):
+        c0 Chủ Tịch Tập Đoàn · c1 Nữ Tổng Tài · c2 Ông Hoàng Tài Phiệt · c3 Tiểu Thư Thượng Lưu ·
+        c4 Đại Gia Nghỉ Dưỡng · c5 Cảnh Sát Trưởng · c6 Kỹ Sư Địa Ốc · c7 Founder Khởi Nghiệp ·
+        c8 Nữ Vlogger Du Lịch · c9 Địa Chủ Miền Tây · c10 Tay Chơi Phố Wall · c11 Tỷ Phú Vũ Trụ
+
+quaternius/ — Quaternius (https://quaternius.com), giấy phép CC0 1.0 Universal:
+  bt_city/  — Ultimate Buildings Pack (House1, House2, 1Story_GableRoof_Mat, 2Story_Balcony_Mat,
+        2Story_Double_Mat, Building2_Large, Building3_Big, Building4) & Ships Pack (CruiseShip)
 
 kk/ — KayKit của Kay Lousberg (https://kaylousberg.com), giấy phép CC0 1.0, tải từ github.com/KayKit-Game-Assets:
-  chr/  KayKit Character Pack: Adventurers 1.0 + Skeletons 1.0 (đã bỏ vũ khí và rút gọn hoạt ảnh bằng app/tools/prep_models.py)
-        c0 Knight · c1 Mage · c2 Barbarian · c3 Rogue · c4 Rogue Hooded · c5 Skeleton Warrior · c6 Skeleton Mage · c7 Skeleton Minion · c8 Skeleton Rogue
-        (nhân vật 9–11 là Knight / Mage / Barbarian bỏ mũ)
-  city/ KayKit City Builder Bits 1.0     med/ KayKit Medieval Hexagon Pack 1.0     dun/ KayKit Dungeon Remastered 1.0
+  city/ KayKit City Builder Bits 1.0     dun/ KayKit Dungeon Remastered 1.0 (chest_gold, coin stacks)
 
 pf/ — Polyfork (https://polyfork.dev), giấy phép CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
-  Mỗi file mang tên trang gốc: https://polyfork.dev/asset/<tên file không có .glb>
-  Ví dụ: Cherry Blossom Tree by Polyfork (https://polyfork.dev/asset/cherry-blossom-tree-3f7ab7), CC BY 4.0.
+  Cây cọ, thiên nhiên cảnh quan 3D, tiền xu và thỏi vàng.
 
-Chân dung app/skin/chars/ và ảnh xúc xắc app/skin/dice/ dựng từ các mô hình trên bằng app/tools/portraits.py.
-Cổng Festival, cờ chủ đất, biển HOTEL, xúc xắc vẽ bằng code (app/skin/scene3d.js).
-three.js (MIT) — app/skin/vendor/three/LICENSE
+Chân dung nhân vật (assets/ui/chars/c*.webp, av*.webp) được render trực tiếp từ các mô hình 3D trong Blender 4.2 Cycles.
+Cổng Lễ Hội, đèn trang trí, cúp & xúc xắc được dựng 3D và render bằng Godot 4.7.

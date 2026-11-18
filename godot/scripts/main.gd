@@ -123,6 +123,7 @@ const LOOK := {
 	"wood": {"sky_top": "#6aa8e0", "sky_hz": "#f6e6c8", "ground": "#c9d8a0", "sun": "#fff0d8", "sun_e": 1.3, "amb": 0.45, "fog": "#efe2c6", "exp": 0.9},
 	"ocean": {"sky_top": "#3f9be0", "sky_hz": "#d8f4ff", "ground": "#bfe6ea", "sun": "#fff6e0", "sun_e": 1.4, "amb": 0.45, "fog": "#cdeff6", "exp": 0.9},
 	"midnight": {"sky_top": "#0d1233", "sky_hz": "#3b3a78", "ground": "#1d2240", "sun": "#b9c6ff", "sun_e": 0.55, "amb": 0.35, "fog": "#1e2250", "exp": 1.0},
+	"cosmos": {"sky_top": "#04071a", "sky_hz": "#1b4d89", "ground": "#0b112c", "sun": "#7df9ff", "sun_e": 0.65, "amb": 0.38, "fog": "#101b42", "exp": 1.0},
 }
 
 

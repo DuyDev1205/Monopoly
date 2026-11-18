@@ -14,6 +14,7 @@ const STYLE := {
 	"wood": {"top": "#f3e3c6", "side": "#d9ae6e", "ped": "#a26c38", "trim": "#e0a030", "court": ["#EBC994", "#E3BB84", "#9C6B3A"], "bulb": "#ffe2a0", "tile_side": "#efe4cc"},
 	"ocean": {"top": "#fffaf0", "side": "#bfe9e6", "ped": "#1e3a5f", "trim": "#ffb703", "court": ["#FFF6E2", "#CFF3EE", "#1E3A5F"], "bulb": "#fff6c8", "tile_side": "#efe4cc"},
 	"sakura": {"top": "#ffffff", "side": "#fbe6f0", "ped": "#e5bcd3", "trim": "#e8467c", "court": ["#FFF8FB", "#FBE6F0", "#EBCFE0"], "bulb": "#ffd6e8", "tile_side": "#f6e9ee"},
+	"cosmos": {"top": "#16204a", "side": "#0d1638", "ped": "#040717", "trim": "#2ce6ff", "court": ["#131B3F", "#0B1029", "#1E2B66"], "bulb": "#9bf8ff", "tile_side": "#b6ceef"},
 }
 const TILE_BG := {
 	"city": ["#ffffff", "#f7f1e6"], "resort": ["#fff6dc", "#fde9b8"], "chance": ["#fff3f6", "#ffd3e1"], "tax": ["#f6f6f6", "#dcdcdc"],

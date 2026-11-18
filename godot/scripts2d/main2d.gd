@@ -13,7 +13,7 @@ var game: Game
 var args := {}
 var frame := 0
 var mode := "home"
-var theme := "sakura"
+var theme := "ocean"
 var follow_on := true
 var follow_pid := -1
 var follow_until := 0
@@ -36,9 +36,9 @@ func _ready() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_CANVAS
 	env.glow_enabled = true
-	env.glow_intensity = 0.4
-	env.glow_bloom = 0.08
-	env.glow_hdr_threshold = 0.9
+	env.glow_intensity = 0.35
+	env.glow_bloom = 0.06
+	env.glow_hdr_threshold = 1.02
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
 	we.environment = env
 	add_child(we)
@@ -70,7 +70,7 @@ func set_theme(name: String) -> void:
 	if pieces:
 		pieces.set_theme(name)
 	# bàn cờ nhận màu nắng của theme (đêm thì dịu xuống, không chói)
-	board.modulate = Color(Pieces2D.GRADE.get(name, Pieces2D.GRADE.sakura)[0])
+	board.modulate = Color(Pieces2D.GRADE.get(name, Pieces2D.GRADE.ocean)[0])
 
 
 func apply_quality(q: int) -> void:
@@ -156,8 +156,8 @@ func _demo_state() -> void:
 	board.update_tile(3, {"owned": Data.PLAYER_COLORS[0], "price": "40tr", "mono": true})
 	board.update_tile(13, {"owned": Data.PLAYER_COLORS[1], "price": "90tr"})
 	board.update_tile(27, {"owned": Data.PLAYER_COLORS[2], "price": "1,6 tỷ", "fest": true})
-	pieces.set_tokens([{"char": 0, "color": Data.PLAYER_COLORS[0], "mine": true}, {"char": 5, "color": Data.PLAYER_COLORS[1]},
-		{"char": 7, "color": Data.PLAYER_COLORS[2]}, {"char": 10, "color": Data.PLAYER_COLORS[3]}])
+	pieces.set_tokens([{"char": 0, "color": Data.PLAYER_COLORS[0], "mine": true}, {"char": 2, "color": Data.PLAYER_COLORS[1]},
+		{"char": 5, "color": Data.PLAYER_COLORS[2]}, {"char": 11, "color": Data.PLAYER_COLORS[3]}])
 	pieces.place_token(0, {"tile": 0, "k": 0, "n": 2})
 	pieces.place_token(1, {"tile": 0, "k": 1, "n": 2})
 	pieces.place_token(2, {"tile": 13, "k": 0, "n": 1})
@@ -172,3 +172,7 @@ func _demo_state() -> void:
 	pieces.set_fest_gates([10, 21])
 	pieces.set_target(10, "7")
 	board.set_target(10)
+	if args.has("dice"):
+		pieces.set_dice_skin(args.dice)
+	if args.has("roll_demo"):
+		get_tree().create_timer(0.20).timeout.connect(func(): pieces.roll_dice([1, 1], 1.10))

@@ -15,15 +15,15 @@ const CHAR3D := [
 const ANIM_ALIAS := {"idle": ["Idle"], "walk": ["Walking_A", "Running_A"], "jump": ["Jump_Full_Short", "Jump_Full_Long"],
 	"emote-yes": ["Cheer"], "emote-no": ["Hit_A"], "die": ["Death_A"]}
 const HOUSE_SETS := {
-	1: ["pf/minka-farmhouse-680475", "pf/open-front-teahouse-c7dd18", "pf/kura-storehouse-5c9631", "pf/alley-bar-hut-3e41f8"],
-	2: ["pf/machiya-townhouse-8ef64e", "pf/two-storey-shophouse-183790", "pf/corner-shophouse-ad15c2", "pf/wide-shophouse-089f20"],
-	3: ["pf/buddhist-temple-hall-f0aa09", "pf/bathhouse-4ac41a", "pf/buddhist-temple-hall-f0aa09", "pf/bathhouse-4ac41a"],
-	4: ["pf/tiered-pagoda-f4ade0", "pf/tenshu-keep-2ff636", "pf/tiered-pagoda-f4ade0", "pf/tenshu-keep-2ff636"],
+	1: ["bt_city/House1", "bt_city/House2", "bt_city/1Story_GableRoof_Mat", "bt_city/2Story_Balcony_Mat"],
+	2: ["bt_city/2Story_Double_Mat", "kk/city/building_A_withoutBase", "kk/city/building_B_withoutBase", "kk/city/building_D_withoutBase"],
+	3: ["kk/city/building_E_withoutBase", "kk/city/building_F_withoutBase", "bt_city/Building2_Large", "kk/city/building_C_withoutBase"],
+	4: ["kk/city/building_G_withoutBase", "kk/city/building_H_withoutBase", "bt_city/Building4", "bt_city/Building3_Big"],
 }
-const HOUSE_FIT := {1: [0.5, 0.5], 2: [0.56, 0.72], 3: [0.62, 0.95], 4: [0.6, 1.45]}
-const DICE_KEYS := ["classic", "gold", "jade", "ruby", "wood", "neon", "crystal", "sakura", "obsidian", "ocean", "candy", "galaxy"]
+const HOUSE_FIT := {1: [0.54, 0.56], 2: [0.58, 0.80], 3: [0.68, 1.06], 4: [0.72, 1.46]}
+const DICE_KEYS := ["classic", "gold", "jade", "ruby", "wood", "neon", "crystal", "sakura", "obsidian", "ocean", "candy", "galaxy", "cosmos"]
 const DICE_NAMES := {"classic": "Cổ điển", "gold": "Vàng", "jade": "Ngọc bích", "ruby": "Hồng ngọc", "wood": "Gỗ", "neon": "Neon",
-	"crystal": "Pha lê", "sakura": "Anh đào", "obsidian": "Hắc thạch", "ocean": "Đại dương", "candy": "Kẹo ngọt", "galaxy": "Thiên hà"}
+	"crystal": "Pha lê", "sakura": "Anh đào", "obsidian": "Hắc thạch", "ocean": "Đại dương", "candy": "Kẹo ngọt", "galaxy": "Thiên hà", "cosmos": "Vũ trụ"}
 const DICE_SKINS := {
 	"classic": {"bg": ["#ffffff", "#ece4d6"], "pip": ["#5a5a5a", "#0d0d0d"], "red": ["#ff6b6b", "#b3121b"], "rough": 0.3},
 	"gold": {"bg": ["#fff1b8", "#d39a12"], "pip": ["#6b3d00", "#2e1a00"], "red": ["#c0182a", "#5a0008"], "rough": 0.25, "metal": 0.6, "ring": "#b07a08"},
@@ -37,6 +37,7 @@ const DICE_SKINS := {
 	"ocean": {"bg": ["#7fd8ff", "#1565c0"], "pip": ["#ffffff", "#dbeeff"], "red": ["#ffe066", "#f4a300"], "rough": 0.15, "deco": 4},
 	"candy": {"bg": ["#fff7fb", "#ffd9ec"], "pip": ["#7a5cff", "#4a2fc9"], "red": ["#ff4f8b", "#c2185b"], "rough": 0.35, "deco": 5},
 	"galaxy": {"bg": ["#3b1d6e", "#0a0620"], "pip": ["#fff4ff", "#ff8af5"], "red": ["#c8fbff", "#35d5ff"], "rough": 0.25, "deco": 6, "glow": 1.0},
+	"cosmos": {"bg": ["#1b1448", "#07051a"], "pip": ["#ffffff", "#38f6ff"], "red": ["#fff4b8", "#ff4fd8"], "rough": 0.12, "metal": 0.52, "ring": "#38f6ff", "deco": 8, "glow": 1.25},
 }
 ## mặt hộp: +x, -x, +y, -y, +z, -z  → số chấm
 const FACE_N := [2, 5, 1, 6, 3, 4]
@@ -137,45 +138,22 @@ static func _ease_out_elastic(k: float) -> float:
 
 # ======================= quân cờ =======================
 func _char_token(k: int) -> Dictionary:
-	var ent: Dictionary = CHAR3D[posmod(k, CHAR3D.size())]
-	var scn: PackedScene = load("res://assets/models/kk/chr/%s.glb" % ent.f)
-	var o: Node3D = scn.instantiate()
-	var ap: AnimationPlayer = o.find_child("AnimationPlayer", true, false)
-	if ent.has("hide"):
-		var re := RegEx.create_from_string("(?i)" + ent.hide)
-		for n in o.find_children("*", "", true, false):
-			if n != o and re.search(n.name) and n is Node3D:
-				n.visible = false
-	var bb := MeshUtil.visible_aabb(o)
-	var s := TOKEN_H / maxf(bb.size.y, 0.01)
-	o.scale = Vector3.ONE * s
-	o.position.y = -bb.position.y * s
-	MeshUtil.set_shadows(o, true)
+	var rig := TokenModels.build(k)
 	var wrap := Node3D.new()
-	wrap.add_child(o)
+	rig.root.scale = Vector3.ONE * (TOKEN_H / 1.04)
+	wrap.add_child(rig.root)
 	wrap.rotation.y = FACE_CAM
-	if ap:
-		for nm in ["Idle", "Walking_A", "Running_A"]:
-			if ap.has_animation(nm):
-				ap.get_animation(nm).loop_mode = Animation.LOOP_LINEAR
-		ap.playback_default_blend_time = 0.2
-	return {"wrap": wrap, "ap": ap, "cur": "", "dead": false}
+	return {"wrap": wrap, "rig": rig, "cur": "idle", "once": false, "dead": false, "at": randf() * 3.0}
 
 
-func _play(m: Dictionary, n: String, once := false, fade := 0.2) -> void:
-	var ap: AnimationPlayer = m.ap
-	if ap == null:
+func _play(m: Dictionary, n: String, once := false, _fade := 0.2) -> void:
+	if m.dead and n != "die":
 		return
-	var clip := ""
-	for c in ANIM_ALIAS.get(n, [n]):
-		if ap.has_animation(c):
-			clip = c
-			break
-	if clip == "" or (m.cur == clip and not once):
+	if m.cur == n and not once:
 		return
-	ap.play(clip, fade)
-	m.cur = clip
+	m.cur = n
 	m.once = once
+	m.at = 0.0
 
 
 ## players: [{char, color, mine}]
@@ -201,13 +179,7 @@ func set_tokens(players: Array) -> void:
 		var m := _char_token(int(p.get("char", 0)))
 		m.wrap.position.y = 0.07
 		grp.add_child(m.wrap)
-		if m.ap:
-			m.ap.animation_finished.connect(func(_n):
-				if not m.dead:
-					_play(m, "idle"))
 		_play(m, "idle")
-		if m.ap:
-			m.ap.seek(randf() * 2.0, true)
 		tokens.append({"grp": grp, "model": m, "ring": ring, "ring_mat": rm, "mine": p.get("mine", false),
 			"from": null, "to": null, "t0": 0.0, "dur": 0.0, "arc": 0.0, "cur": false, "walk_end": 0.0})
 
@@ -268,20 +240,23 @@ func emote(pid: int, e: String) -> void:
 	var m: Dictionary = tokens[pid].model
 	match e:
 		"victory":
-			_play(m, "jump" if randf() < 0.5 else "emote-yes", true)
+			_play(m, "cheer", true)
 		"shock":
-			_play(m, "emote-no", true)
+			_play(m, "hit", true)
 		"out":
 			m.dead = true
 			_play(m, "die", true)
 
 
-func _update_tokens(_dt: float) -> void:
+func _update_tokens(dt: float) -> void:
 	var now := Time.get_ticks_msec()
 	for tk in tokens:
 		var m: Dictionary = tk.model
+		m.at += dt
+		var anim_prog := 0.0
 		if tk.from != null:
 			var k := minf(1.0, (now - tk.t0) / tk.dur)
+			anim_prog = k
 			var e := _ease_in_out(k)
 			tk.grp.position = (tk.from as Vector3).lerp(tk.to, e)
 			m.wrap.position.y = 0.07 + sin(k * PI) * tk.arc
@@ -294,96 +269,93 @@ func _update_tokens(_dt: float) -> void:
 			m.wrap.rotation.y = FACE_CAM
 			if not m.dead:
 				_play(m, "idle", false, 0.25)
+		if m.cur == "cheer":
+			anim_prog = float(m.at) / 1.25
+			if anim_prog >= 1.0:
+				_play(m, "idle")
+		elif m.cur == "hit":
+			anim_prog = float(m.at) / 0.78
+			if anim_prog >= 1.0:
+				_play(m, "idle")
+		elif m.cur == "die":
+			anim_prog = minf(1.0, float(m.at) / 0.85)
+		TokenModels.animate(m.rig, float(m.at), m.cur, anim_prog, 1.0, tk.cur, dt)
 		var rm: StandardMaterial3D = tk.ring_mat
 		rm.albedo_color.a = 0.6 + 0.3 * sin(t * 5) if tk.cur else 0.0
 		tk.ring.scale = Vector3.ONE * (1 + 0.12 * sin(t * 5) if tk.cur else 1.0)
 
 
-# ======================= nhà / công trình =======================
-func _tint_roofs(grp: Node3D, color: Color) -> void:
-	## tô lại mặt hướng lên ở nửa trên (mái) theo màu chủ đất, giữ tường sáng
-	var bb := MeshUtil.visible_aabb(grp)
-	var H := bb.size.y
-	var y0 := bb.position.y
-	var stack: Array = [[grp, Transform3D.IDENTITY]]
-	while stack.size():
-		var it: Array = stack.pop_back()
-		var n: Node = it[0]
-		var tf: Transform3D = it[1]
-		if n != grp and n is Node3D:
-			tf = tf * (n as Node3D).transform
-		for c in n.get_children():
-			stack.append([c, tf])
-		if not (n is MeshInstance3D) or (n as MeshInstance3D).mesh == null:
-			continue
+# ======================= nhà / công trình Business Tour =======================
+static func _is_accent_mat(mname: String) -> bool:
+	var low := mname.to_lower()
+	for kw in ["roof", "main", "lightyellow", "lightblue", "whiteblue", "darkred", "brickred", "greyblue"]:
+		if kw in low:
+			return true
+	return false
+
+
+static func decorate_building(mdl: Node3D, color: Color, lvl: int) -> void:
+	## Tô màu thương hiệu chủ đất lên vật liệu mái/nhấn và gắn mái hiên / vương miện tầng 4 chuẩn Business Tour
+	var soft := color.lerp(Color.WHITE, 0.14)
+	for n in mdl.find_children("*", "MeshInstance3D", true, false):
 		var mi: MeshInstance3D = n
-		var key := "%d|%s" % [mi.mesh.get_instance_id(), color.to_html()]
-		if tint_cache.has(key):
-			mi.mesh = tint_cache[key]
+		if mi.mesh == null:
 			continue
-		var out := ArrayMesh.new()
 		for s in mi.mesh.get_surface_count():
-			var arr: Array = mi.mesh.surface_get_arrays(s)
-			var mat := mi.mesh.surface_get_material(s)
-			if arr[Mesh.ARRAY_COLOR] != null and arr[Mesh.ARRAY_INDEX] != null:
-				var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
-				var c: PackedColorArray = arr[Mesh.ARRAY_COLOR]
-				var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
-				# tách đỉnh theo tam giác để tô riêng từng mặt
-				var nv := PackedVector3Array()
-				var nc := PackedColorArray()
-				var nn := PackedVector3Array()
-				var nrm: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
-				for ti in range(0, idx.size(), 3):
-					var A: Vector3 = tf * v[idx[ti]]
-					var B: Vector3 = tf * v[idx[ti + 1]]
-					var C: Vector3 = tf * v[idx[ti + 2]]
-					var fnorm := (C - B).cross(A - B).normalized()
-					var cy := (A.y + B.y + C.y) / 3
-					var cc: Color = c[idx[ti]]
-					var L := 0.3 * cc.r + 0.59 * cc.g + 0.11 * cc.b
-					var roof := fnorm.y >= 0.3 and cy >= y0 + H * 0.4 and L <= 0.6
-					for j in 3:
-						nv.append(v[idx[ti + j]])
-						nn.append(nrm[idx[ti + j]])
-						if roof:
-							var kk := 0.55 + L * 1.2
-							nc.append(Color(minf(1, color.r * kk), minf(1, color.g * kk), minf(1, color.b * kk)))
-						else:
-							nc.append(c[idx[ti + j]])
-				var na := []
-				na.resize(Mesh.ARRAY_MAX)
-				na[Mesh.ARRAY_VERTEX] = nv
-				na[Mesh.ARRAY_NORMAL] = nn
-				na[Mesh.ARRAY_COLOR] = nc
-				out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, na)
-			else:
-				out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-			out.surface_set_material(out.get_surface_count() - 1, mat)
-		tint_cache[key] = out
-		mi.mesh = out
+			var mat := mi.get_active_material(s)
+			if mat is BaseMaterial3D and _is_accent_mat(mat.resource_name):
+				var m2: BaseMaterial3D = mat.duplicate()
+				m2.albedo_color = m2.albedo_color.lerp(soft, 0.76)
+				mi.set_surface_override_material(s, m2)
+
+	var bb := MeshUtil.visible_aabb(mdl)
+	var top_y := bb.position.y + bb.size.y
+	var cx := bb.position.x + bb.size.x * 0.5
+	var cz := bb.position.z + bb.size.z * 0.5
+	var col_m := MeshUtil.std(soft, 0.28, 0.18)
+	var gold_m := MeshUtil.std(Color("#f7be38"), 0.18, 0.88)
+
+	# Mái hiên / bảng hiệu màu người chơi phía mặt tiền
+	var aw := MeshUtil.mesh(MeshUtil.rounded_box(Vector3(minf(0.32, bb.size.x * 0.65), 0.045, 0.10), 0.014, 3), col_m,
+		Vector3(cx, bb.position.y + minf(0.18, bb.size.y * 0.34), bb.position.z + bb.size.z + 0.02))
+	mdl.add_child(aw)
+	# Đỉnh vương miện / tháp Landmark cấp 2-4
+	if lvl >= 2:
+		var cw := minf(bb.size.x * 0.72, 0.36)
+		var cd := minf(bb.size.z * 0.72, 0.36)
+		mdl.add_child(MeshUtil.mesh(MeshUtil.rounded_box(Vector3(cw, 0.042, cd), 0.015, 3), col_m, Vector3(cx, top_y + 0.016, cz)))
+	if lvl >= 4:
+		mdl.add_child(MeshUtil.mesh(MeshUtil.cyl(0.055, 0.105, 0.10, 16), gold_m, Vector3(cx, top_y + 0.075, cz)))
+		mdl.add_child(MeshUtil.mesh(MeshUtil.cyl(0.010, 0.032, 0.14, 12), gold_m, Vector3(cx, top_y + 0.185, cz)))
+		mdl.add_child(MeshUtil.mesh(MeshUtil.sphere(0.032, 12),
+			MeshUtil.emissive(soft.lightened(0.25), soft, 2.2), Vector3(cx, top_y + 0.255, cz), false))
 
 
-func _plot(color: Color, lvl: int, w := 0.78, d := 0.66, lawn_col := Color("#86c46a")) -> Node3D:
+func _tint_roofs(grp: Node3D, color: Color) -> void:
+	decorate_building(grp, color, 2)
+
+
+func _plot(color: Color, lvl: int, w := 0.80, d := 0.68, lawn_col := Color("#dce9d5")) -> Node3D:
 	var g := Node3D.new()
-	g.add_child(MeshUtil.mesh(MeshUtil.rounded_box(Vector3(w, 0.06, d), 0.025, 3), MeshUtil.std(color, 0.45, 0.05), Vector3(0, 0.03, 0)))
-	g.add_child(MeshUtil.mesh(MeshUtil.rounded_box(Vector3(w - 0.1, 0.02, d - 0.1), 0.01, 2), MeshUtil.std(lawn_col, 1.0), Vector3(0, 0.065, 0)))
-	var spots := [[0.3, 0.24]]
+	g.add_child(MeshUtil.mesh(MeshUtil.rounded_box(Vector3(w, 0.058, d), 0.026, 3), MeshUtil.std(color, 0.34, 0.14), Vector3(0, 0.029, 0)))
+	g.add_child(MeshUtil.mesh(MeshUtil.rounded_box(Vector3(w - 0.10, 0.022, d - 0.10), 0.012, 2), MeshUtil.std(lawn_col, 0.88), Vector3(0, 0.064, 0)))
+	var spots := [[0.30, 0.24]]
 	if lvl == 2:
-		spots = [[-0.3, 0.24], [0.3, 0.24]]
+		spots = [[-0.30, 0.24], [0.30, 0.24]]
 	elif lvl >= 3:
-		spots = [[-0.3, 0.24], [0.3, 0.24], [-0.3, -0.24]]
+		spots = [[-0.30, 0.24], [0.30, 0.24], [-0.30, -0.24]]
 	for sp in spots:
-		var b := MeshUtil.kit("pf/round-bush-cd2ac0", 0.14)
+		var b := MeshUtil.kit("kk/city/bush", 0.13)
+		if b == null:
+			b = MeshUtil.kit("pf/round-bush-cd2ac0", 0.13)
 		if b:
 			b.position = Vector3(sp[0], 0.075, sp[1])
 			g.add_child(b)
 	if lvl >= 2:
-		var lamp := Node3D.new()
-		lamp.add_child(MeshUtil.mesh(MeshUtil.cyl(0.008, 0.01, 0.2, 6), MeshUtil.std(Color("#3a3040")), Vector3(0, 0.1, 0)))
-		lamp.add_child(MeshUtil.mesh(MeshUtil.sphere(0.022, 10), MeshUtil.emissive(Color("#fff3c4"), Color("#ffc85a"), 3.0), Vector3(0, 0.21, 0), false))
-		lamp.position = Vector3(-0.32, 0.075, -0.22)
-		g.add_child(lamp)
+		var lamp := MeshUtil.kit("kk/city/streetlight", 0.0, 0.28)
+		if lamp:
+			lamp.position = Vector3(-0.32, 0.075, -0.22)
+			g.add_child(lamp)
 	return g
 
 
@@ -405,7 +377,7 @@ func _owner_flag(color: Color) -> Node3D:
 
 
 func _hotel_top(g: Node3D, y: float, color: Color) -> void:
-	var l := _label("HOTEL", 64, Color("#fff3b0"), color.darkened(0.3), 0.16)
+	var l := _label("LANDMARK", 60, Color("#fff3b0"), color.darkened(0.3), 0.16)
 	l.position.y = y + 0.14
 	g.add_child(l)
 	var bc := MeshUtil.mesh(MeshUtil.sphere(0.035, 12), MeshUtil.emissive(Color("#ff3b3b"), Color("#ff2020"), 4.0), Vector3(0, y + 0.3, 0), false)
@@ -417,18 +389,23 @@ func _hotel_top(g: Node3D, y: float, color: Color) -> void:
 func _house_model(type: String, lvl: int, st: int, color: Color) -> Node3D:
 	var g := Node3D.new()
 	if type == "resort":
-		g.add_child(_plot(color, 1, 0.74, 0.54, Color("#f2dfa6")))
-		var hut := MeshUtil.kit("pf/beach-hut-fc7649", 0.36)
-		if hut:
-			hut.position = Vector3(-0.12, 0.075, -0.02)
-			g.add_child(hut)
-		var palm := MeshUtil.kit("pf/palm-sapling-ef7ae4", 0, 0.62)
+		g.add_child(MeshUtil.mesh(MeshUtil.rounded_box(Vector3(0.80, 0.056, 0.62), 0.028, 3), MeshUtil.std(color, 0.32, 0.12), Vector3(0, 0.028, 0)))
+		g.add_child(MeshUtil.mesh(MeshUtil.rounded_box(Vector3(0.70, 0.022, 0.52), 0.014, 2), MeshUtil.std(Color("#38bdf8"), 0.22, 0.1), Vector3(0, 0.064, 0)))
+		g.add_child(MeshUtil.mesh(MeshUtil.rounded_box(Vector3(0.32, 0.028, 0.36), 0.018, 2), MeshUtil.std(Color("#f7e3ab"), 0.85), Vector3(0.16, 0.070, -0.02)))
+		var ship := MeshUtil.kit("bt_city/CruiseShip", 0.58)
+		if ship:
+			ship.position = Vector3(-0.10, 0.075, 0.04)
+			ship.rotation_degrees.y = 26.0
+			g.add_child(ship)
+		var palm := MeshUtil.kit("pf/palm-tree-a307da", 0, 0.56)
+		if palm == null:
+			palm = MeshUtil.kit("pf/palm-sapling-ef7ae4", 0, 0.56)
 		if palm:
-			palm.position = Vector3(0.2, 0.075, 0.05)
+			palm.position = Vector3(0.24, 0.078, -0.06)
 			g.add_child(palm)
 		var f := _owner_flag(color)
 		f.scale = Vector3.ONE * 0.8
-		f.position = Vector3(0.3, 0.075, -0.18)
+		f.position = Vector3(0.30, 0.075, -0.18)
 		g.add_child(f)
 		return g
 	if lvl == 0:
@@ -440,12 +417,12 @@ func _house_model(type: String, lvl: int, st: int, color: Color) -> Node3D:
 	if m == null:
 		g.add_child(_owner_flag(color))
 		return g
-	_tint_roofs(m, color)
+	decorate_building(m, color, L)
 	g.add_child(_plot(color, L))
 	m.position.y = 0.075
 	g.add_child(m)
 	if L == 4:
-		_hotel_top(g, m.get_meta("height") + 0.075, color)
+		_hotel_top(g, m.get_meta("height") + 0.22, color)
 	else:
 		var f := _owner_flag(color)
 		f.scale = Vector3.ONE * 0.7
@@ -737,16 +714,16 @@ func dice_mat(key: String, n: int) -> ShaderMaterial:
 
 func _die_node() -> Node3D:
 	var d := Node3D.new()
-	var body := MeshUtil.mesh(MeshUtil.rounded_box(Vector3(0.62, 0.62, 0.62), 0.1, 5), MeshUtil.std(Color.WHITE, 0.3))
+	var body := MeshUtil.mesh(MeshUtil.rounded_box(Vector3(0.62, 0.62, 0.62), 0.09, 6), MeshUtil.std(Color.WHITE, 0.3))
 	d.add_child(body)
 	d.set_meta("body", body)
 	var faces := []
 	for k in 6:
 		var q := QuadMesh.new()
-		q.size = Vector2(0.5, 0.5)
+		q.size = Vector2(0.46, 0.46)
 		var f := MeshUtil.mesh(q, null, Vector3.ZERO, false)
 		var dir: Vector3 = FACE_DIR[k]
-		f.position = dir * 0.3105
+		f.position = dir * 0.3106
 		f.basis = Basis.looking_at(-dir, Vector3.UP if absf(dir.y) < 0.9 else Vector3.BACK)
 		d.add_child(f)
 		faces.append(f)
@@ -764,11 +741,20 @@ func _build_dice() -> void:
 	show_dice([5, 6])
 
 
-func _skin_dice(key: String) -> void:
+static func dice_body_mat(key: String) -> StandardMaterial3D:
 	var S: Dictionary = DICE_SKINS.get(key, DICE_SKINS.classic)
-	var bc := Color(S.bg[1]).lerp(Color(S.bg[0]), 0.35)
+	var m := MeshUtil.std(Color(S.bg[1]), S.rough, S.get("metal", 0.0))
+	if key == "cosmos":
+		m.emission_enabled = true
+		m.emission = Color("#1b1652")
+		m.emission_energy_multiplier = 0.65
+	return m
+
+
+func _skin_dice(key: String) -> void:
+	var m_body := dice_body_mat(key)
 	for d in dice:
-		(d.get_meta("body") as MeshInstance3D).material_override = MeshUtil.std(bc, S.rough, S.get("metal", 0.0))
+		(d.get_meta("body") as MeshInstance3D).material_override = m_body
 		var faces: Array = d.get_meta("faces")
 		for k in 6:
 			faces[k].material_override = dice_mat(key, FACE_N[k])
