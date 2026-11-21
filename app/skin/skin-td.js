@@ -1,5 +1,6 @@
 // ảnh chân dung 3D cho 4 nhân vật đầu (characters.js đọc biến này)
 globalThis.__charImg = [...Array(12).keys()].map((k) => `skin/chars/c${k}.webp`);
+globalThis.__charBust = [...Array(12).keys()].map((k) => `skin/chars/av${k}.webp`);
 import { CHARACTERS } from '../js/characters.js';
 // tên theo 12 nhân vật chibi tự dựng của bản app (bản web giữ tên cũ)
 ['Chủ Tịch', 'Nữ Tổng Tài', 'Ông Hoàng', 'Tiểu Thư', 'Đại Gia', 'Cảnh Sát Trưởng', 'Kỹ Sư', 'Founder', 'Vlogger', 'Địa Chủ', 'Tay Chơi', 'Phi Hành Gia'].forEach((n, k) => { if (!CHARACTERS[k]) CHARACTERS[k] = { kind: 'chibi', skin: '#ffd9b8', hair: '#3a2a22', style: 'short' }; CHARACTERS[k].name = n; CHARACTERS[k].kind = 'chibi'; });
