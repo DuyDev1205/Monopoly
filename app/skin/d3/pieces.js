@@ -63,6 +63,41 @@ function turnArrow(color) {
   halo.scale.setScalar(0.42); onFx(halo); g.add(halo);
   return g;
 }
+function toyPlane(color) {
+  // máy bay đồ chơi: thân trắng ngà sọc màu người chơi, cánh, đuôi, cánh quạt quay
+  const g = new THREE.Group(), body = toon('#f8f3ea'), stripe = toon(color, { stroke: 0.0024 }), dark = toon('#3b3f4f'), glass = toon('#8fd0f5');
+  const fus = new THREE.Mesh(new THREE.CapsuleGeometry(0.085, 0.36, 6, 14), body); fus.rotation.x = Math.PI / 2; g.add(fus);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.088, 0.088, 0.07, 18), stripe); band.rotation.x = Math.PI / 2; band.position.z = -0.05; g.add(band);
+  const cock = new THREE.Mesh(new THREE.SphereGeometry(0.06, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), glass); cock.scale.set(1, 0.8, 1.5); cock.position.set(0, 0.055, 0.1); g.add(cock);
+  const wing = new THREE.Mesh(new RoundedBoxGeometry(0.78, 0.028, 0.15, 2, 0.012), stripe); wing.position.set(0, -0.01, 0.02); g.add(wing);
+  const tailW = new THREE.Mesh(new RoundedBoxGeometry(0.28, 0.022, 0.08, 2, 0.01), stripe); tailW.position.set(0, 0.02, -0.25); g.add(tailW);
+  const fin = new THREE.Mesh(new RoundedBoxGeometry(0.022, 0.13, 0.1, 2, 0.01), stripe); fin.position.set(0, 0.09, -0.25); g.add(fin);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.06, 12), dark); nose.rotation.x = Math.PI / 2; nose.position.z = 0.29; g.add(nose);
+  const prop = new THREE.Group(); prop.position.z = 0.31;
+  [0, Math.PI / 2].forEach((a) => { const b = new THREE.Mesh(new RoundedBoxGeometry(0.03, 0.26, 0.012, 1, 0.005), dark); b.rotation.z = a; prop.add(b); });
+  g.add(prop); g.userData.prop = prop;
+  [-1, 1].forEach((s) => { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.02, 12), dark); w.rotation.z = Math.PI / 2; w.position.set(s * 0.07, -0.11, 0.08); g.add(w); });
+  const sh = contactShadow(1.2, 0.9, 0.7); sh.name = 'planeShadow';
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  g.scale.setScalar(1.8); g.userData.size = 1.8;
+  g.userData.shadow = sh;
+  return g;
+}
+function planeLeave(plane, dir) {
+  // thả quân xong: máy bay bay vút lên rồi biến mất
+  const t0 = performance.now(), p0 = plane.position.clone(), sh = plane.userData.shadow;
+  ctx.anims.add((t, dt) => {
+    const a = (performance.now() - t0) / 900;
+    plane.position.copy(p0).addScaledVector(dir, a * 2.6).add(new THREE.Vector3(0, a * a * 1.6, 0));
+    plane.rotation.x = -0.35 * Math.min(1, a * 2);
+    plane.userData.prop.rotation.z += dt * 40;
+    plane.scale.setScalar(plane.userData.size * Math.max(0.01, 1 - Math.max(0, a - 0.6) / 0.4));
+    sh.material.opacity = Math.max(0, 0.7 - a);
+    if (a >= 1) { ctx.groups.fx.remove(plane); ctx.groups.fx.remove(sh); return false; }
+    return true;
+  });
+}
+
 export async function setTokens(players) {
   tokens.forEach((tk) => ctx.groups.tokens.remove(tk.grp));
   ctx.readyAt = performance.now();
@@ -76,7 +111,7 @@ export async function setTokens(players) {
     const arrow = turnArrow(color); arrow.visible = false; grp.add(arrow);
     if (ch) { ch.wrap.position.y = 0.08; grp.add(ch.wrap); }
     ctx.groups.tokens.add(grp);
-    return { grp, model: ch, ring: glowRing, arrow, mine: p.mine ?? !p.bot, from: null, to: null, t0: 0, dur: 0, arc: 0, cur: false, out: false, walkEnd: 0 };
+    return { grp, model: ch, color, ring: glowRing, arrow, mine: p.mine ?? !p.bot, from: null, to: null, t0: 0, dur: 0, arc: 0, cur: false, out: false, walkEnd: 0, plane: null };
   }));
 }
 /** hoạt ảnh cảm xúc: victory -> reo hò, shock -> giật mình, out -> ngã */
@@ -94,6 +129,14 @@ export function placeToken(pid, place, opt = {}) {
   const target = slotPos(place.tile, place.k, place.n);
   if (!opt.dur || !tk.to) { tk.grp.position.copy(target); tk.to = target; tk.from = null; return; }
   tk.from = tk.grp.position.clone(); tk.to = target; tk.t0 = performance.now(); tk.dur = opt.dur; tk.arc = opt.arc ?? 0.35;
+  if (tk.arc >= 1) {
+    // bay qua Sân Bay: máy bay đồ chơi xuống đón, chở quân qua bàn rồi thả xuống ô đích
+    if (tk.plane) { ctx.groups.fx.remove(tk.plane); ctx.groups.fx.remove(tk.plane.userData.shadow); }
+    tk.plane = toyPlane(tk.color); ctx.groups.fx.add(tk.plane, tk.plane.userData.shadow);
+    tk.arc = Math.min(tk.arc * 0.62, 1.5);
+    if (tk.model) { const dx = target.x - tk.from.x, dz = target.z - tk.from.z; tk.model.wrap.rotation.y = Math.atan2(dx, dz); tk.model.play('emote-yes', { fade: 0.1 }); }
+    return;
+  }
   if (tk.model) {
     const dx = target.x - tk.from.x, dz = target.z - tk.from.z;
     if (Math.hypot(dx, dz) > 0.01) tk.model.wrap.rotation.y = Math.atan2(dx, dz);
@@ -106,7 +149,22 @@ function updateTokens(t, now, dt) {
   tokens.forEach((tk) => {
     const m = tk.model;
     m?.mixer.update(dt);
-    if (tk.from) {
+    if (tk.from && tk.plane) {
+      // 0–0.18: máy bay hạ xuống đón · 0.18–0.86: chở bay theo vòng cung · 0.86–1: hạ cánh thả quân
+      const k = Math.min(1, (now - tk.t0) / tk.dur), pl = tk.plane;
+      const dir = new THREE.Vector3().subVectors(tk.to, tk.from).setY(0); const len = dir.length() || 1; dir.divideScalar(len);
+      const u = THREE.MathUtils.clamp((k - 0.18) / 0.68, 0, 1), e = ease.inOut(u);
+      tk.grp.position.lerpVectors(tk.from, tk.to, e);
+      const lift = Math.sin(u * Math.PI) * tk.arc + 0.42 * Math.min(1, k / 0.18) * Math.min(1, (1 - k) / 0.14);
+      pl.position.copy(tk.grp.position).add(new THREE.Vector3(0, lift + 0.12, 0));
+      if (k < 0.18) pl.position.addScaledVector(dir, -(1 - k / 0.18) * 1.2).y += (1 - k / 0.18) * 1.0;
+      pl.rotation.set(0, Math.atan2(dir.x, dir.z), 0); pl.rotateX(-Math.cos(u * Math.PI) * 0.35 * (u > 0 && u < 1 ? 1 : 0));
+      pl.userData.prop.rotation.z += dt * 45;
+      const sh = pl.userData.shadow; sh.position.set(pl.position.x, TH + 0.01, pl.position.z); sh.material.opacity = 0.7 / (1 + lift * 1.2);
+      // quân ngồi lọt vào buồng lái (nửa dưới khuất trong thân máy bay), lùi nhẹ ra sau mũi
+      if (m) { m.wrap.position.y = k < 0.18 ? 0.08 : Math.max(0.08, lift + 0.02); m.wrap.position.x = k < 0.18 ? 0 : -dir.x * 0.06; m.wrap.position.z = k < 0.18 ? 0 : -dir.z * 0.06; }
+      if (k >= 1) { tk.from = null; if (m) { m.wrap.position.set(0, 0.08, 0); } tk.walkEnd = now; planeLeave(pl, dir); tk.plane = null; }
+    } else if (tk.from) {
       const k = Math.min(1, (now - tk.t0) / tk.dur), e = ease.inOut(k);
       tk.grp.position.lerpVectors(tk.from, tk.to, e);
       if (m) m.wrap.position.y = 0.08 + Math.sin(k * Math.PI) * tk.arc;
