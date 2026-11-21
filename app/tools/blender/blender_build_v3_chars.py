@@ -12,7 +12,7 @@ Technique (Commercial Pop Mart / Nendoroid / ZingPlay Grade):
 
 Run:
   1) python app/tools/blender/blender_build_v3_chars.py --atlas
-  2) Blender.exe -b -P app/tools/blender/blender_build_v3_chars.py -- [--only=0,9]
+  2) Blender.exe -b -P app/tools/blender/blender_build_v3_chars.py -- [--only=0,9] [--subdiv=1]
 """
 
 import math
@@ -1375,6 +1375,25 @@ def build_character(cid):
             if w > 0.001 and bname in vg_map:
                 vg_map[bname].add([vi], float(w), "REPLACE")
 
+    # 5b) Mịn hoá lưới: chia nhỏ Catmull-Clark (mặc định 1 bậc, --subdiv=N) SAU khi gán trọng số xương —
+    #     Blender nội suy luôn trọng số + UV, nên khớp xương và atlas mặt vẫn đúng. Lưới dày hơn làm ranh bóng toon
+    #     và viền ngoài tròn trịa (không còn gãy khúc theo cạnh tam giác). Giữ UV ở mép đảo (không nhoè mắt, miệng).
+    if SUBDIV > 0:
+        bpy.ops.object.select_all(action="DESELECT")
+        bpy.context.view_layer.objects.active = body_obj
+        body_obj.select_set(True)
+        sub = body_obj.modifiers.new(name="Smooth", type="SUBSURF")
+        sub.levels = SUBDIV
+        sub.render_levels = SUBDIV
+        sub.uv_smooth = "PRESERVE_BOUNDARIES"
+        sub.boundary_smooth = "PRESERVE_CORNERS"
+        sub.use_limit_surface = True
+        # đặt trước Armature để áp dụng được ở tư thế nghỉ
+        bpy.ops.object.modifier_move_to_index(modifier="Smooth", index=0)
+        bpy.ops.object.modifier_apply(modifier="Smooth")
+        for p in body_obj.data.polygons:
+            p.use_smooth = True
+
     # 6) Expressive 6 NLA Toy Animations (subtle charming idle contrapposto + natural walk/jump/cheer)
     arm_obj.animation_data_create()
     for pb in arm_obj.pose.bones:
@@ -1500,6 +1519,16 @@ def build_character(cid):
     tris = len(mesh.polygons)
     sz_kb = os.path.getsize(glb_path) // 1024
     print(f"OK V3 c{cid}: glb={sz_kb}KB tris={tris} nla={[t.name for t in arm_obj.animation_data.nla_tracks]}")
+
+
+def parse_subdiv(argv, default=1):
+    for a in argv:
+        if a.startswith("--subdiv="):
+            return int(a.split("=", 1)[1])
+    return default
+
+
+SUBDIV = parse_subdiv(sys.argv)
 
 
 def parse_only(argv):

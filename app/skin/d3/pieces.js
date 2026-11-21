@@ -19,8 +19,8 @@ export const preloadModels = () => Promise.all([
 // ======================= quân cờ =======================
 export let tokens = [];
 export let curPid = 0;
-const TOKEN_H = 0.8;
-const SLOTS = [[0], [-0.2, 0.2], [-0.27, 0, 0.27], [-0.33, -0.11, 0.11, 0.33]];
+const TOKEN_H = 1.12;
+const SLOTS = [[0], [-0.21, 0.21], [-0.3, 0, 0.3], [-0.36, -0.12, 0.12, 0.36]];
 const ANIM = { idle: 'idle', walk: 'walk', jump: 'jump', 'emote-yes': 'cheer', 'emote-no': 'hit', die: 'die' };
 const camYaw = () => { const c = ctx.camera.position; return Math.atan2(c.x - ctx.cam.tx, c.z - ctx.cam.tz); };
 
@@ -28,7 +28,7 @@ async function charToken(k) {
   const gl = await glb(`skin/models3/chars/c${((k % 12) + 12) % 12}.glb`);
   if (!gl) return null;
   const o = SkeletonUtils.clone(gl.scene);
-  toToon(o, { stroke: 0.0034 });
+  toToon(o, { stroke: 0.003, soft: true });
   o.traverse((c) => { if (c.isMesh) c.frustumCulled = false; });
   o.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(o), H = box.max.y - box.min.y || 1;

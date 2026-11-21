@@ -102,6 +102,13 @@ export const ramp = (() => {
   t.minFilter = t.magFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true;
   return t;
 })();
+/** dốc sáng mềm cho nhân vật: vẫn chia bậc nhưng ranh mượt (khuôn mặt, má, tóc không bị cắt mảng gắt) */
+export const softRamp = (() => {
+  const v = [92, 118, 150, 182, 212, 236, 248, 252];
+  const t = new THREE.DataTexture(new Uint8Array(v), v.length, 1, THREE.RedFormat);
+  t.minFilter = t.magFilter = THREE.LinearFilter; t.generateMipmaps = false; t.needsUpdate = true;
+  return t;
+})();
 export function setOutline(material, enabled = true, thickness = OUTLINE) {
   material.userData.outlineParameters = { ...(material.userData.outlineParameters || {}), visible: enabled, thickness };
   return material;
@@ -119,11 +126,11 @@ export function toon(color, { outline = true, stroke = OUTLINE, shared = true, .
 /** vật liệu không đổ bóng sáng tối (chữ in, quầng sáng, decal) — không viền */
 export function flat(color, opts = {}) { return setOutline(new THREE.MeshBasicMaterial({ color, ...opts }), false); }
 /** đổi mọi vật liệu của mô hình nạp từ .glb sang toon, giữ màu + texture */
-export function toToon(root, { outline = true, stroke = OUTLINE, tint = null } = {}) {
+export function toToon(root, { outline = true, stroke = OUTLINE, tint = null, soft = false } = {}) {
   root.traverse((o) => {
     if (!o.isMesh) return;
     const conv = (m) => {
-      const t = new THREE.MeshToonMaterial({ color: m.color ? m.color.clone() : new THREE.Color('#ffffff'), map: m.map || null, gradientMap: ramp,
+      const t = new THREE.MeshToonMaterial({ color: m.color ? m.color.clone() : new THREE.Color('#ffffff'), map: m.map || null, gradientMap: soft ? softRamp : ramp,
         transparent: m.transparent, opacity: m.opacity, alphaTest: m.alphaTest, side: m.side, vertexColors: m.vertexColors });
       if (m.map) m.map.anisotropy = MAXANI;
       t.name = m.name;

@@ -5,9 +5,9 @@ export const THEMES = {
   sakura: {
     name: 'Mai anh đào',
     // bàn cờ
-    slab: '#f6dde6', slabSide: '#e8b6c9', slabDark: '#c98aa6', trim: '#d9577f', gold: '#e7b54e',
-    plinth: '#d6a3b9', plinthDark: '#b07f97', court: ['#fdf8f3', '#f6ebe2'], motif: '#c45b84', courtInk: 0.26,
-    tileSide: '#f0e2d8', paper: '#fffaf4', bulb: '#fff0f5', bulbOff: '#9c6a80',
+    slab: '#e9b7c9', slabSide: '#c86b8f', slabDark: '#8f3d5e', trim: '#b8406b', gold: '#e2ad45',
+    plinth: '#a95f80', plinthDark: '#7a3d58', court: ['#f7e3e2', '#eccfd3'], motif: '#a8436b', courtInk: 0.3,
+    tileSide: '#e3cfc6', paper: '#fffaf4', bulb: '#fff0f5', bulbOff: '#9c6a80',
     lantern: '#e0374d', lanternHi: '#ffb27a', post: '#6e3b3f', ink: '#2c1f28',
     // ánh sáng
     hemi: ['#fff6fb', '#c9b2d8', 2.0], key: ['#fff3e6', 1.55], fill: ['#d8d2ff', 0.55],
@@ -18,8 +18,8 @@ export const THEMES = {
   },
   wood: {
     name: 'Gỗ sơn mài',
-    slab: '#f3e2c4', slabSide: '#9c2f22', slabDark: '#5e1a12', trim: '#1f1512', gold: '#e3b04b',
-    plinth: '#4a2419', plinthDark: '#2e150e', court: ['#fbf1dc', '#f2e2c2'], motif: '#a06a22', courtInk: 0.26,
+    slab: '#7a2318', slabSide: '#9c2f22', slabDark: '#5e1a12', trim: '#1f1512', gold: '#e3b04b',
+    plinth: '#4a2419', plinthDark: '#2e150e', court: ['#f1dcb2', '#e3c693'], motif: '#a06a22', courtInk: 0.26,
     tileSide: '#eedfc4', paper: '#fffaf0', bulb: '#ffe6a8', bulbOff: '#5a3a24',
     lantern: '#e9952b', lanternHi: '#ffe08a', post: '#2a1a14', ink: '#24160f',
     hemi: ['#fff4e2', '#b89272', 1.95], key: ['#ffecd2', 1.6], fill: ['#ffd9b0', 0.45],
@@ -29,8 +29,8 @@ export const THEMES = {
   },
   ocean: {
     name: 'Vịnh Hạ Long',
-    slab: '#eaf6f4', slabSide: '#3a7fa8', slabDark: '#215478', trim: '#f2c14e', gold: '#f2c14e',
-    plinth: '#2c6489', plinthDark: '#1b425d', court: ['#fdfaf0', '#eaf6f1'], motif: '#2a83ab', courtInk: 0.24,
+    slab: '#2f6f99', slabSide: '#3a7fa8', slabDark: '#215478', trim: '#f2c14e', gold: '#f2c14e',
+    plinth: '#2c6489', plinthDark: '#1b425d', court: ['#d9eef0', '#bfe0e6'], motif: '#2a83ab', courtInk: 0.24,
     tileSide: '#ebe4d2', paper: '#fffdf6', bulb: '#fff6c8', bulbOff: '#26506e',
     lantern: '#f0a33a', lanternHi: '#fff0a0', post: '#1f3e57', ink: '#13283a',
     hemi: ['#f4fbff', '#8fbccc', 2.05], key: ['#fff8ea', 1.65], fill: ['#cfeaff', 0.55],

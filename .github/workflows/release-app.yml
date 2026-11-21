@@ -1,5 +1,6 @@
-# Build bản app (Tauri) cho Windows (.exe) và macOS (.dmg universal) rồi đăng lên GitHub Releases.
+# Build bản app (Tauri + Three.js) cho Windows (.exe) và macOS (.dmg universal) rồi đăng lên GitHub Releases.
 # Chạy khi đẩy tag dạng v1.2.3 (version phải trùng app/package.json), hoặc bấm tay trong tab Actions.
+# Các máy build chỉ dựng + ký bộ cài; job cuối tạo latest.json (để bản cũ tự cập nhật) và đăng release bằng gh.
 name: Release app
 
 on:
@@ -18,8 +19,10 @@ jobs:
         include:
           - platform: windows-latest
             args: ''
+            name: win
           - platform: macos-latest
             args: '--target universal-apple-darwin'
+            name: mac
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -42,31 +45,77 @@ jobs:
         working-directory: app
         run: npm ci
 
-      - uses: tauri-apps/tauri-action@v0
+      - name: Dựng + ký bộ cài
+        working-directory: app
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # khoá ký bản cập nhật (app chỉ cài bản có chữ ký khớp khoá công khai trong tauri.conf.json)
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          npx tauri build ${{ matrix.args }}
+          mkdir -p ../out
+          VER=$(node -p "require('./package.json').version")
+          if [ "${{ matrix.name }}" = "win" ]; then
+            cp src-tauri/target/release/bundle/nsis/CoTyPhu_${VER}_x64-setup.exe* ../out/
+          else
+            B=src-tauri/target/universal-apple-darwin/release/bundle
+            cp $B/dmg/CoTyPhu_${VER}_universal.dmg ../out/
+            cp $B/macos/CoTyPhu.app.tar.gz ../out/CoTyPhu_universal.app.tar.gz
+            cp $B/macos/CoTyPhu.app.tar.gz.sig ../out/CoTyPhu_universal.app.tar.gz.sig
+          fi
+          ls -la ../out
+
+      - uses: actions/upload-artifact@v4
         with:
-          includeUpdaterJson: true
-          updaterJsonPreferNsis: true
-          projectPath: app
-          tauriScript: npx tauri
-          tagName: v__VERSION__
-          releaseName: 'Cờ Tỷ Phú v__VERSION__'
-          releaseBody: |
-            ## Cờ Tỷ Phú Việt Nam — bản cài đặt
+          name: ${{ matrix.name }}
+          path: out/*
 
-            | Hệ điều hành | Tệp |
-            |---|---|
-            | Windows 10/11 | `CoTyPhu_x.y.z_x64-setup.exe` — chạy để cài. Nếu SmartScreen cảnh báo: *More info → Run anyway* |
-            | macOS (M1/M2/M3… và Intel) | `CoTyPhu_x.y.z_universal.dmg` — mở .dmg, kéo **CoTyPhu** vào Applications |
+  release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
 
-            > macOS: ứng dụng chưa được Apple ký, lần đầu mở hãy **chuột phải → Open**.
-            > Nếu báo "app is damaged", chạy: `xattr -cr "/Applications/CoTyPhu.app"`
+      - name: Tạo latest.json + đăng bản phát hành
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          cd dist
+          ls -la
+          BASE="https://github.com/$REPO/releases/download/v$VER"
+          WIN="CoTyPhu_${VER}_x64-setup.exe"
+          MAC="CoTyPhu_universal.app.tar.gz"
+          python3 - "$VER" "$BASE" "$WIN" "$MAC" <<'PY'
+          import json, sys, datetime
+          ver, base, win, mac = sys.argv[1:5]
+          ws = open(win + '.sig').read().strip()
+          ms = open(mac + '.sig').read().strip()
+          w = {'signature': ws, 'url': f'{base}/{win}'}
+          m = {'signature': ms, 'url': f'{base}/{mac}'}
+          d = {'version': ver, 'notes': f'Cờ Tỷ Phú Việt Nam v{ver}',
+               'pub_date': datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+               'platforms': {'windows-x86_64': w, 'windows-x86_64-nsis': w, 'darwin-aarch64': m, 'darwin-x86_64': m,
+                             'darwin-aarch64-app': m, 'darwin-x86_64-app': m}}
+          json.dump(d, open('latest.json', 'w'), ensure_ascii=False, indent=2)
+          PY
+          cat > notes.md <<EOF
+          ## Cờ Tỷ Phú Việt Nam — bản cài đặt
 
-            Chơi online được với cả người dùng bản web: https://duydev1205.github.io/Monopoly/
-          releaseDraft: false
-          prerelease: false
-          args: ${{ matrix.args }}
+          | Hệ điều hành | Tệp |
+          |---|---|
+          | Windows 10/11 | \`CoTyPhu_${VER}_x64-setup.exe\` — chạy để cài. Nếu SmartScreen cảnh báo: *More info → Run anyway* |
+          | macOS (M1/M2/M3… và Intel) | \`CoTyPhu_${VER}_universal.dmg\` — mở .dmg, kéo **CoTyPhu** vào Applications |
+
+          > macOS: ứng dụng chưa được Apple ký, lần đầu mở hãy **chuột phải → Open**.
+          > Nếu báo "app is damaged", chạy: \`xattr -cr "/Applications/CoTyPhu.app"\`
+
+          Chơi online được với cả người dùng bản web: https://duydev1205.github.io/Monopoly/
+          EOF
+          gh release create "v$VER" --repo "$REPO" --title "Cờ Tỷ Phú v$VER" --notes-file notes.md \
+            "$WIN" "$WIN.sig" "CoTyPhu_${VER}_universal.dmg" "$MAC" "$MAC.sig" latest.json

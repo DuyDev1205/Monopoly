@@ -24,7 +24,8 @@ export async function init({ stage } = {}) {
   host.id = 'gl';
   document.body.prepend(host);
   renderer = new THREE.WebGLRenderer({ canvas: host, antialias: true, alpha: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  // vẽ dư điểm ảnh (tối thiểu ×1.75) để viền và quân cờ sắc nét cả trên màn hình thường
+  renderer.setPixelRatio(Math.min(2, Math.max(1.75, devicePixelRatio || 1)));
   setMaxAni(Math.min(16, renderer.capabilities.getMaxAnisotropy() || 4));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NoToneMapping;
@@ -89,7 +90,7 @@ export function setTheme(name) {
 }
 
 // ======================= camera: góc ¾ chuẩn + xoay tự do có giới hạn =======================
-const HERO = { az: Math.PI / 4, el: 0.66 };            // nhìn từ góc +x+z (Xuất Phát ở gần), cao ~38°
+const HERO = { az: Math.PI / 4, el: 0.72 };            // nhìn từ góc +x+z (Xuất Phát ở gần), cao ~41°: thấy rõ mặt quân cờ, chữ ô vẫn đọc được
 const orbit = { az: 0, el: 0, zoom: 1 };              // độ lệch do người chơi xoay / phóng
 const LIM = { az: 1.05, elMin: 0.3, elMax: 1.22, zMin: 0.62, zMax: 1.3 };
 let viewRect = null, baseD = 26;
@@ -106,12 +107,14 @@ function fitCamera() {
   camera.clearViewOffset();
   if (mode === 'home') { camera.updateProjectionMatrix(); return; }
   // vùng dành cho bàn cờ: giữa màn hình, chừa 4 góc cho thẻ người chơi
-  const rect = { x: Wv * 0.15, y: 58, w: Wv * 0.7, h: Hv - 92 };
+  // 4 thẻ người chơi nằm ở 4 góc: bàn hình thoi được rộng gần hết bề ngang ở giữa
+  const rect = { x: Wv * 0.1, y: 64, w: Wv * 0.8, h: Hv - 92 };
   viewRect = rect;
   const dir = camDir(HERO.az, HERO.el);
   const pts = [];
-  const R = W / 2 + 0.85;
-  [-1, 1].forEach((sx) => [-1, 1].forEach((sz) => [-1.36, 0.5].forEach((y) => pts.push(new THREE.Vector3(sx * R, y, sz * R)))));
+  // căn theo mặt bàn (ô đất), bệ dưới được phép tràn ra mép
+  const R = W / 2 + 0.3;
+  [-1, 1].forEach((sx) => [-1, 1].forEach((sz) => [-0.45, 0.35].forEach((y) => pts.push(new THREE.Vector3(sx * R, y, sz * R)))));
   let D = 30;
   for (let it = 0; it < 4; it++) {
     camera.position.copy(dir).multiplyScalar(D); camera.lookAt(0, 0, 0); camera.updateMatrixWorld(); camera.updateProjectionMatrix();
@@ -123,7 +126,7 @@ function fitCamera() {
   baseD = D;
   // dịch hình để tâm bàn nằm giữa khung dành cho bàn
   camera.position.copy(dir).multiplyScalar(D); camera.lookAt(0, 0, 0); camera.updateMatrixWorld(); camera.updateProjectionMatrix();
-  const c = new THREE.Vector3(0, -0.3, 0).project(camera);
+  const c = new THREE.Vector3(0, 0.1, 0).project(camera);
   const cx = (c.x + 1) / 2 * Wv, cy = (1 - c.y) / 2 * Hv;
   camera.setViewOffset(Wv, Hv, cx - (rect.x + rect.w / 2), cy - (rect.y + rect.h / 2), Wv, Hv);
   camera.updateProjectionMatrix();

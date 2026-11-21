@@ -111,6 +111,9 @@ void main() {
     wcol = mix(wcol, mistCol, exp(-d / 30.0) * 0.5);
     col = wcol;
   }
+  // lùi phông ra sau: giảm tươi + tối nhẹ (thứ bậc tương phản: nền < bàn cờ < nhà < quân)
+  float lum = dot(col, vec3(0.299, 0.587, 0.114));
+  col = mix(vec3(lum), col, 0.82) * 0.9;
   col += (hash(gl_FragCoord.xy + fract(wt) * 61.0) - 0.5) / 255.0 * 1.6;
   gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>

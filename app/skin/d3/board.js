@@ -217,29 +217,29 @@ async function drawTile(i) {
     for (let y = 18; y < 84; y += 22) { g.beginPath(); for (let x = 0; x <= Wc; x += 10) g.lineTo(x, y + Math.sin(x / 14 + y) * 3); g.stroke(); }
     g.fillStyle = '#fff6dc'; g.fillRect(0, 84, Wc, 9);
   } else if (info.band) {
-    const bd = g.createLinearGradient(0, 0, 0, 62); bd.addColorStop(0, mixHex(info.band, '#ffffff', 0.12)); bd.addColorStop(1, info.band);
-    g.fillStyle = bd; g.fillRect(0, 0, Wc, 62);
+    const bd = g.createLinearGradient(0, 0, 0, 78); bd.addColorStop(0, mixHex(info.band, '#ffffff', 0.12)); bd.addColorStop(1, info.band);
+    g.fillStyle = bd; g.fillRect(0, 0, Wc, 78);
     g.fillStyle = 'rgba(255,255,255,.28)'; g.fillRect(14, 10, Wc - 28, 8);
-    if (st.mono) { g.fillStyle = '#ffffff'; g.font = `900 40px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('★', Wc / 2, 34); }
+    if (st.mono) { g.fillStyle = '#ffffff'; g.font = `900 44px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('★', Wc / 2, 42); }
   }
   g.restore();
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  const ink = '#2b2118';
+  const ink = '#1c130e';
   if (corner) {
     // ô góc: nửa xa để tiểu cảnh 3D, chữ to ở nửa gần
-    g.fillStyle = ink; const s = fitText(g, info.name, Wc - 40, 64, 900); g.font = `900 ${s}px ${FONT}`; g.fillText(info.name, Wc / 2, 262);
+    g.fillStyle = ink; const s = fitText(g, info.name, Wc - 34, 74, 900); g.font = `900 ${s}px ${FONT}`; g.fillText(info.name, Wc / 2, 262);
     g.fillStyle = '#5b4630'; const s2 = fitText(g, info.sub, Wc - 40, 36, 700); g.font = `700 ${s2}px ${FONT}`; g.fillText(info.sub, Wc / 2, 314);
   } else {
     if (info.icon && info.type !== 'city' && info.type !== 'resort') { const im = await loadImg(info.icon); if (im) g.drawImage(im, Wc / 2 - 56, 56, 112, 112); }
-    const ln = lines(g, info.name, Wc - 30, 44);
-    const size = Math.min(...ln.map((l) => fitText(g, l, Wc - 24, ln.length > 1 ? 44 : 52)));
-    g.font = `800 ${size}px ${FONT}`; g.fillStyle = ink;
-    const y0 = ln.length > 1 ? 214 : 236;
+    const ln = lines(g, info.name, Wc - 22, 50, 900);
+    const size = Math.min(...ln.map((l) => fitText(g, l, Wc - 18, ln.length > 1 ? 50 : 60, 900)));
+    g.font = `900 ${size}px ${FONT}`; g.fillStyle = ink;
+    const y0 = ln.length > 1 ? 206 : 232;
     ln.forEach((l, k) => g.fillText(l, Wc / 2, y0 + k * (size + 4)));
     const price = st.price || info.sub;
     g.fillStyle = st.owned ? mixHex(st.owned, '#000000', 0.28) : '#4a3d2e';
-    const ps = fitText(g, price, Wc - 20, st.owned ? 62 : 54, 900); g.font = `900 ${ps}px ${FONT}`;
-    g.fillText(price, Wc / 2, 318);
+    const ps = fitText(g, price, Wc - 16, st.owned ? 70 : 62, 900); g.font = `900 ${ps}px ${FONT}`;
+    g.fillText(price, Wc / 2, 316);
   }
   if (st.owned) {
     // viền màu chủ đất + ruy-băng tam giác ở góc gần trái
