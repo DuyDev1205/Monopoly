@@ -1,7 +1,7 @@
 // Đóng gói bản web thành thư mục app/dist cho Tauri, rồi gắn giao diện riêng của bản app (skin "td").
 // Bản web (index.html, css/, js/ ở gốc repo) KHÔNG bị sửa — skin chỉ có trong app/dist.
 import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
-import { dirname, join, sep } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -14,18 +14,8 @@ for (const f of readdirSync(dist)) rmSync(join(dist, f), { recursive: true, forc
 for (const p of ['css', 'js', 'assets', 'manifest.webmanifest']) {
   if (existsSync(join(root, p))) cpSync(join(root, p), join(dist, p), { recursive: true });
 }
-// mô hình 3D + Three.js chỉ cần khi dựng ảnh (BAKE=1 node build.mjs); bản đóng gói chỉ chở ảnh đã dựng
-const BAKE = process.env.BAKE === '1';
-// bản đóng gói chỉ chở các mô hình được dùng (danh sách KIT_FILES trong scene3d.js)
-const s3 = readFileSync(join(here, 'skin', 'scene3d.js'), 'utf8');
-const PF_USED = new Set([...s3.matchAll(/'([a-z0-9-]+-[0-9a-f]{6})'/g)].map((m) => m[1] + '.glb'));
-const SKIP = ['sprites', 'scene2d.js', join('vendor', 'pixi')].map((p) => join(here, 'skin', p));
-const PF = join(here, 'skin', 'models', 'pf');
-cpSync(join(here, 'skin'), join(dist, 'skin'), { recursive: true, filter: (src) => {
-  if (SKIP.some((s) => src === s || src.startsWith(s + sep))) return false;
-  if (src.startsWith(PF + sep) && !BAKE && !PF_USED.has(src.slice(PF.length + 1))) return false;
-  return true;
-} });
+// lớp vẽ 3D (Three.js) + mô hình tự dựng + tranh nền + font chữ: chép nguyên app/skin
+cpSync(join(here, 'skin'), join(dist, 'skin'), { recursive: true });
 
 
 let html = readFileSync(join(root, 'index.html'), 'utf8');
@@ -33,7 +23,7 @@ const must = (cond, what) => { if (!cond) throw new Error('build.mjs: không tì
 must(html.includes('<html lang="vi">'), '<html lang="vi">');
 must(html.includes('<link rel="stylesheet" href="css/style.css">'), 'css/style.css');
 must(html.includes('<script type="module" src="js/app.js"></script>'), 'js/app.js');
-const theme = '<script>try{document.documentElement.dataset.td=JSON.parse(localStorage.getItem("ctp_td_theme"))||"midnight"}catch(e){document.documentElement.dataset.td="midnight"}</script>';
+const theme = '<script>try{document.documentElement.dataset.td=JSON.parse(localStorage.getItem("ctp_td_theme"))||"sakura"}catch(e){document.documentElement.dataset.td="sakura"}</script>';
 html = html
   .replace('<html lang="vi">', `<html lang="vi" data-skin="td" data-version="${pkg.version}">`)
   // app chạy offline: bỏ font Google, dùng font hệ thống (Segoe UI / SF Pro) như TDCaro

@@ -1,8 +1,8 @@
 // ảnh chân dung 3D cho 4 nhân vật đầu (characters.js đọc biến này)
 globalThis.__charImg = [...Array(12).keys()].map((k) => `skin/chars/c${k}.webp`);
 import { CHARACTERS } from '../js/characters.js';
-// tên theo mô hình 3D của bản app (bản web giữ tên cũ)
-['Hiệp Sĩ', 'Phù Thủy', 'Tráng Sĩ', 'Lãng Khách', 'Ninja', 'Xương Giáp', 'Xương Phép', 'Bé Xương', 'Xương Ninja', 'Chàng Hiệp Sĩ', 'Pháp Sư Trẻ', 'Thợ Săn'].forEach((n, k) => { if (!CHARACTERS[k]) CHARACTERS[k] = { kind: 'chibi', skin: '#ffd9b8', hair: '#3a2a22', style: 'short' }; CHARACTERS[k].name = n; CHARACTERS[k].kind = 'chibi'; });
+// tên theo 12 nhân vật chibi tự dựng của bản app (bản web giữ tên cũ)
+['Chủ Tịch', 'Nữ Tổng Tài', 'Ông Hoàng', 'Tiểu Thư', 'Đại Gia', 'Cảnh Sát Trưởng', 'Kỹ Sư', 'Founder', 'Vlogger', 'Địa Chủ', 'Tay Chơi', 'Phi Hành Gia'].forEach((n, k) => { if (!CHARACTERS[k]) CHARACTERS[k] = { kind: 'chibi', skin: '#ffd9b8', hair: '#3a2a22', style: 'short' }; CHARACTERS[k].name = n; CHARACTERS[k].kind = 'chibi'; });
 // Giao diện bản app (phong cách TDCaro): chỉ sắp xếp lại DOM + thêm vài chi tiết trang trí.
 // Không đụng vào luật chơi: app.js vẫn tìm phần tử theo id nên di chuyển chúng là an toàn.
 const $ = (s, r = document) => r.querySelector(s);
@@ -12,10 +12,10 @@ const REPO = 'DuyDev1205/Monopoly';
 
 // ---------- giao diện màu (4 theme như TDCaro) ----------
 export const TD_THEMES = [
-  { key: 'midnight', name: 'Midnight Neon', board: '#1A2040', a: '#FF4F8B', b: '#35D5FF' },
-  { key: 'wood', name: 'Gỗ Cổ Điển', board: '#E8C48C', a: '#C0392B', b: '#1F3A5F' },
-  { key: 'ocean', name: 'Đại Dương', board: '#FFF9EC', a: '#1E3A5F', b: '#FF6B5B' },
-  { key: 'sakura', name: 'Hoa Anh Đào', board: '#FFFFFF', a: '#E8467C', b: '#6F4BE8' },
+  { key: 'sakura', name: 'Mai Anh Đào', board: '#F6DDE6', a: '#D9577F', b: '#6F6CC6' },
+  { key: 'wood', name: 'Gỗ Sơn Mài', board: '#9C2F22', a: '#E3B04B', b: '#1F1512' },
+  { key: 'ocean', name: 'Vịnh Hạ Long', board: '#3A7FA8', a: '#F2C14E', b: '#EAF6F4' },
+  { key: 'midnight', name: 'Phố Đêm Hội An', board: '#2B3268', a: '#FF5A3C', b: '#E9C46A' },
 ];
 function setTheme(key) {
   document.documentElement.dataset.td = key;
