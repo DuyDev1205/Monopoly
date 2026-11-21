@@ -12,7 +12,7 @@ Chơi với máy ngay trên trình duyệt, hoặc chơi online cùng bạn bè 
 Bản app có đồ hoạ riêng, luật chơi và chơi online giống hệt bản web (chơi chung phòng với người dùng web được):
 
 - Giao diện phong cách TDCaro, 4 bảng màu: Midnight Neon, Gỗ Cổ Điển, Đại Dương, Hoa Anh Đào.
-- Bàn cờ 3D dựng trực tiếp bằng **Three.js**: nhân vật chibi, nhà phố, cây, xu vàng là mô hình [KayKit](https://kaylousberg.com) (CC0) có hoạt ảnh (đi, nhảy, reo hò, ngã); cây anh đào, dừa, chòi biển của [Polyfork](https://polyfork.dev) (CC BY 4.0, xem `app/skin/models/CREDITS.txt`). Camera bám quân cờ, pháo hoa khi lên khách sạn / độc quyền, 8 bộ xúc xắc.
+- Bàn cờ 3D dựng trực tiếp bằng **Three.js** theo kiểu sa bàn đồ chơi (toon 4 bậc + viền mực mảnh, theo bộ quy chuẩn [Diorama](https://github.com/sloemo01/diorama)). Mọi mô hình đều tự dựng: 12 nhân vật chibi và 13 công trình Việt Nam dựng bằng script Blender (`app/tools/blender/`), bàn cờ và đạo cụ dựng bằng mã trong `app/skin/scene3d.js`; tranh nền vẽ bằng `app/tools/render_art.py`.
 - Chạy offline (trừ chơi online); tự báo khi có bản mới.
 
 Mã nguồn bản app nằm trong [`app/`](app/): `app/skin/` (giao diện + 3D), `app/src-tauri/` (vỏ [Tauri](https://tauri.app)).
@@ -90,15 +90,13 @@ python -m http.server 8000     # rồi mở http://localhost:8000
 
 Deploy: push lên nhánh `main`, GitHub Pages tự cập nhật.
 
-## Bản app (Godot 4) — `godot/`
+## Bản app (Three.js) — `app/`
 
-Bản cài Windows / macOS dựng bằng **Godot 4.7** (2D tranh vẽ): nền phong cảnh phủ kín màn hình — trời chuyển màu,
-mây trôi, núi mờ sương, đồi hoa xa, mặt hồ gương gợn sóng lấp lánh, cánh hoa bay; bàn cờ isometric. Tranh nền của 4 theme
-(`godot/assets/art/`) vẽ bằng `python godot/tools/render_art.py` (Pillow + numpy + scipy), mặt hồ do `scripts2d/bg.gdshader` dựng.
-Quân cờ và công trình là hình 2D chụp từ mô hình 3D (KayKit, Polyfork) bằng `tools/render_chars.tscn`, `tools/render_builds.tscn`
-rồi xử lý bằng `python godot/tools/fix_chars.py`; quân cờ có hoạt ảnh (đứng, đi, nhảy, reo hò, ngã), nhà lợp mái theo màu chủ đất.
-Màu của nhà, quân cờ, bàn được hoà theo ánh sáng từng theme (`scripts2d/grade.gdshader`).
-Luật chơi (`godot/scripts/rules.gd`) và máy chơi (`bot.gd`) chép từ `js/engine.js`, `js/bot.js`;
-chơi online qua MQTT chung phòng với bản web (`godot/scripts/net.gd`).
-Phát hành: đẩy tag `vX.Y.Z` → `.github/workflows/release-app.yml` xuất game, dựng bộ cài NSIS + .dmg, ký và tạo `latest.json`
-(bản cũ tự cập nhật sang được).
+Bản cài Windows / macOS là bản web đóng gói bằng **Tauri**, thêm lớp vẽ 3D **Three.js** (`app/skin/scene3d.js`):
+luật chơi, máy chơi và chơi online dùng chung `js/` với bản web nên luôn khớp nhau.
+- `node app/build.mjs` gom bản web + `app/skin/` vào `app/dist/`; `npm run dev` (trong `app/`) mở bản app.
+- Mô hình tự dựng: `Blender -b -P app/tools/blender/blender_build_v3_chars.py` (nhân vật, chạy `--atlas` bằng Python trước),
+  `Blender -b -P app/tools/blender/blender_build_v3_houses.py` (công trình) → `app/skin/models3/`.
+- Tranh nền 5 theme: `python app/tools/render_art.py` → `app/skin/art/`.
+- Phát hành: đẩy tag `vX.Y.Z` (trùng `app/package.json`) → `.github/workflows/release-app.yml` dựng bộ cài NSIS + .dmg,
+  ký và tạo `latest.json` để bản cũ tự cập nhật.

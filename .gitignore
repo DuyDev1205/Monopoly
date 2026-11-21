@@ -5,3 +5,4 @@ node_modules/
 app/dist/
 app/src-tauri/target/
 build/
+app/.tex_tmp/
