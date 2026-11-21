@@ -13,7 +13,7 @@ const glbCache = new Map();
 function glb(path) { if (!glbCache.has(path)) glbCache.set(path, loader.loadAsync(path).catch((e) => { console.warn('không nạp được', path, e); return null; })); return glbCache.get(path); }
 export const preloadModels = () => Promise.all([
   ...[...Array(12).keys()].map((k) => glb(`skin/models3/chars/c${k}.glb`)),
-  ...Object.values(BUILD).flat().map((n) => glb(`skin/models3/build/${n}.glb`)),
+  ...Object.values(BUILD).flat().map((n) => glb(`skin/models3/houses/${n}.glb`)),
 ]);
 
 // ======================= quân cờ =======================
@@ -190,6 +190,16 @@ const BUILD = {
   4: ['lvl4_dinhvn', 'lvl4_indochine'],
 };
 export const buildings = [];
+// bảng màu công trình: đậm, ấm kiểu Việt (tường vàng Hội An, ngói đất nung, gỗ teak) — mô hình gốc màu pastel quá nhạt,
+// dưới ánh sáng toon bị bạc trắng. Màu chủ đất (Mat_Player) giữ đậm để đọc ngay nhà của ai.
+const BUILD_PAL = {
+  Mat_Wall_Ivory: '#f1e2c4', Mat_Wall_Butter: '#f0cf7a', Mat_Wall_HoiAn: '#efbf3f', Mat_Wall_Pastel: '#f0cdbb', Mat_Wall_Sand: '#ead2a4',
+  Mat_Stone_Plinth: '#d6c7ad', Mat_Brick_Court: '#c97f62', Mat_Terracotta: '#c45f39',
+  Mat_Roof_Clay: '#cf5f37', Mat_Roof_DeepClay: '#9e3f27', Mat_Roof_Thatch: '#cfa65a', Mat_Roof_Corrug: '#3a8fb8',
+  Mat_Wood_Teak: '#6e4529', Mat_Wood_Light: '#a87a4f', Mat_Window_Frame: '#44625a', Mat_Window_Warm: '#ffd47a', Mat_Glass_Sea: '#6cc3d8',
+  Mat_Gold_Brass: '#d99b2f', Mat_Foliage: '#3f9f52', Mat_Flower_Pink: '#e2468e', Mat_Water_Lagoon: '#36b3c8',
+};
+const BUILD_SC = 1.22;
 let HOUSE_STYLE = 'vn';
 export function setHouseStyle(v) { HOUSE_STYLE = v; }
 async function houseModel(type, lvl, style, color) {
@@ -197,14 +207,19 @@ async function houseModel(type, lvl, style, color) {
   if (type !== 'resort' && lvl === 0) { g.add(ownerFlag(color)); return g; }
   const list = type === 'resort' ? BUILD.resort : BUILD[Math.min(4, lvl)];
   const name = list[((style ?? 0) % list.length + list.length) % list.length];
-  const gl = await glb(`skin/models3/build/${name}.glb`);
+  const gl = await glb(`skin/models3/houses/${name}.glb`);
   if (!gl) { g.add(ownerFlag(color)); return g; }
   const m = gl.scene.clone(true);
   // màu chủ đất: dịu lại một chút để hợp với tường kem, mái ngói
-  toToon(m, { stroke: 0.003, tint: { Mat_Player: mixHex(color, '#fff4e6', 0.12) } });
+  toToon(m, { stroke: 0.003, tint: { ...BUILD_PAL, Mat_Player: mixHex(color, '#000000', 0.06) } });
+  // cửa sổ sáng ấm (đêm nhìn rõ hơn), mái đậm
+  m.traverse((o) => { if (!o.isMesh) return; (Array.isArray(o.material) ? o.material : [o.material]).forEach((mt) => {
+    if (mt.name === 'Mat_Window_Warm') { mt.emissive = col('#ffb54a'); mt.emissiveIntensity = ctx.theme === 'midnight' ? 0.9 : 0.25; }
+  }); });
+  m.scale.setScalar(BUILD_SC);
   g.add(m);
-  const sh = contactShadow(0.85, 0.85, 0.8); sh.position.y = 0.004; g.add(sh);
-  if (type !== 'resort' && lvl < 4) { const f = ownerFlag(color, 0.55); f.position.set(0.31, 0, -0.2); g.add(f); }
+  const sh = contactShadow(1.0, 1.0, 0.85); sh.position.y = 0.004; g.add(sh);
+  if (type !== 'resort' && lvl < 4) { const f = ownerFlag(color, 0.62); f.position.set(0.36, 0, -0.24); g.add(f); }
   return g;
 }
 function ownerFlag(color, h = 0.42) {

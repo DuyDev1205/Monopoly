@@ -1,6 +1,6 @@
 """Build ALL 13 stylized Vietnamese Regional Buildings for Monopoly ART_V3.
 
-Models exported to app/skin/models3/build/:
+Models exported to app/skin/models3/houses/:
   0:  resort_vn.glb       (Bai cat ngoc, 2 choi la, du soc, ghe bo, THUYEN THUNG, dua)
   1:  lvl1_bacbo.glb      (Cap 1: Nha ngói Bac Bo, san gach, chum nuoc)
   2:  lvl1_mientay.glb    (Cap 1: Nha mai la Mien Tay + xuong ba la + dua)
@@ -13,7 +13,7 @@ Models exported to app/skin/models3/build/:
   9:  lvl3_hanoi.glb      (Cap 3: Nha pho Ha Noi 3 tang hep-cao, ban cong sat)
   10: lvl3_minihotel.glb  (Cap 3: Mini hotel ven bien ban cong kinh + mai pergola)
   11: lvl4_indochine.glb  (Cap 4 Hotel: Khach san Dong Duong vang mai vom dai sen)
-  12: lvl4_dinhvn.glb     (Cap 4 Hotel: Thap khach san hien dai mai cong kieu dinh Viet)
+  12: lvl4_dinhvn.glb     (Cap 4 Hotel: Khach san kieu dinh Viet 3 tang mai cong dau dao, sanh cot son son)
 
 Rules:
   - ONLY 20-30% accent pieces use Mat_Player (flags, awnings, lanterns, umbrellas, canopies).
@@ -30,7 +30,7 @@ import bmesh
 from mathutils import Vector, Matrix, Euler
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT_DIR = os.path.normpath(os.path.join(HERE, "..", "..", "skin", "models3", "build"))
+OUT_DIR = os.path.normpath(os.path.join(HERE, "..", "..", "skin", "models3", "houses"))
 
 PALETTE = {
     "Mat_Player":        "#f2f2f2",  # Dyed per owner color in render_builds.gd
@@ -501,26 +501,52 @@ def build_lvl4_indochine(mats):
 
 # ---------------- 12: CẤP 4 THÁP KHÁCH SẠN HIỆN ĐẠI MÁI ĐÌNH VIỆT (lvl4_dinhvn) ----------------
 def build_lvl4_dinhvn(mats):
+    """Khách sạn kiểu đình Việt: 3 tầng thu nhỏ dần, mỗi tầng một mái ngói cong đầu đao, sảnh cột sơn son,
+    ban công gỗ, vọng lâu nhỏ trên nóc; băng rôn + đèn lồng màu chủ đất (Mat_Player)."""
     bm = bmesh.new()
     m = lambda k: mats[k][1]
-    add_box(bm, m("Mat_Stone_Plinth"), (0.58, 0.56, 0.068), (0.0, 0.0, 0.034), bevel=0.018)
-    # Thân tháp kính-kem hiện đại 2 khối giật cấp
-    add_box(bm, m("Mat_Wall_Ivory"), (0.46, 0.42, 0.56), (0.0, 0.01, 0.348), bevel=0.016)
-    add_box(bm, m("Mat_Wall_Ivory"), (0.38, 0.34, 0.44), (0.0, 0.01, 0.848), bevel=0.016)
-    add_box(bm, m("Mat_Glass_Sea"), (0.32, 0.36, 0.46), (0.0, 0.01, 0.848), bevel=0.010)
-    add_box(bm, m("Mat_Glass_Sea"), (0.36, 0.32, 0.46), (0.0, 0.01, 0.848), bevel=0.010)
-    for fz in (0.44, 0.58, 0.72, 0.86, 0.99):
-        add_box(bm, m("Mat_Stone_Plinth"), (0.42 if fz < 0.65 else 0.39, 0.38 if fz < 0.65 else 0.35, 0.022), (0.0, 0.01, fz), bevel=0.005)
-    add_window(bm, m("Mat_Gold_Brass"), m("Mat_Window_Warm"), (0.0, -0.208, 0.18), (0.20, 0.028, 0.22))
-    # Mái đình Việt 2 tầng uốn đầu đao vàng kim trên đỉnh tháp cao (~1.46m)!
-    add_pitched_roof(bm, m("Mat_Roof_Clay"), m("Mat_Gold_Brass"), 0.48, 0.44, 0.16, 1.08, offset_y=0.01, axis="x", up_ends=True)
-    add_box(bm, m("Mat_Wall_Butter"), (0.24, 0.22, 0.12), (0.0, 0.01, 1.24), bevel=0.010)
-    add_pitched_roof(bm, m("Mat_Roof_Clay"), m("Mat_Gold_Brass"), 0.33, 0.30, 0.14, 1.30, offset_y=0.01, axis="x", up_ends=True)
-    add_sphere(bm, m("Mat_Gold_Brass"), (0.026, 0.026, 0.036), (0.0, 0.01, 1.48))
-    add_box(bm, m("Mat_Player"), (0.26, 0.14, 0.036), (0.0, -0.27, 0.30), rot=(0.16, 0, 0), bevel=0.010)
-    add_box(bm, m("Mat_Player"), (0.28, 0.024, 0.054), (0.0, -0.195, 0.62), bevel=0.006)
-    add_lantern(bm, m("Mat_Player"), m("Mat_Gold_Brass"), (-0.18, -0.22, 1.05), rad=0.026)
-    add_lantern(bm, m("Mat_Player"), m("Mat_Gold_Brass"), (0.18, -0.22, 1.05), rad=0.026)
+    F = -1.0                                   # mặt tiền quay về -Y
+    # nền đá 2 bậc
+    add_box(bm, m("Mat_Stone_Plinth"), (0.62, 0.58, 0.05), (0.0, 0.0, 0.025), bevel=0.014)
+    add_box(bm, m("Mat_Stone_Plinth"), (0.30, 0.08, 0.03), (0.0, F * 0.31, 0.015), bevel=0.008)
+    # ---- tầng 1: sảnh có hiên cột sơn son ----
+    add_box(bm, m("Mat_Wall_Butter"), (0.44, 0.36, 0.24), (0.0, 0.03, 0.17), bevel=0.012)
+    for x in (-0.19, -0.065, 0.065, 0.19):
+        add_cyl(bm, m("Mat_Player") if abs(x) < 0.1 else m("Mat_Roof_DeepClay"), 0.019, 0.019, 0.25, (x, F * 0.2, 0.175), segs=12, bevel=0.0)
+        add_cyl(bm, m("Mat_Stone_Plinth"), 0.03, 0.03, 0.025, (x, F * 0.2, 0.062), segs=12, bevel=0.0)
+    add_window(bm, m("Mat_Gold_Brass"), m("Mat_Window_Warm"), (0.0, F * 0.152, 0.15), (0.13, 0.02, 0.16))
+    for x in (-0.15, 0.15):
+        add_window(bm, m("Mat_Window_Frame"), m("Mat_Window_Warm"), (x, F * 0.152, 0.18), (0.07, 0.02, 0.09))
+    add_box(bm, m("Mat_Player"), (0.24, 0.02, 0.055), (0.0, F * 0.214, 0.27), bevel=0.006)        # biển tên khách sạn
+    add_pitched_roof(bm, m("Mat_Roof_Clay"), m("Mat_Gold_Brass"), 0.6, 0.54, 0.11, 0.3, offset_y=0.0, axis="x", up_ends=True)
+    for x in (-0.25, 0.25):
+        add_lantern(bm, m("Mat_Player"), m("Mat_Gold_Brass"), (x, F * 0.235, 0.255), rad=0.024)
+    # ---- tầng 2: ban công gỗ ----
+    add_box(bm, m("Mat_Wall_HoiAn"), (0.38, 0.32, 0.22), (0.0, 0.02, 0.5), bevel=0.012)
+    for x in (-0.11, 0.0, 0.11):
+        add_window(bm, m("Mat_Window_Frame"), m("Mat_Window_Warm"), (x, F * 0.142, 0.51), (0.07, 0.02, 0.1))
+    add_box(bm, m("Mat_Wood_Teak"), (0.42, 0.06, 0.02), (0.0, F * 0.17, 0.42), bevel=0.004)            # sàn ban công
+    add_box(bm, m("Mat_Wood_Teak"), (0.42, 0.012, 0.05), (0.0, F * 0.198, 0.455), bevel=0.003)          # lan can
+    for x in (-0.2, 0.2):
+        add_box(bm, m("Mat_Player"), (0.035, 0.014, 0.17), (x, F * 0.15, 0.5), bevel=0.004)            # băng rôn dọc
+    add_pitched_roof(bm, m("Mat_Roof_Clay"), m("Mat_Gold_Brass"), 0.52, 0.46, 0.1, 0.61, offset_y=0.02, axis="x", up_ends=True)
+    for x in (-0.21, 0.21):
+        add_lantern(bm, m("Mat_Player"), m("Mat_Gold_Brass"), (x, F * 0.2, 0.57), rad=0.021)
+    # ---- tầng 3 ----
+    add_box(bm, m("Mat_Wall_Butter"), (0.3, 0.26, 0.2), (0.0, 0.02, 0.8), bevel=0.012)
+    for x in (-0.07, 0.07):
+        add_window(bm, m("Mat_Window_Frame"), m("Mat_Window_Warm"), (x, F * 0.112, 0.81), (0.07, 0.02, 0.1))
+    add_pitched_roof(bm, m("Mat_Roof_DeepClay"), m("Mat_Gold_Brass"), 0.44, 0.38, 0.13, 0.9, offset_y=0.02, axis="x", up_ends=True)
+    # ---- vọng lâu trên nóc + bầu hồ lô ----
+    add_box(bm, m("Mat_Wall_HoiAn"), (0.15, 0.13, 0.1), (0.0, 0.02, 1.08), bevel=0.01)
+    add_window(bm, m("Mat_Gold_Brass"), m("Mat_Window_Warm"), (0.0, F * 0.047, 1.08), (0.06, 0.02, 0.06))
+    add_pitched_roof(bm, m("Mat_Roof_Clay"), m("Mat_Gold_Brass"), 0.25, 0.22, 0.1, 1.13, offset_y=0.02, axis="x", up_ends=True)
+    add_sphere(bm, m("Mat_Gold_Brass"), (0.03, 0.03, 0.04), (0.0, 0.02, 1.29))
+    add_sphere(bm, m("Mat_Gold_Brass"), (0.018, 0.018, 0.024), (0.0, 0.02, 1.345))
+    # cây cảnh 2 bên sảnh
+    for x in (-0.27, 0.27):
+        add_cyl(bm, m("Mat_Terracotta"), 0.04, 0.03, 0.05, (x, F * 0.23, 0.075), segs=12, bevel=0.0)
+        add_sphere(bm, m("Mat_Foliage"), (0.05, 0.05, 0.045), (x, F * 0.23, 0.13))
     finalize_and_export(bm, mats, "lvl4_dinhvn")
 
 

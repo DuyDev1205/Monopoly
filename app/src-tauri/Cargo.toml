@@ -1,6 +1,6 @@
 [package]
 name = "cotyphu"
-version = "3.0.1"
+version = "3.0.2"
 description = "Cờ Tỷ Phú Việt Nam"
 authors = ["Trần Thanh Duy"]
 edition = "2021"

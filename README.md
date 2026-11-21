@@ -96,7 +96,7 @@ Bản cài Windows / macOS là bản web đóng gói bằng **Tauri**, thêm l�
 luật chơi, máy chơi và chơi online dùng chung `js/` với bản web nên luôn khớp nhau.
 - `node app/build.mjs` gom bản web + `app/skin/` vào `app/dist/`; `npm run dev` (trong `app/`) mở bản app.
 - Mô hình tự dựng: `Blender -b -P app/tools/blender/blender_build_v3_chars.py` (nhân vật, chạy `--atlas` bằng Python trước),
-  `Blender -b -P app/tools/blender/blender_build_v3_houses.py` (công trình) → `app/skin/models3/`.
+  `Blender -b -P app/tools/blender/blender_build_v3_houses.py` (công trình) → `app/skin/models3/` (chars/, houses/).
 - Tranh nền 5 theme: `python app/tools/render_art.py` → `app/skin/art/`.
 - Phát hành: đẩy tag `vX.Y.Z` (trùng `app/package.json`) → `.github/workflows/release-app.yml` dựng bộ cài NSIS + .dmg,
   ký và tạo `latest.json` để bản cũ tự cập nhật.
